@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signaturee</title>
+  <link rel="stylesheet" href="generate-v2.css">
+</head>
+<body>
+  <header class="topbar compact-topbar">
+    <div>
+      <div class="brand-row">
+        <span class="brand">Signaturee</span>
+        <span class="beta">v2.1</span>
+      </div>
+      <h1>Signaturen erstellen</h1>
+    </div>
+    <div class="top-actions">
+      <span id="connectionBadge" class="connection-badge">Backend wird gesucht ...</span>
+      <a id="adminLink" class="button secondary" href="admin.html">Admin</a>
+      <button id="logoutBtn" type="button" class="secondary">Abmelden</button>
+    </div>
+  </header>
+
+  <main class="workspace compact-workspace">
+    <section id="connectionPanel" class="connection-panel" hidden>
+      <div>
+        <strong id="connectionTitle">Backend-Verbindung</strong>
+        <p id="connectionMessage"></p>
+        <code id="connectionApiBase"></code>
+      </div>
+      <button id="retryConnectionBtn" type="button" class="secondary">Erneut prüfen</button>
+    </section>
+
+    <section class="flow-status">
+      <div><small>Benutzerquelle</small><strong><span class="health-dot ok"></span> Live AD</strong></div>
+      <div><small>Auswahl</small><strong id="selectedCount">0 Personen</strong></div>
+      <div><small>Ziel</small><strong id="runTargetSummary">Server-Vorschau</strong></div>
+      <div><small>Datenstand</small><strong>Preflight liest frisch</strong></div>
+    </section>
+
+    <section class="step-card compact-card" id="peopleStep">
+      <div class="compact-section-head">
+        <div class="compact-title"><span class="step-number">1</span><h2>Personen</h2><span class="source-pill">Live AD</span></div>
+        <span class="muted">Keine gepflegte users.csv nötig.</span>
+      </div>
+
+      <form id="adSearchForm" class="search-row compact-search">
+        <input id="adSearchInput" type="search" autocomplete="off" placeholder="Name, Benutzername oder E-Mail">
+        <button type="submit">Suchen</button>
+      </form>
+      <div id="searchStatus" class="inline-status compact-status"></div>
+      <div id="searchResults" class="result-list"></div>
+
+      <details class="bulk-add compact-details">
+        <summary>Mehrere hinzufügen / CSV-TXT</summary>
+        <div class="bulk-body">
+          <div>
+            <label for="bulkIdentifiers"><strong>Benutzernamen / E-Mails</strong></label>
+            <textarea id="bulkIdentifiers" rows="4" placeholder="example.user&#10;user@example.com"></textarea>
+            <button id="addBulkBtn" type="button" class="secondary">Hinzufügen</button>
+          </div>
+          <div class="csv-drop">
+            <label for="worklistCsv"><strong>CSV / TXT</strong></label>
+            <input id="worklistCsv" type="file" accept=".csv,.txt,text/csv,text/plain">
+            <div id="bulkStatus" class="inline-status"></div>
+          </div>
+        </div>
+      </details>
+
+      <div class="selected-header compact-selected-header">
+        <h3>Arbeitsliste</h3>
+      </div>
+      <div id="selectedUsers" class="selected-list empty-state">Noch niemand ausgewählt.</div>
+    </section>
+
+    <section class="compact-two-column">
+      <section class="step-card compact-card">
+        <div class="compact-section-head">
+          <div class="compact-title"><span class="step-number">2</span><h2>Ziel</h2></div>
+        </div>
+        <div class="target-grid compact-target-grid">
+          <label class="target-card compact-target">
+            <input type="radio" name="target" value="Local" checked>
+            <span><strong>Vorschau</strong><small>lokal · ohne ACL</small></span>
+          </label>
+          <label class="target-card compact-target production">
+            <input type="radio" name="target" value="Network">
+            <span><strong>Produktiv</strong><small>Netzwerk · mit ACL</small></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="step-card compact-card">
+        <div class="compact-section-head">
+          <div class="compact-title"><span class="step-number">3</span><h2>Preflight</h2></div>
+        </div>
+        <div class="action-row compact-action-row">
+          <button id="preflightBtn" type="button" class="secondary" disabled>Prüfen</button>
+          <span id="preflightHint" class="muted">Person auswählen.</span>
+        </div>
+        <div id="preflightPanel" class="preflight-panel compact-preflight empty-state">Noch nicht geprüft.</div>
+      </section>
+    </section>
+
+    <details id="previewStep" class="step-card compact-card optional-preview" hidden>
+      <summary>
+        <span><strong>Optional: Signaturvorschau</strong><small>Endkontrolle mit echtem Generator</small></span>
+        <span class="source-pill">Preview</span>
+      </summary>
+
+      <div class="optional-preview-body">
+        <div class="preview-toolbar compact-preview-toolbar">
+          <label>
+            <span>Person & Signatur</span>
+            <select id="previewSelect"></select>
+          </label>
+          <button id="previewBtn" type="button" class="secondary">Rendern</button>
+          <span id="previewStatus" class="muted"></span>
+        </div>
+
+        <div id="previewResult" class="preview-result" hidden>
+          <div class="preview-heading">
+            <div>
+              <strong id="previewTitle">Signaturvorschau</strong>
+              <span id="previewSubtitle" class="muted"></span>
+            </div>
+            <span class="preview-safe-badge">temporär</span>
+          </div>
+          <div id="previewUnresolved" class="preview-unresolved" hidden></div>
+          <div class="preview-layout">
+            <div class="preview-canvas">
+              <div id="previewSurface" class="signature-preview-surface" aria-label="Gerenderte Signaturvorschau"></div>
+            </div>
+            <aside class="preview-data">
+              <h3>Variablen</h3>
+              <div id="previewVariables" class="preview-variable-list"></div>
+            </aside>
+          </div>
+          <details class="preview-text-details">
+            <summary>TXT / Diagnose</summary>
+            <pre id="previewText"></pre>
+          </details>
+        </div>
+      </div>
+    </details>
+
+    <section class="run-bar compact-run-bar">
+      <div>
+        <strong id="runSummary">0 Personen</strong>
+        <span>Preflight muss grün sein.</span>
+      </div>
+      <button id="generateBtn" type="button" disabled>Generieren</button>
+    </section>
+
+    <section id="runResult" class="step-card compact-card run-result" hidden>
+      <div class="compact-section-head">
+        <div class="compact-title"><span class="step-number done">✓</span><h2>Ergebnis</h2></div>
+        <span id="runResultSummary" class="muted"></span>
+      </div>
+      <div id="runResultPaths" class="result-paths"></div>
+      <details>
+        <summary>Technische Ausgabe</summary>
+        <pre id="runTechnicalLog"></pre>
+      </details>
+    </section>
+  </main>
+
+  <script src="runtime-config.js"></script>
+  <script src="generate-v2.js"></script>
+</body>
+</html>

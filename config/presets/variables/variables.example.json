@@ -1,0 +1,169 @@
+{
+  "variables": [
+    {
+      "id": "givenName",
+      "required": true,
+      "displayName": "Vorname",
+      "placeholders": [
+        "$givenname"
+      ]
+    },
+    {
+      "id": "sn",
+      "required": true,
+      "displayName": "Nachname",
+      "placeholders": [
+        "$sn"
+      ]
+    },
+    {
+      "id": "mail",
+      "required": true,
+      "displayName": "E-Mail",
+      "placeholders": [
+        "$mail"
+      ],
+      "adProperties": [
+        "mail",
+        "userPrincipalName"
+      ]
+    },
+    {
+      "id": "domain",
+      "required": false,
+      "displayName": "E-Mail-Domain",
+      "placeholders": [
+        "$domain"
+      ],
+      "adProperties": [
+        "mail"
+      ]
+    },
+    {
+      "id": "department",
+      "required": false,
+      "displayName": "Abteilung",
+      "placeholders": [
+        "$department"
+      ]
+    },
+    {
+      "id": "description",
+      "required": false,
+      "displayName": "Titel/Beschreibung",
+      "placeholders": [
+        "$description"
+      ]
+    },
+    {
+      "id": "telephoneNumber",
+      "required": false,
+      "displayName": "Telefon",
+      "placeholders": [
+        "$telephonenumber"
+      ],
+      "adProperties": [
+        "telephoneNumber",
+        "otherTelephone",
+        "businessPhone",
+        "phone"
+      ]
+    },
+    {
+      "id": "mobile",
+      "required": false,
+      "displayName": "Mobil",
+      "placeholders": [
+        "$mobile"
+      ]
+    },
+    {
+      "id": "fax",
+      "required": false,
+      "displayName": "Fax",
+      "csvHeader": "facsimileTelephoneNumber",
+      "placeholders": [
+        "$fax"
+      ],
+      "adProperties": [
+        "facsimileTelephoneNumber",
+        "fax",
+        "otherFacsimileTelephoneNumber"
+      ]
+    },
+    {
+      "id": "sAMAccountName",
+      "required": true,
+      "displayName": "sAMAccountName",
+      "placeholders": [
+        "$sAMAccountName"
+      ]
+    },
+    {
+      "id": "YourCompanyName",
+      "required": false,
+      "displayName": "YourCompanyName",
+      "placeholders": [
+        "$YourCompanyName"
+      ]
+    },
+    {
+      "id": "Street",
+      "required": false,
+      "displayName": "Street",
+      "placeholders": [
+        "$Street"
+      ]
+    },
+    {
+      "id": "City",
+      "required": false,
+      "displayName": "City",
+      "placeholders": [
+        "$City"
+      ]
+    },
+    {
+      "id": "ZIP",
+      "required": false,
+      "displayName": "ZIP",
+      "placeholders": [
+        "$ZIP"
+      ]
+    },
+    {
+      "id": "Country",
+      "required": false,
+      "displayName": "Country",
+      "placeholders": [
+        "$Country"
+      ]
+    },
+    {
+      "id": "Website",
+      "required": false,
+      "displayName": "Website",
+      "placeholders": [
+        "$Website"
+      ]
+    }
+  ],
+  "ordering": [
+    "givenName",
+    "sn",
+    "mail",
+    "domain",
+    "department",
+    "description",
+    "telephoneNumber",
+    "mobile",
+    "fax",
+    "sAMAccountName",
+    "YourCompanyName",
+    "Street",
+    "City",
+    "ZIP",
+    "Country",
+    "Website"
+  ]
+}

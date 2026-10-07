@@ -1,0 +1,40 @@
+{
+  "name": "signaturee",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Self-service and IT-managed Outlook signatures from live Active Directory data",
+  "scripts": {
+    "start": "npm run start:all",
+    "start:all": "node run-all.js",
+    "start:backend": "node backend/server.js",
+    "start:frontend": "node scripts/start-frontend.js",
+    "auth:users": "node scripts/manage-auth-users.js",
+    "clean": "node scripts/clean.js",
+    "clean:all": "node scripts/clean.js --all",
+    "test:backend": "node backend/tests/ad-query.test.js && node backend/tests/login-origin.test.js && node backend/tests/ldap-roles.test.js && node backend/tests/admin-source.test.js && node backend/tests/cors-policy.test.js",
+    "test:powershell": "powershell -NoProfile -Command \"Invoke-Pester -Path tests\"",
+    "quality-gate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/quality-gate.ps1"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "http-server": "^14.1.1"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ffworker/Signaturee-public.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ffworker/Signaturee-public/issues"
+  },
+  "homepage": "https://github.com/ffworker/Signaturee-public#readme",
+  "keywords": [
+    "active-directory",
+    "outlook",
+    "email-signatures",
+    "powershell",
+    "windows"
+  ]
+}

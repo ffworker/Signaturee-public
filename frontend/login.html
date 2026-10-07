@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signaturee – Anmeldung</title>
+  <link rel="stylesheet" href="generate-v2.css">
+  <link rel="stylesheet" href="login-v2.css">
+</head>
+<body class="login-page-v2">
+  <main class="login-shell">
+    <section class="login-card">
+      <div class="brand-row"><span class="brand">Signaturee</span><span class="beta">v2</span></div>
+      <h1>Anmelden</h1>
+      <p class="subtitle">Mit Firmenkonto oder lokalem Signaturee-Konto.</p>
+
+      <form id="loginForm">
+        <label>Benutzername
+          <input id="loginUsername" type="text" autocomplete="username" placeholder="vorname.nachname">
+        </label>
+        <label>Passwort
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Passwort">
+        </label>
+        <button type="submit">Anmelden</button>
+        <div id="loginStatus" class="inline-status"></div>
+      </form>
+
+      <div class="login-help">
+        <strong>Wer meldet sich wie an?</strong>
+        <p><b>Admin / IT:</b> lokales Signaturee-Konto. <b>Mitarbeiter:</b> normales AD-/Windows-Konto, sobald LDAP aktiviert ist.</p>
+      </div>
+
+      <details class="connection-details">
+        <summary>Verbindungsdetails</summary>
+        <label>Backend
+          <input id="loginApiBase" type="url">
+        </label>
+        <button id="retryBackendBtn" type="button" class="secondary">Backend erneut suchen</button>
+      </details>
+    </section>
+  </main>
+  <script src="runtime-config.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

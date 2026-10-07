@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signaturee Administration</title>
+  <link rel="stylesheet" href="generate-v2.css">
+  <link rel="stylesheet" href="admin-v2.css">
+</head>
+<body>
+  <header class="topbar admin-topbar">
+    <div>
+      <div class="brand-row">
+        <span class="brand">Signaturee</span>
+        <span class="beta">Administration v2</span>
+      </div>
+      <h1>Administration</h1>
+      <p class="subtitle">Konfiguration, Zugriff und Onboarding an einem Ort.</p>
+    </div>
+    <div class="top-actions">
+      <span id="adminConnectionBadge" class="connection-badge">Backend wird gesucht ...</span>
+      <a class="button secondary" href="index.html">← Generieren</a>
+      <button id="adminLogoutBtn" type="button" class="secondary">Abmelden</button>
+    </div>
+  </header>
+
+  <div class="admin-shell">
+    <aside class="admin-nav">
+      <button class="admin-nav-item active" data-admin-view="overview">Übersicht</button>
+      <button class="admin-nav-item" data-admin-view="deployment">Ausgabe & Deployment</button>
+      <button class="admin-nav-item" data-admin-view="signatures">Signaturen</button>
+      <button class="admin-nav-item" data-admin-view="variables">Variablen</button>
+      <button class="admin-nav-item" data-admin-view="access">Benutzer & Zugriff</button>
+      <button class="admin-nav-item" data-admin-view="onboarding">Onboarding</button>
+      <button class="admin-nav-item" data-admin-view="system">System</button>
+    </aside>
+
+    <main class="workspace admin-workspace">
+      <section id="adminConnectionPanel" class="connection-panel" hidden>
+        <div>
+          <strong>Backend nicht erreichbar</strong>
+          <p id="adminConnectionMessage"></p>
+          <code id="adminConnectionApiBase"></code>
+        </div>
+        <button id="adminRetryBtn" type="button" class="secondary">Erneut prüfen</button>
+      </section>
+
+      <section class="admin-banner">
+        <div>
+          <strong>V2-Profil</strong>
+          <p>Eine fachliche Quelle: <code>profile_v2</code>. Änderungen hier gelten direkt für den v2-Workflow.</p>
+        </div>
+        <span id="profileSourceBadge" class="count-badge">profile_v2</span>
+      </section>
+
+      <section class="admin-view active" data-view="overview">
+        <div class="admin-summary-grid">
+          <article class="admin-summary-card"><small>Signaturen</small><strong id="summarySignatureCount">–</strong></article>
+          <article class="admin-summary-card"><small>Variablen</small><strong id="summaryVariableCount">–</strong></article>
+          <article class="admin-summary-card"><small>AD-Gruppen</small><strong id="summaryGroupCount">–</strong></article>
+          <article class="admin-summary-card"><small>Templates</small><strong id="summaryTemplateState">–</strong></article>
+        </div>
+
+        <section class="step-card">
+          <div class="admin-section-head">
+            <div>
+              <span class="eyebrow">Grundlagen</span>
+              <h2>Organisation & Verzeichnis</h2>
+              <p>Diese Werte gelten für Suche, Preflight und Generierung.</p>
+            </div>
+          </div>
+          <div class="admin-grid two">
+            <label>Organisation
+              <input id="organizationName" type="text" placeholder="Example Organization">
+            </label>
+            <label>Domain Controller / AD Server
+              <input id="directoryServer" type="text" placeholder="dc01.example.local">
+              <small>Leer = Windows-Domainkontext verwenden.</small>
+            </label>
+            <label class="wide">AD Search Base
+              <input id="directorySearchBase" type="text" placeholder="OU=Users,DC=example,DC=local">
+            </label>
+            <label class="wide">Zusätzliche Titel-Attribute
+              <input id="secondaryTitleAttributes" type="text" placeholder="extensionAttribute6, extensionAttribute7, extensionAttribute8">
+              <small>Kommagetrennt. Zentral für alle Signaturen.</small>
+            </label>
+          </div>
+        </section>
+      </section>
+
+      <section class="admin-view" data-view="deployment">
+        <section class="step-card">
+          <div class="admin-section-head">
+            <div>
+              <span class="eyebrow">Ausgabe</span>
+              <h2>Deployment-Ziele</h2>
+              <p>Diese Pfade werden vom v2-Preflight und bei der Generierung verwendet.</p>
+            </div>
+          </div>
+
+          <div class="deployment-targets">
+            <article class="deployment-target-card">
+              <div>
+                <span class="target-kind">Vorschau / Test</span>
+                <h3>Lokaler Vorschaupfad</h3>
+                <p>Hier erzeugt Signaturee Testläufe auf dem Server. Keine produktive ACL-Vergabe.</p>
+              </div>
+              <label>Pfad
+                <input id="previewPath" type="text" placeholder="C:\Signaturee\generatedsignatures">
+              </label>
+              <div class="path-test-row">
+                <button id="testPreviewPathBtn" type="button" class="secondary">Pfad testen</button>
+                <span id="previewPathStatus" class="path-status muted">Noch nicht geprüft.</span>
+              </div>
+            </article>
+
+            <article class="deployment-target-card production">
+              <div>
+                <span class="target-kind">Produktiv</span>
+                <h3>Produktiver Netzwerkpfad (UNC)</h3>
+                <p>Dorthin werden produktive Signaturen geschrieben. Der Backend-Dienst benötigt Schreibzugriff.</p>
+              </div>
+              <label>UNC-Pfad
+                <input id="productionPath" type="text" placeholder="\\fileserver\Signaturen">
+                <small>Beispiel: <code>\\fileserver\Freigabe\Signaturen</code></small>
+              </label>
+              <div class="path-test-row">
+                <button id="testProductionPathBtn" type="button" class="secondary">Netzwerkpfad testen</button>
+                <span id="productionPathStatus" class="path-status muted">Noch nicht geprüft.</span>
+              </div>
+            </article>
+          </div>
+
+          <div class="deployment-note">
+            <strong>Welche Einstellung nutzt der Generate-Screen?</strong>
+            <p><b>Server-Vorschau</b> nutzt den lokalen Vorschaupfad. <b>Produktiv bereitstellen</b> nutzt ausschließlich den produktiven Netzwerkpfad aus diesem Profil.</p>
+          </div>
+
+          <div class="deployment-permission-note">
+            <strong>Windows-/SMB-Berechtigungen</strong>
+            <p>Läuft der Backend Scheduled Task als <code>SYSTEM</code>, greift er auf entfernte SMB-Freigaben als Computeraccount <code>DOMAIN\\SIGNATUREE-SERVER$</code> zu. Dieser Account benötigt auf dem produktiven Ziel sowohl passende <b>Share-</b> als auch <b>NTFS-Rechte</b>. Da Signaturee auf Benutzerordnern ACLs setzt, muss der Account dort auch Berechtigungen ändern dürfen. Rechte möglichst nur auf den dedizierten Signaturee-Zielbaum vergeben.</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="admin-view" data-view="signatures">
+        <section class="step-card">
+          <div class="admin-section-head split">
+            <div>
+              <span class="eyebrow">Signaturen</span>
+              <h2>Zuordnung & Templates</h2>
+              <p>AD-Gruppe, Template-Dateien und Spezialattribute gehören zusammen.</p>
+            </div>
+            <button id="addSignatureBtn" type="button" class="secondary">+ Signatur</button>
+          </div>
+          <div id="signatureCards" class="signature-cards"></div>
+        </section>
+
+        <section class="step-card">
+          <div class="admin-section-head">
+            <div>
+              <span class="eyebrow">Dateien</span>
+              <h2>Template-Status</h2>
+              <p>Kontrolle des produktiven Template-Verzeichnisses.</p>
+            </div>
+          </div>
+          <div id="templateStatus" class="template-status empty-state">Profil noch nicht geladen.</div>
+        </section>
+      </section>
+
+      <section class="admin-view" data-view="variables">
+        <section class="step-card">
+          <div class="admin-section-head split">
+            <div>
+              <span class="eyebrow">Datenmodell</span>
+              <h2>Variablen</h2>
+              <p>Ordne Active-Directory-Felder verständlichen Signaturee-Variablen und Template-Platzhaltern zu.</p>
+            </div>
+            <button id="addVariableBtn" type="button" class="secondary">+ Variable</button>
+          </div>
+
+          <div class="variable-explainer">
+            <div><small>Active Directory</small><strong>mail</strong></div>
+            <span>→</span>
+            <div><small>Signaturee</small><strong>E-Mail</strong></div>
+            <span>→</span>
+            <div><small>Template</small><strong>$mail</strong></div>
+          </div>
+
+          <div class="variable-toolbar">
+            <input id="variableSearch" type="search" placeholder="Variable suchen …">
+            <label class="variable-filter-check">
+              <input id="requiredVariablesOnly" type="checkbox">
+              Nur Pflichtfelder
+            </label>
+            <span id="variableFilterSummary" class="muted"></span>
+          </div>
+
+          <div id="variableCards" class="variable-cards"></div>
+        </section>
+      </section>
+
+      <section class="admin-view" data-view="access">
+        <section class="step-card">
+          <div class="admin-section-head">
+            <div>
+              <span class="eyebrow">Zugriff</span>
+              <h2>Rollenmodell</h2>
+              <p>Nur zwei lokale Kontotypen. Normale Mitarbeiter melden sich später direkt mit ihrem AD-Konto an.</p>
+            </div>
+          </div>
+          <div class="role-grid">
+            <article><strong>Admin</strong><p>Konfiguration, lokale Benutzer, System/Runner und normaler Generate-Workflow.</p></article>
+            <article><strong>IT</strong><p>AD/CSV-Benutzer auswählen, Preflight durchführen und Signaturen generieren. Keine Administration.</p></article>
+            <article><strong>AD-User</strong><p>LDAP-Login mit eigenem AD-Konto. Darf ausschließlich die eigene Signatur erzeugen und herunterladen.</p></article>
+          </div>
+        </section>
+
+        <section class="step-card">
+          <div class="admin-section-head split">
+            <div>
+              <span class="eyebrow">Lokale Konten</span>
+              <h2>Admin & IT Benutzer</h2>
+              <p>Lokale Signaturee-Konten sind nur für Administration und IT gedacht.</p>
+            </div>
+            <button id="refreshAuthUsersBtn" type="button" class="secondary">Aktualisieren</button>
+          </div>
+          <div id="authUserList" class="auth-user-list empty-state">Noch nicht geladen.</div>
+
+          <details class="create-user-panel">
+            <summary>+ Lokalen Benutzer anlegen</summary>
+            <form id="createAuthUserForm" class="admin-grid two">
+              <label>Benutzername
+                <input id="newAuthUsername" type="text" required autocomplete="off">
+              </label>
+              <label>Anzeigename
+                <input id="newAuthDisplayName" type="text" autocomplete="off">
+              </label>
+              <label>Rolle
+                <select id="newAuthRole">
+                  <option value="it">IT</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <label>Passwort
+                <input id="newAuthPassword" type="password" required minlength="8" autocomplete="new-password">
+              </label>
+              <div class="wide form-actions">
+                <button type="submit">Benutzer anlegen</button>
+                <span id="createAuthUserStatus" class="muted"></span>
+              </div>
+            </form>
+          </details>
+        </section>
+
+        <section class="step-card">
+          <div class="admin-section-head">
+            <div>
+              <span class="eyebrow">AD Login</span>
+              <h2>LDAP / Active Directory</h2>
+              <p>Normale Benutzer benötigen kein lokales Signaturee-Konto.</p>
+            </div>
+          </div>
+          <div id="ldapStatus" class="ldap-status empty-state">Status wird geladen ...</div>
+        </section>
+      </section>
+
+      <section class="admin-view" data-view="onboarding">
+        <section class="step-card">
+          <div class="admin-section-head split">
+            <div>
+              <span class="eyebrow">Mitarbeiter-Onboarding</span>
+              <h2>AD-Voraussetzungen für Signaturee</h2>
+              <p>Automatisch aus der aktiven v2-Konfiguration abgeleitet – keine zweite Checkliste, die veralten kann.</p>
+            </div>
+            <button id="copyOnboardingBtn" type="button" class="secondary">Checkliste kopieren</button>
+          </div>
+          <div id="onboardingChecklist" class="onboarding-checklist"></div>
+        </section>
+
+        <section class="step-card onboarding-flow">
+          <div class="admin-section-head">
+            <div>
+              <span class="eyebrow">Empfohlener Ablauf</span>
+              <h2>Beim Anlegen eines neuen AD-Benutzers</h2>
+            </div>
+          </div>
+          <ol>
+            <li>Pflichtfelder im AD vollständig setzen.</li>
+            <li>Benutzer mindestens einer konfigurierten <code>Signatur-*</code>-Gruppe zuweisen.</li>
+            <li>Signatur-spezifische Extension Attributes setzen, falls für diese Signatur benötigt.</li>
+            <li>In Signaturee als IT-Benutzer nach dem neuen Account suchen.</li>
+            <li>Preflight durchführen – erst bei grünem Preflight ist das Onboarding für Signaturee abgeschlossen.</li>
+          </ol>
+        </section>
+      </section>
+
+      <section class="admin-view" data-view="system">
+        <section class="step-card">
+          <div class="admin-section-head split">
+            <div>
+              <span class="eyebrow">Backend & Runner</span>
+              <h2>Systemstatus</h2>
+              <p>Nur Admins können Dienste und Scheduled Tasks steuern.</p>
+            </div>
+            <button id="refreshSystemBtn" type="button" class="secondary">Aktualisieren</button>
+          </div>
+          <div id="serviceGrid" class="service-grid">
+            <div class="service-card"><span class="health-dot unknown"></span><div><strong>Backend</strong><small>--</small></div></div>
+            <div class="service-card"><span class="health-dot unknown"></span><div><strong>Frontend</strong><small>--</small></div></div>
+          </div>
+          <div class="system-section admin-system-section">
+            <div>
+              <h3>Scheduled Tasks</h3>
+              <p class="muted">Runner-Zustand auf dem Windows-Server.</p>
+            </div>
+            <div id="taskList" class="task-list empty-state">Noch nicht geladen.</div>
+          </div>
+          <div class="system-actions">
+            <button id="restartBackendBtn" type="button" class="secondary">Backend neu starten</button>
+            <button id="restartFrontendBtn" type="button" class="secondary">Frontend neu starten</button>
+          </div>
+          <div id="systemActionStatus" class="inline-status"></div>
+        </section>
+      </section>
+
+      <section id="profileSaveBar" class="save-bar">
+        <div>
+          <strong id="saveSummary">Profil wird geladen ...</strong>
+          <span id="saveStatus">Noch keine Änderungen.</span>
+        </div>
+        <div class="save-actions">
+          <button id="reloadProfileBtn" type="button" class="secondary">Änderungen verwerfen</button>
+          <button id="saveProfileBtn" type="button" disabled>Konfiguration speichern</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="signatureCardTemplate">
+    <article class="signature-card">
+      <div class="signature-card-head">
+        <div>
+          <strong class="signature-title">Signatur</strong>
+          <small class="signature-health"></small>
+        </div>
+        <button type="button" class="danger remove-signature">Entfernen</button>
+      </div>
+      <div class="admin-grid two compact">
+        <label>Schlüssel<input data-field="key" type="text" placeholder="ACME"></label>
+        <label>Anzeigename<input data-field="label" type="text" placeholder="Acme Corp"></label>
+        <label class="wide">AD-Gruppe(n)
+          <input data-field="adGroups" type="text" placeholder="Signatur-ACME">
+          <small>Kommagetrennt, wenn mehrere Gruppen dieselbe Signatur erhalten.</small>
+        </label>
+        <label>HTML Template<input data-field="templateHtml" type="text" placeholder="ACME_Template.htm"></label>
+        <label>TXT Template<input data-field="templateTxt" type="text" placeholder="ACME_Template.txt"></label>
+        <label>Ressourcen-Ordner<input data-field="resourceFolder" type="text" placeholder="ACME-Dateien"></label>
+        <label>Custom Title Attribute<input data-field="customTitleAttr" type="text" placeholder="extensionAttribute1"></label>
+        <label class="wide">Fax-Fallback<input data-field="faxFallback" type="text"></label>
+      </div>
+      <div class="asset-upload-row">
+        <label>
+          <span>HTML/TXT Templates hochladen</span>
+          <input data-upload="templateFiles" type="file" accept=".htm,.html,.txt,text/html,text/plain" multiple>
+        </label>
+        <span class="asset-upload-status muted"></span>
+      </div>
+    </article>
+  </template>
+
+  <script src="runtime-config.js"></script>
+  <script src="admin-v2.js"></script>
+</body>
+</html>

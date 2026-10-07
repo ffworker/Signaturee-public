@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Signature</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif;">
+    <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333333; max-width: 600px;">
+        <tr>
+            <td style="padding: 20px 0 10px 0;">
+                <p style="margin: 0 0 15px 0; font-size: 14px; color: #666666;">
+                    Kind regards,
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="border-top: 3px solid #0066cc; padding-top: 15px;">
+                <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
+                    <tr>
+                        <td style="vertical-align: top; padding-right: 20px;">
+                            <!-- Name Block -->
+                            <p style="margin: 0 0 5px 0; font-size: 16px; font-weight: bold; color: #0066cc;">
+                                $givenname $sn
+                            </p>
+                            <p style="margin: 0 0 3px 0; font-size: 13px; color: #666666; font-style: italic;">
+                                $description
+                            </p>
+                            <p style="margin: 0 0 15px 0; font-size: 13px; color: #666666;">
+                                $department
+                            </p>
+                            
+                            <!-- Contact Information -->
+                            <table cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: #333333;">
+                                <tr>
+                                    <td style="padding: 3px 8px 3px 0; vertical-align: middle; width: 20px;">
+                                        <span style="color: #0066cc; font-size: 14px;">📞</span>
+                                    </td>
+                                    <td style="padding: 3px 0; vertical-align: middle;">
+                                        <a href="tel:$telephonenumber" style="color: #333333; text-decoration: none;">
+                                            $telephonenumber
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 3px 8px 3px 0; vertical-align: middle;">
+                                        <span style="color: #0066cc; font-size: 14px;">✉️</span>
+                                    </td>
+                                    <td style="padding: 3px 0; vertical-align: middle;">
+                                        <a href="mailto:$sAMAccountName@example.com" style="color: #0066cc; text-decoration: none;">
+                                            $sAMAccountName@example.com
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        
+        <!-- Optional: Company Logo/Info -->
+        <tr>
+            <td style="padding-top: 15px; border-top: 1px solid #e0e0e0; margin-top: 15px;">
+                <p style="margin: 0; font-size: 11px; color: #999999; line-height: 1.4;">
+                    <strong style="color: #0066cc;">Your Company Name</strong><br>
+                    Street Address • City, ZIP • Country<br>
+                    <a href="https://www.example.com" style="color: #0066cc; text-decoration: none;">www.example.com</a>
+                </p>
+            </td>
+        </tr>
+        
+        <!-- Optional: Legal Disclaimer -->
+        <tr>
+            <td style="padding-top: 15px;">
+                <p style="margin: 0; font-size: 10px; color: #999999; line-height: 1.3;">
+                    Vertraulichkeitshinweis: Diese E-Mail und alle Anhänge sind vertraulich und nur für den vorgesehenen Empfänger bestimmt. 
+                    Bei irrtümlichem Erhalt bitten wir um sofortige Benachrichtigung und Löschung.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

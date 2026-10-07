@@ -1,0 +1,7 @@
+Kind regards,
+$givenname, $sn
+- Abteilung: $department -
+- Titel: $description -
+
+Tel.: $telephonenumber
+E-Mail: $sAMAccountName@example.com

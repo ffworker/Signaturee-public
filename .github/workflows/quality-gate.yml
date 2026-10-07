@@ -1,0 +1,57 @@
+name: quality-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-quality-gate:
+    name: Windows quality gate
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install runtime dependencies
+        run: npm ci --omit=dev
+
+      - name: Frontend syntax
+        run: |
+          node --check frontend/generate-v2.js
+          node --check frontend/admin-v2.js
+          node --check frontend/login.js
+          node --check frontend/self-service.js
+
+      - name: Backend configuration
+        run: node backend/server.js --check
+
+      - name: Backend tests
+        run: npm run test:backend
+
+      - name: Ensure Pester
+        shell: powershell
+        run: |
+          if (-not (Get-Command Invoke-Pester -ErrorAction SilentlyContinue)) {
+            Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          }
+
+      - name: PowerShell tests
+        shell: powershell
+        run: Invoke-Pester -Path tests -CI

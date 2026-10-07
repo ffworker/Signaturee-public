@@ -1,0 +1,36 @@
+.self-workspace{max-width:900px}
+.identity-card{display:grid;gap:.7rem}
+.identity-main{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}
+.identity-main h3{margin:0}
+.identity-main p{margin:.2rem 0 0;color:#6f7b73}
+.identity-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}
+.identity-field{background:#f6f8f6;border-radius:10px;padding:.65rem}
+.identity-field small{display:block;color:#7a857e}
+.identity-field strong{display:block;margin-top:.15rem;overflow-wrap:anywhere}
+.self-signature-list{display:grid;gap:.55rem}
+.self-signature-option{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  border:1px solid #dce4de;border-radius:12px;padding:.8rem .9rem;background:#fbfcfb;
+}
+.self-signature-option label{display:flex;align-items:center;gap:.65rem;cursor:pointer;font-weight:700}
+.self-signature-option input{width:1.05rem;height:1.05rem}
+.self-signature-option:has(input:checked){border-color:#4b7b5a;background:#f1f7f2}
+.self-signature-option.not-ready{opacity:.68;background:#faf5f4}
+.self-signature-status{font-size:.84rem;font-weight:700}
+.self-signature-status.ready{color:#2f7044}
+.self-signature-status.not-ready{color:#a1483e}
+.self-action-card{position:sticky;bottom:1rem;z-index:10;background:#fff;border:1px solid #d8e0da;border-radius:16px;box-shadow:0 12px 34px rgba(25,43,31,.12);padding:1rem 1.1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.self-action-card>div{display:grid;gap:.15rem}
+.self-action-card span{color:#6e7971;font-size:.88rem}
+.download-actions{margin-bottom:1rem}
+.outlook-guide{border:1px solid #e0e6e1;border-radius:12px;background:#f8faf8;padding:1rem}
+.outlook-guide h3{margin-top:0}
+.outlook-guide ol{display:grid;gap:.45rem;padding-left:1.3rem}
+.outlook-guide code{background:#e7ece8;padding:.1rem .3rem;border-radius:4px}
+.outlook-guide kbd{background:#202720;color:#fff;padding:.12rem .35rem;border-radius:4px;font-size:.8rem}
+@media(max-width:700px){
+  .identity-main,.self-action-card{flex-direction:column;align-items:stretch}
+  .identity-fields{grid-template-columns:1fr}
+  .self-action-card button{width:100%}
+  .self-signature-option{align-items:flex-start;flex-direction:column}
+}

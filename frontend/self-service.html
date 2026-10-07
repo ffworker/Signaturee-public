@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signaturee – Meine Signatur</title>
+  <link rel="stylesheet" href="generate-v2.css">
+  <link rel="stylesheet" href="self-service-v2.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand-row"><span class="brand">Signaturee</span><span class="beta">Self-Service</span></div>
+      <h1>Meine Signatur</h1>
+      <p class="subtitle">Deine Daten und Signatur-Zuordnungen kommen direkt aus dem Active Directory.</p>
+    </div>
+    <div class="top-actions">
+      <span id="selfUserBadge" class="connection-badge">Session wird geprüft ...</span>
+      <button id="selfLogoutBtn" type="button" class="secondary">Abmelden</button>
+    </div>
+  </header>
+
+  <main class="workspace self-workspace">
+    <section id="selfConnectionPanel" class="connection-panel" hidden>
+      <div><strong>Backend nicht erreichbar</strong><p id="selfConnectionMessage"></p></div>
+      <button id="selfRetryBtn" type="button" class="secondary">Erneut prüfen</button>
+    </section>
+
+    <section class="step-card">
+      <div class="step-heading">
+        <span class="step-number">1</span>
+        <div><h2>Deine AD-Daten</h2><p>Signaturee verwendet ausschließlich dein eigenes Benutzerkonto.</p></div>
+      </div>
+      <div id="selfIdentity" class="identity-card empty-state">Daten werden geladen ...</div>
+    </section>
+
+    <section class="step-card">
+      <div class="step-heading">
+        <span class="step-number">2</span>
+        <div>
+          <h2>Welche Signaturen?</h2>
+          <p>Wähle alle Signaturen aus, die du jetzt erstellen möchtest.</p>
+        </div>
+      </div>
+      <div id="selfSignatureChoices" class="self-signature-list empty-state">Signaturen werden geprüft ...</div>
+      <div id="selfChecks" class="check-list"></div>
+    </section>
+
+    <section class="self-action-card">
+      <div>
+        <strong id="selfActionSummary">Noch nicht bereit.</strong>
+        <span>Es werden ausschließlich deine ausgewählten eigenen Signaturen erzeugt.</span>
+      </div>
+      <button id="selfGenerateBtn" type="button" disabled>Meine Signatur erstellen</button>
+    </section>
+
+    <section id="selfResult" class="step-card" hidden>
+      <div class="step-heading">
+        <span class="step-number done">✓</span>
+        <div><h2>Fertig</h2><p id="selfResultText"></p></div>
+      </div>
+      <div class="download-actions">
+        <button id="selfDownloadBtn" type="button">Signaturpaket herunterladen</button>
+      </div>
+      <div class="outlook-guide">
+        <h3>In klassischem Outlook installieren</h3>
+        <ol>
+          <li>Signaturpaket herunterladen und entpacken.</li>
+          <li><kbd>Win</kbd> + <kbd>R</kbd> drücken.</li>
+          <li><code>%APPDATA%\Microsoft\Signatures</code> eingeben.</li>
+          <li>Die entpackten Dateien in diesen Ordner kopieren.</li>
+          <li>Outlook neu öffnen und die Signatur auswählen.</li>
+        </ol>
+        <p class="muted">Für das neue Outlook kann die Signaturverwaltung abweichen; dieser Ablauf ist für klassisches Outlook gedacht.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="runtime-config.js"></script>
+  <script src="self-service.js"></script>
+</body>
+</html>

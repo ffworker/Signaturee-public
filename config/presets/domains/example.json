@@ -1,0 +1,15 @@
+{
+  "domains": {
+    "ACME": {
+      "templateHtml": "example_template.htm",
+      "templateTxt": "example_template.txt",
+      "resourceFolder": "",
+      "faxFallback": "",
+      "customTitleAttr": "extensionAttribute1"
+    }
+  },
+  "securityGroupMapping": {
+    "Signatur-ACME": "ACME"
+  },
+  "secondaryTitleAttributes": []
+}
