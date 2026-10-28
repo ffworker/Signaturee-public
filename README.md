@@ -1,18 +1,18 @@
 # Signaturee v2
 
-[![Windows quality gate](https://github.com/ffworker/Signaturee-public/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/ffworker/Signaturee-public/actions/workflows/quality-gate.yml) · [License: MIT](LICENSE)
+[![Windows quality gate](https://github.com/ffworker/Signaturee-public/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/ffworker/Signaturee-public/actions/workflows/quality-gate.yml) · [MIT License](LICENSE)
 
-**Outlook signatures from Active Directory — locally hosted, with Admin, IT generation and employee self-service.**
+**Generate and deliver Outlook signatures using Active Directory group membership.**
 
-Signaturee v2 runs on Windows as a Node.js API, static web frontend and PowerShell generator. Users and signature groups are read from AD; production signatures can be written to a Windows SMB share.
+Signaturee is a Windows-hosted application with a Node.js API, a web frontend and a PowerShell signature generator. IT can find employees, preview their signatures, run preflight checks and deploy to a Windows file share. Employees can use their own AD credentials for self-service.
 
-This README documents **v2 only**. New configurations live in one git-ignored file: **`C:\Signaturee\.env`** (adjust install directory). The Admin UI shows the effective settings; it does **not** maintain a second configuration database for business settings.
+**One configuration file: `.env`. One active template directory: `config/templates/`.** Signaturee v2 discovers conventional templates and assigns them according to existing `Signature-XY` AD security groups.
 
 ## Quickstart
 
-**Prerequisites:** Windows Server or Windows workstation, Node.js 22.13+, Windows PowerShell 5.1, RSAT ActiveDirectory PowerShell module for searching AD users, a domain/network path to your DC, and write access for the chosen output. Outlook/Word may be required for optional RTF conversion.
+**Requirements:** Windows Server or Windows, Node.js 22.13+, Git, Windows PowerShell 5.1 and the RSAT **ActiveDirectory** PowerShell module. The host needs connectivity to your AD domain controller. A production UNC target additionally needs Windows file-server permissions.
 
-In an **elevated Windows PowerShell**:
+Open **PowerShell as Administrator**:
 
 ~~~powershell
 git clone https://github.com/ffworker/Signaturee-public.git C:\Signaturee
@@ -20,19 +20,32 @@ cd C:\Signaturee
 npm ci --omit=dev
 
 Copy-Item .env.example .env
-notepad .env
 New-Item -ItemType Directory -Force .\config\templates | Out-Null
+notepad .env
+~~~
 
-# Only a syntax/profile check; DOES NOT verify AD, LDAP or SMB credentials.
+Edit the example settings for **your** domain, DC, user search base, production UNC and CORS origin. Keep these lines for the standard template/group convention:
+
+~~~dotenv
+SIGNATUREE_CONFIG_MODE=env
+TEMPLATE_DIR=config/templates
+SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true
+~~~
+
+Copy the full contents of your signature template directory (including image/resource subfolders) to `C:\Signaturee\config\templates\`. Use file pairs such as `AD_Template.htm` and `AD_Template.txt`.
+
+Check the configuration before starting anything:
+
+~~~powershell
 node .\backend\server.js --check
 ~~~
 
-Edit `.env` before starting. At minimum replace: `AD_SERVER`, `OU_SEARCH_BASE`, `AUTH_LDAP_DOMAIN`, and `NETWORK_DEPLOYMENT_PATH`; for standard `XY_Template` filenames you can use `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` instead of writing JSON. Copy your actual `.htm`, `.txt` and associated image/resource folders into `config\templates`; filenames must match the JSON signature definition. `SIGNATUREE_VARIABLES_JSON` is **not required** for normal AD fields.
+This checks the configuration and template definitions, **not** live AD login, AD query permissions or SMB access.
 
-Create the local Admin account (password is prompted, not passed as a command-line argument):
+Create a local Administrator account; its password is prompted and is not part of `.env`:
 
 ~~~powershell
-$pw = Read-Host "New Signaturee Admin password" -AsSecureString
+$pw = Read-Host "Signaturee Admin password" -AsSecureString
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw)
 try {
     [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) |
@@ -43,178 +56,148 @@ try {
 node .\scripts\manage-auth-users.js list
 ~~~
 
-Then either run `npm start` temporarily for an interactive smoke test **or** install the production Scheduled Tasks described below. **Never run both at once** on the same ports.
-
-Open `http://127.0.0.1:3000/login.html`. Choose **Lokales Signaturee-Konto** for your Admin login. Do not select AD login for the local Admin.
-
-## Configuration: one .env, five short sections
-
-The committed [`.env.example`](.env.example) is the complete template. Copy it **once**, edit the ignored local `.env`, then use `.\scripts\reload-config.ps1` to apply changes. Do not keep competing `runner.env` or `secrets.env` files.
-
-| Section | Settings | What it does |
-| --- | --- | --- |
-| Web & login | `BACKEND_PORT`, `FRONTEND_PORT`, `CORS_ORIGINS`, `AUTH_REQUIRED` | Browser/API connectivity and authentication |
-| AD user search | `AD_SERVER`, `OU_SEARCH_BASE`, optional `AD_QUERY_USERNAME`/`AD_QUERY_PASSWORD` | Reads users for IT search, preflight and generation |
-| Employee LDAP login | `AUTH_LDAP_ENABLED`, `AUTH_LDAP_DOMAIN`; optional `AUTH_LDAP_SERVER`, `AUTH_LDAP_CONTAINER`, `AUTH_LDAP_UPN_SUFFIX` | Validates employees' own AD passwords |
-| Paths | `LOCAL_DEPLOYMENT_PATH`, `NETWORK_DEPLOYMENT_PATH`, `TEMPLATE_DIR` | Preview output, SMB production output and template sources |
-| Signatures | `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` (recommended), alternatively `SIGNATUREE_SIGNATURES_JSON` | Discover template pairs and map `XY` to `Signature-XY`, or configure explicit groups |
-
-**Do not confuse these:** `AD_SERVER`/`OU_SEARCH_BASE` are for **Get-ADUser searches**; `AUTH_LDAP_DOMAIN`/`AUTH_LDAP_CONTAINER` are for **employee sign-in**. Working LDAP login does **not** prove Get-ADUser searches work, and vice versa.
-
-### AD user search: Get-ADUser
-
-- `AD_SERVER` should be a resolvable DC hostname such as `dc01.example.local`.
-- `OU_SEARCH_BASE` must be an **existing DN**. Start with `DC=example,DC=local` to search the whole domain, and narrow it later. The default AD Users container is usually `CN=Users`, **not** `OU=Users`.
-- By default, the backend runs Get-ADUser as the **Windows Scheduled Task identity**. If the task is SYSTEM on a domain-joined server, that generally means the computer account. Most AD environments allow reads without Domain Admin.
-- If AD search fails under that identity, configure **both** `AD_QUERY_USERNAME` and `AD_QUERY_PASSWORD` using a dedicated, least-privilege **read-only** AD account. **Do not use Domain Administrator**. These credentials are used for directory searches, **not for employee LDAP login and not for SMB authentication**.
-- Install/test the module with `Get-Module -ListAvailable ActiveDirectory`. Admin → **Benutzer & Zugriff → AD-Suche testen** checks the effective settings as the backend identity.
-
-### LDAP employee sign-in
-
-Recommended initial settings:
-
-~~~dotenv
-AUTH_DB_LOGIN_ENABLED=true
-AUTH_LDAP_ENABLED=true
-AUTH_LDAP_DOMAIN=example.local
-# AUTH_LDAP_SERVER=dc01.example.local
-# AUTH_LDAP_UPN_SUFFIX=example.local
-# AUTH_LDAP_CONTAINER=OU=Staff,DC=example,DC=local
-~~~
-
-**Leave AUTH_LDAP_CONTAINER commented out initially.** A wrongly restricted container can cause login failures even if the account exists. Add it only after verifying the exact OU in AD. `AUTH_LDAP_UPN_SUFFIX` is optional; only set it to the user's **actual UPN suffix**. Use the Firmenkonto login option to test a genuine AD account; local Admin uses the local-login option.
-
-Admin → **Benutzer & Zugriff → Konfiguration anzeigen** displays loaded LDAP settings, but does **not** contact the domain. The separate **LDAP-Login testen** button performs a real credential check. Use it only from localhost or HTTPS; it does not create a login session or store the test password.
-
-Custom IT-role mapping is optional. No LDAP role rules are required for normal self-service. LDAP does **not** grant local Admin privileges.
-
-### Templates and signature assignment
-
-**Recommended for v2:** If your templates are named `AD_Template.htm` + `AD_Template.txt`,
-`FF_Template.htm` + `FF_Template.txt`, etc., enable automatic discovery in your local `.env`:
-
-~~~dotenv
-TEMPLATE_DIR=config/templates
-SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true
-# SIGNATUREE_AUTO_GROUP_PREFIX=Signature-
-~~~
-
-Signaturee then scans `config/templates` at backend startup for **complete HTML/TXT pairs**, displays each as a signature in Admin, and maps it to the corresponding AD security group by **CN**:
-
-| Files (both required) | Signature | AD security group |
-| --- | --- | --- |
-| `AD_Template.htm` + `AD_Template.txt` | AD | `Signature-AD` |
-| `FF_Template.htm` + `FF_Template.txt` | FF | `Signature-FF` |
-| `HG_Template.htm` + `HG_Template.txt` | HG | `Signature-HG` |
-
-The optional `AD-Dateien`, `FF-Dateien`, etc. resource folders are detected automatically. `example_template.*` is ignored. **This does not create AD groups**: each corresponding group must already exist, and the employee must be a member of it. The relevant AD membership is evaluated independently from LDAP's login-role rules (which only grant IT/self-service privileges).
-
-**When auto-discovery is enabled, `SIGNATUREE_SIGNATURES_JSON` is ignored.** You can comment out the old example JSON. To define groups manually instead, set `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=false` and use the explicit JSON mappings below. Full group DNs are matched exactly; short group names match the AD group CN. Nested group memberships may require separate AD handling, so first validate direct memberships.
-
-
-Active files belong in the ignored folder `config\templates\`. The committed `Templatefiles\` contains **examples**, not your installed production files. Import/copy whole template folders including assets. The backend and PowerShell generator use the same `TEMPLATE_DIR`.
-
-`SIGNATUREE_SIGNATURES_JSON` has one object per signature type:
-
-~~~dotenv
-SIGNATUREE_SIGNATURES_JSON={"sales":{"label":"Sales","adGroups":["CN=Signature-Sales,OU=Groups,DC=example,DC=local"],"templateHtml":"sales.htm","templateTxt":"sales.txt"},"it":{"label":"IT","adGroups":["CN=Signature-IT,OU=Groups,DC=example,DC=local"],"templateHtml":"it.htm","templateTxt":"it.txt"}}
-~~~
-
-For every signature, provide its **real AD group DN** and files that exist in `TEMPLATE_DIR`. Keep JSON on one line inside `.env`. The default variables already cover first/last name, email, department, phone, mobile, fax and other common AD attributes. Customize `SIGNATUREE_VARIABLES_JSON` only when necessary.
-
-### Local preview and production SMB
-
-~~~dotenv
-LOCAL_DEPLOYMENT_PATH=generatedsignatures
-NETWORK_DEPLOYMENT_PATH=\\fileserver.example.local\Signatures
-TEMPLATE_DIR=config/templates
-~~~
-
-The local `generatedsignatures` directory is created on backend startup or by **Pfad testen** (if the service account has local write access). It is ignored by Git.
-
-The production path must be a **real Windows UNC** (`\\server\share\folder`). Avoid mapped drive letters for Scheduled Tasks. **An AD-query password does not grant access to a file share.** For a backend task running as SYSTEM on a domain-joined server, grant the machine account `DOMAIN\SERVERNAME$` appropriate **share + NTFS** write/create permissions and the ability to modify ACLs on the dedicated signature target. The production target check tests access under the **actual backend identity**. `EPERM` means permissions or network authentication need fixing on the server/share; do not grant Everyone Full Control as a workaround.
-
-The Admin deployment page lets you **draft** local and UNC paths and copy the corresponding `.env` assignments. It does **not** secretly save to a separate profile. Paste the copied lines into `.env`, reload the backend, then test the paths.
-
-## Services
-
-Signaturee runs as **two Windows Scheduled Tasks**, not as Windows Services:
-
-- `Signaturee-Backend-Runner` → Node API, default port **3001**
-- `Signaturee-Frontend-Runner` → static web frontend, default port **3000**
-
-Install from **elevated PowerShell** after the configuration check and local Admin creation:
+Install and start both Windows Scheduled Tasks:
 
 ~~~powershell
-cd C:\Signaturee
 .\scripts\install-backend-task.ps1 -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\.env -StartNow
 .\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\.env -StartNow
 ~~~
 
-Task Scheduler showing **Ready** alone is not proof of failure or success: inspect actual listeners/PIDs and the web UI. Both tasks usually run as SYSTEM unless you deliberately change their principals. Prefer HTTPS through a reverse proxy for LAN access, and add its origin to `CORS_ORIGINS`.
+Open [http://127.0.0.1:3000/login.html](http://127.0.0.1:3000/login.html) locally and select **Lokales Signaturee-Konto** for the Admin account. For another host, configure the origin and preferably an HTTPS reverse proxy.
 
-### Reload .env (no Git update)
+## How signatures are assigned
 
-Save `.env`, then from elevated PowerShell:
+Signaturee scans `TEMPLATE_DIR` **on backend startup** when `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`.
+
+| Files in `config/templates/` | Signature shown in Admin | Required AD group (CN) |
+| --- | --- | --- |
+| `AD_Template.htm` + `AD_Template.txt` | `AD` | `Signature-AD` |
+| `FF_Template.htm` + `FF_Template.txt` | `FF` | `Signature-FF` |
+| `HG_Template.htm` + `HG_Template.txt` | `HG` | `Signature-HG` |
+| `KS_Template.htm` + `KS_Template.txt` | `KS` | `Signature-KS` |
+| `LS_Template.htm` + `LS_Template.txt` | `LS` | `Signature-LS` |
+
+`.html` also works in place of `.htm`. File extension matching is case-insensitive. Optional matching folders, for example `AD-Dateien/` or `LS-Dateien/`, are picked up as resource folders. The supplied `example_template.*` files are ignored by auto-discovery.
+
+**Both HTML and TXT must exist for each signature.** An incomplete pair fails configuration validation rather than hiding a signature. To activate newly added or renamed templates, reload the backend (see [Services](#services)).
+
+The matching AD **security group must already exist** and the employee must belong to it. Signaturee does **not** create AD groups or change group memberships. The standard automatic rule matches the **group CN**; for example, a direct membership in `CN=Signature-LS,OU=Groups,DC=example,DC=local` permits the `LS` signature. Test direct memberships first; nested memberships are not automatically expanded in every path.
+
+The group prefix is configurable:
+
+~~~dotenv
+SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true
+# SIGNATUREE_AUTO_GROUP_PREFIX=Signatur-
+~~~
+
+Use `SIGNATUREE_AUTO_GROUP_PREFIX=Signatur-` only if **your actual groups** use `Signatur-XY` instead of `Signature-XY`.
+
+**Custom mapping (optional):** set `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=false` and define each signature in the one-line `SIGNATUREE_SIGNATURES_JSON`. Full group DNs match exactly; short group names match the CN. With automatic discovery **enabled**, the JSON mapping is ignored.
+
+See [Template reference](docs/templates.md) for filenames, placeholders, resource folders and manual mappings.
+
+## Configuration: one `.env`
+
+The project-root `.env` is the authoritative source for v2 configuration. It is Git-ignored. The supplied [`.env.example`](.env.example) is organized into five short groups:
+
+| Section | Primary settings | Purpose |
+| --- | --- | --- |
+| Web & authentication | `BACKEND_PORT`, `FRONTEND_PORT`, `CORS_ORIGINS`, `AUTH_REQUIRED` | Site, API and local login |
+| AD search | `AD_SERVER`, `OU_SEARCH_BASE`, optional `AD_QUERY_USERNAME`/`AD_QUERY_PASSWORD` | Find employees with `Get-ADUser` |
+| LDAP login | `AUTH_LDAP_ENABLED`, `AUTH_LDAP_DOMAIN`, optionally `AUTH_LDAP_SERVER`, `AUTH_LDAP_CONTAINER` | Validate each employee's AD credentials |
+| Targets & templates | `LOCAL_DEPLOYMENT_PATH`, `NETWORK_DEPLOYMENT_PATH`, `TEMPLATE_DIR` | Preview, SMB output and source files |
+| Signatures | `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` | Map `XY_Template` to `Signature-XY` |
+
+**Do not mix up these independent functions:**
+
+- **LDAP authentication** decides *who is signing in*. LDAP role rules are **optional**. Employees are Self-Service by default; additional LDAP rules may grant IT privileges. **LDAP roles do not assign signatures.** Full Admin privileges require a local account.
+- **AD user queries** supply employee data and direct group membership for search, preflight and generation. `OU_SEARCH_BASE` must be an actual distinguished name; starting with `DC=example,DC=local` is often easier than selecting a narrow OU.
+- **SMB output** uses the Windows account running the backend Scheduled Task, **not** an LDAP login or optional AD-query password. A task running as SYSTEM normally accesses a domain SMB share as the machine account `DOMAIN\SERVER$`.
+
+For initial LDAP testing, leave `AUTH_LDAP_CONTAINER` commented out until you have confirmed the correct OU. An AD `Users` container is commonly `CN=Users`, not `OU=Users`. No Domain Administrator account is required for Signaturee user searches; if your task identity cannot query AD, use an appropriate least-privilege AD read account.
+
+The Admin interface displays the effective configuration. In env mode it deliberately **does not save a second business profile**. In **Ausgabe & Deployment**, you can draft paths and copy their `.env` assignments, then paste them into the file and reload the backend. Local user management, template uploads and diagnostics remain available.
+
+See the [Environment reference](docs/environment.md) for every setting and its scope.
+
+## Services
+
+Signaturee runs as **two Windows Scheduled Tasks**, rather than Windows Services:
+
+| Task | Purpose | Default port |
+| --- | --- | --- |
+| `Signaturee-Backend-Runner` | API, AD searches, generator | 3001 |
+| `Signaturee-Frontend-Runner` | Static web UI | 3000 |
+
+### Reload configuration
+
+Save `.env`, then execute in **elevated PowerShell**:
 
 ~~~powershell
 cd C:\Signaturee
 .\scripts\reload-config.ps1
 ~~~
 
-The script validates `.env` first, then restarts both tasks and verifies the actual Node listeners from this clone. It does not modify the file or reinstall anything.
+This validates the configuration, stops the runners from the chosen installation, starts them again and checks their actual listening processes. **No Git pull or task reinstallation is needed** to apply an env change.
 
-During initial setup you can optionally leave a foreground watcher running:
+For a temporary interactive development session, you can use:
 
 ~~~powershell
 .\scripts\reload-config.ps1 -Watch
 ~~~
 
-Each valid saved change triggers a restart. Press Ctrl+C to stop the watcher; it does not stop Signaturee. Disable the watcher after commissioning.
+It monitors the local `.env` and reloads valid saves. Stop watching with **Ctrl+C**; do not leave the watcher running as a normal production service. Never run `npm start` simultaneously with the Scheduled Tasks on the same ports.
 
-## Update
-
-For normal releases:
+### Update application code
 
 ~~~powershell
 cd C:\Signaturee
 .\scripts\update-signaturee.ps1
 ~~~
 
-The updater checks the Git working tree, stops old Signaturee tasks/processes, runs `git pull --ff-only` and `npm ci --omit=dev`, restarts and verifies both listeners. The local ignored `.env`, `config\templates` and SQLite files are not overwritten. This is **not a rollback or backup tool**. If the old updater is broken, fetch the current scripts once with `git pull --ff-only` and then run the new command.
+The updater stops the runners, performs `git pull --ff-only` and `npm ci --omit=dev`, and verifies both newly started applications. It preserves the ignored `.env`, `config/templates/` and local SQLite databases. Check backups before updating: this script does **not** provide rollback.
+
+Task Scheduler may show `Ready` after a task exits. The useful indicators are the task exit result, the actual Node processes, open ports and application response—not the status label alone.
+
+## Validate the installation
+
+Start from **Administration** after local Admin login:
+
+1. **Signaturen:** confirm all discovered types (AD, FF, HG, etc.) appear. If only an example is visible, check `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`, `TEMPLATE_DIR` and whether you reloaded.
+2. **Benutzer & Zugriff → AD-Suche testen:** confirm `Get-ADUser` can find employees with the actual backend identity and configured search base.
+3. **Benutzer & Zugriff → LDAP-Login testen:** confirm a normal employee can authenticate with their own AD credentials. The configuration-only check does **not** verify login.
+4. **Ausgabe & Deployment:** test the local preview and productive SMB paths under the backend service identity.
+5. **Generieren:** select a test employee who belongs directly to `Signature-XY`, run preflight, then preview before a controlled production run.
+
+A correct template catalog is **not proof** that AD lookup, group membership or SMB output is working. Those checks are intentionally separate.
 
 ## Troubleshooting
 
-| Symptom | Check |
+| Symptom | What to check |
 | --- | --- |
-| Login page works, AD users cannot sign in | Admin → LDAP-Login testen. Check `AUTH_LDAP_DOMAIN` and remove incorrect `AUTH_LDAP_CONTAINER`. |
-| Local Admin cannot sign in | Choose **Lokales Signaturee-Konto**, check `AUTH_DB_LOGIN_ENABLED=true` and `node scripts/manage-auth-users.js list`. |
-| IT user search shows no users / fails | Admin → **AD-Suche testen**. Verify `AD_SERVER`, `OU_SEARCH_BASE`, RSAT ActiveDirectory module, and the backend task identity or optional read-only AD account. LDAP settings alone will not fix Get-ADUser. |
-| Generated output directory missing | Check `LOCAL_DEPLOYMENT_PATH` and click **Pfad testen** or restart the backend; the local folder is created automatically when possible. |
-| Production path says `EPERM` or access denied | Verify server/share name, **share + NTFS** access for the actual task identity and ACL modification rights. Prefer DNS/FQDN UNC instead of IP when domain auth is involved. |
-| Admin path field appears read-only or stale | In env mode it is a draft/copy workflow. Paste new assignments into `.env`, run `reload-config.ps1`, refresh the page. |
-| Tasks show Ready, but the site is unavailable | Run `reload-config.ps1` and inspect its process/port diagnostics; check the task's configured repository path. |
-| Updating refuses local tracked changes | Preserve tracked changes explicitly; `.env` and `config\templates` are Git-ignored. Do not blindly reset files. |
-| Browser cannot reach API | Check ports 3000/3001, firewall, reverse-proxy routing and `CORS_ORIGINS`. |
+| Only `example` appears | Enable `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`; check `TEMPLATE_DIR=config/templates`, complete template pairs and restart |
+| A signature is visible but not assigned | Check the employee's actual `memberOf` groups, the `Signature-XY` CN, the configured prefix and the AD search response |
+| LDAP login fails | Try **LDAP-Login testen** and check `AUTH_LDAP_DOMAIN`, DC and an overly restrictive `AUTH_LDAP_CONTAINER` |
+| AD user search fails | Run **AD-Suche testen**; check `AD_SERVER`, `OU_SEARCH_BASE`, RSAT module and Windows task/query-account permissions |
+| Local Admin login fails | Choose **Lokales Signaturee-Konto**; check `AUTH_DB_LOGIN_ENABLED` and `node scripts/manage-auth-users.js list` |
+| Local preview directory missing | Verify `LOCAL_DEPLOYMENT_PATH` and local write rights; start/reload backend or click **Pfad testen** |
+| SMB returns `EPERM` | Check both share and NTFS permissions, including the backend identity's ability to set folder ACLs; prefer DNS/FQDN UNC paths |
+| Admin edits do not persist | Copy the path assignments into `.env` and run `reload-config.ps1`; v2 intentionally has no duplicate writable business configuration |
+| Scheduled Tasks show `Ready` but site is down | Run `reload-config.ps1` and inspect its port/process errors; verify the registered installation and env-file paths |
 
-For command-line verification of the configured AD search base (runs under **your current Windows identity**, not automatically as the task account):
-
-~~~powershell
-Import-Module ActiveDirectory
-Get-ADUser -Filter * -Server 'dc01.example.local' -SearchBase 'DC=example,DC=local' -ResultSetSize 1
-~~~
-
-Do not treat a successful interactive Get-ADUser as proof the backend task has permissions. The **AD-Suche testen** button checks the task's actual context.
+For detailed diagnostics and permission examples see [AD onboarding](docs/ad-onboarding.md), [SMB permissions](docs/network-share-permissions.md) and [Reverse proxy](docs/reverse-proxy.md).
 
 ## Backup
 
-Protect and back up: `.env` (may contain secrets), `config\templates\` with all images and resources, `config\signaturee_auth.db` (local account hashes), `config\signaturee.db` (runtime state), and any other customized paths. Stop the two tasks or use a consistent SQLite backup method before copying live DB files. Test restore before relying on the backup. Settings-only API JSON export is **not** a full installation backup.
+Back up the **complete** local `.env` (contains configuration and possibly secrets), `config/templates/` (HTML/TXT and resources), `config/signaturee_auth.db` (local account password hashes), `config/signaturee.db` (runtime state) and any explicitly configured other paths. Stop the runners or use a consistent SQLite backup method when saving live databases.
 
-## Development
+Keep backups access-controlled and test recovery. The settings-only API backup is **not** a full installation backup.
 
-- Run `npm run test:backend` for Node integration tests.
-- Run `npm run quality-gate` on Windows with Pester installed.
-- See [environment settings](docs/environment.md) and [Windows SMB permissions](docs/network-share-permissions.md) for more detailed reference.
-- Source and issues: [GitHub](https://github.com/ffworker/Signaturee-public).
+## Development and reference
+
+- `npm run test:backend` — Node tests.
+- `npm run quality-gate` — complete Windows/Pester quality gate.
+- [Environment](docs/environment.md) · [Templates](docs/templates.md) · [AD onboarding](docs/ad-onboarding.md) · [API](docs/api.md) · [Windows setup](docs/prepare-machine-dependencies.md)
+- [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 MIT License.
