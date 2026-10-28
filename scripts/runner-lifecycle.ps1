@@ -128,6 +128,28 @@ function Stop-SignatureeRunner {
     throw "Cannot safely reload. Remaining processes/listeners: $($details -join '; '). Check their command lines; unrelated processes were NOT killed."
 }
 
+# Pure ownership check. An empty listener set is normal while Node starts.
+# Under StrictMode, `@().OwningProcess` throws; only dereference a real listener.
+function Test-SignatureeListenerOwnership {
+    param($Entry, [array]$Nodes = @(), [array]$Listeners = @())
+
+    $listenerPids = @($Listeners |
+        Where-Object { $null -ne $_ -and [int]$_.LocalPort -eq [int]$Entry.Port } |
+        ForEach-Object { [int]$_.OwningProcess })
+    if ($listenerPids.Count -eq 0) { return $false }
+
+    foreach ($node in $Nodes) {
+        if ($null -eq $node -or $listenerPids -notcontains [int]$node.ProcessId) { continue }
+        $commandLine = [string]$node.CommandLine
+        foreach ($scriptPath in $Entry.Scripts) {
+            if ($commandLine.IndexOf([string]$scriptPath, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
 function Start-SignatureeRunner {
     param($Config, [int]$TimeoutSeconds = 45)
     foreach ($item in $Config.Tasks) {
@@ -144,18 +166,9 @@ function Start-SignatureeRunner {
             [pscustomobject]@{ Port = $Config.BackendPort; Scripts = @($Config.BackendEntry) },
             [pscustomobject]@{ Port = $Config.FrontendPort; Scripts = @($Config.FrontendWorker, $Config.FrontendWorkerJs) }
         )) {
-            $listener = @($listeners | Where-Object { $_.LocalPort -eq $entry.Port })
-            $owner = @($nodes | Where-Object {
-                $cmd = [string]$_.CommandLine
-                $isMatch = $false
-                foreach ($scriptPath in $entry.Scripts) {
-                    if ($cmd.IndexOf($scriptPath, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                        $isMatch = $true
-                    }
-                }
-                $isMatch -and (@($listener.OwningProcess) -contains $_.ProcessId)
-            })
-            if ($owner.Count -eq 0) { $ready = $false }
+            if (-not (Test-SignatureeListenerOwnership -Entry $entry -Nodes $nodes -Listeners $listeners)) {
+                $ready = $false
+            }
         }
         if ($ready) {
             Write-Host "Verified: Backend on $($Config.BackendPort), Frontend on $($Config.FrontendPort), both from $($Config.RepoRoot)." -ForegroundColor Green
