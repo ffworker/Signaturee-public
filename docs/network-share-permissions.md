@@ -120,14 +120,10 @@ Name-based SMB access works better with normal domain authentication/Kerberos an
 
 ## Verify from Signaturee
 
-After saving the path in:
+Set `NETWORK_DEPLOYMENT_PATH` in the **project-root `.env`**, run `.\scripts\reload-config.ps1`, and then open:
 
-**Administration → Ausgabe & Deployment**
-
-use:
-
-**Netzwerkpfad testen**
+**Administration → Ausgabe & Deployment → Netzwerkpfad testen**
 
 The check runs as the **actual backend execution identity** and verifies access, temporary directory/file creation, and Windows ACL modification on that temporary directory. The probe removes the temporary directory afterward. Production generation still needs correct permissions for every target user directory.
 
-An `EPERM` at the `stat` or `mkdir` stage means the backend identity cannot access the share/path; a separate AD-query credential in `.env` **does not** change this identity. Check the SMB share ACL, NTFS ACL, domain trust/DNS and the exact task principal. The test will never grant permissions automatically.
+An `EPERM` at the `stat` or `mkdir` stage typically means the backend identity cannot access the share/path; a separate AD-query credential in `.env` **does not** change this identity. Check the SMB share ACL, NTFS ACL, domain trust/DNS and the exact task principal. The test will never grant permissions automatically.
