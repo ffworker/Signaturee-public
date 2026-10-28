@@ -124,7 +124,7 @@ See the [Environment reference](docs/environment.md) for every setting and its s
 
 The Admin interface keeps a small **Template status** strip at the top of every section, showing all discovered signatures and missing files at a glance. Hover/focus on a signature to inspect its files, or select it and open **Details** for a complete, keyboard-accessible list.
 
-Signatures and variables appear as compact rows by default; select **Zuordnung & Dateien** or **Bearbeiten** to edit. LDAP settings, role explanations, onboarding steps and Windows Task details are collapsed until needed. The Save/Activate bar appears only for unsaved or not-yet-activated changes. These are display changes only: existing configuration sources, permissions and signature generation remain unchanged.
+Signatures and variables appear as compact rows by default; select **Zuordnung & Dateien** or **Bearbeiten** to edit. LDAP settings, role explanations and Windows Task details are collapsed until needed. **Onboarding / Check-Liste** is deliberately expanded by default: every required AD field, signature-group assignment and step-by-step check is visible without hovering or clicking. The Save/Activate bar appears only for unsaved or not-yet-activated changes. These are display changes only: existing configuration sources, permissions and signature generation remain unchanged.
 
 ## Manage configuration in the Admin UI
 
@@ -184,7 +184,7 @@ Task Scheduler may show `Ready` after a task exits. The useful indicators are th
 
 ## Admin interface
 
-The Admin, login and generation pages share a high-contrast **dark appearance** by default. Use the **☀ Hell / ☾ Dunkel** switch in the header to toggle the light theme. Your preference is saved locally in the browser.
+The Admin, login and generation pages share a high-contrast **Night Sky** dark appearance by default (navy panels, blue interactive controls, readable checked/disabled states and an equally dark generator progress strip). Use the **☀ Hell / ☾ Dunkel** switch in the header to toggle the light theme. Your preference is saved locally in the browser.
 
 ### Testing a path without saving it
 
