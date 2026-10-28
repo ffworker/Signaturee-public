@@ -11,7 +11,7 @@
     "auth:users": "node scripts/manage-auth-users.js",
     "clean": "node scripts/clean.js",
     "clean:all": "node scripts/clean.js --all",
-    "test:backend": "node backend/tests/ad-query.test.js && node backend/tests/login-origin.test.js && node backend/tests/login-provider.test.js && node backend/tests/config-env.test.js && node backend/tests/ldap-roles.test.js && node backend/tests/admin-source.test.js && node backend/tests/cors-policy.test.js",
+    "test:backend": "node backend/tests/ad-query.test.js && node backend/tests/login-origin.test.js && node backend/tests/login-provider.test.js && node backend/tests/ldap-targets.test.js && node backend/tests/config-env.test.js && node backend/tests/ldap-roles.test.js && node backend/tests/admin-source.test.js && node backend/tests/cors-policy.test.js",
     "test:powershell": "powershell -NoProfile -Command \"Invoke-Pester -Path tests\"",
     "quality-gate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/quality-gate.ps1"
   },
