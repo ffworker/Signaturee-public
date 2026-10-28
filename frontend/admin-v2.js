@@ -285,90 +285,116 @@ async function saveEnvSettings(){
     saveProfileBtn.disabled=false;
   }
 }
-async function applySavedEnv(){
-  if(!confirm('Gespeicherte .env aktivieren? Der Backend-Dienst wird neu gestartet und bestehende Sitzungen können unterbrochen werden.'))return;
-  applyEnvConfigBtn.disabled=true;
-  saveStatus.textContent='Backend-Neustart wird ausgelöst ...';
-  try{
-    await fetchTimeout(`${apiBase}/api/runner/control`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'restart',scope:'backend'})
-    },8000);
-  }catch{} // The restarting backend may close the active HTTP connection.
-  await new Promise(resolve=>setTimeout(resolve,2500));
-  apiBase='';
-  let active=false;
-  for(let i=0;i<15;i++){
-    try{
-      if(await connect()){
-        const status=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/admin/env`,{},6500));
-        if(status.ok&&!status.body.requiresRestart){active=true;break}
-      }
-    }catch{}
+async function restartBackendVerified(statusEl){
+  const beforeResponse=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/admin/env`,{},12000));
+  if(!beforeResponse.ok)throw new Error(beforeResponse.body.error||'Backend-Instanz konnte nicht ermittelt werden.');
+  const previousInstance=beforeResponse.body.instanceId;
+  const response=await jsonResponse(await fetchTimeout(`${apiBase}/api/runner/control`,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'restart',scope:'backend'})
+  },22000));
+  if(!response.ok||!response.body.execution?.queued)
+    throw new Error(response.body.error||'Der Windows-Neustartauftrag wurde nicht angenommen.');
+  statusEl.textContent='Windows-Neustartauftrag gestartet. Neue Backend-Instanz wird geprüft ...';
+  // The old API instance may disappear temporarily. Reconnect but accept only
+  // a NEW instanceId; a mere HTTP 200 from the old instance is not success.
+  for(let attempt=0;attempt<35;attempt++){
     await new Promise(resolve=>setTimeout(resolve,1000));
+    try{
+      if(!apiBase&&!(await connect()))continue;
+      const check=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/admin/env`,{},3500));
+      if(check.ok&&check.body.instanceId&&check.body.instanceId!==previousInstance){
+        return {configActive:!check.body.requiresRestart};
+      }
+    }catch{apiBase=''}
   }
-  if(active){
+  throw new Error('Kein neuer Backend-Prozess bestätigt. Auf dem Server Logs/backend-restart.log prüfen oder reload-config.ps1 ausführen.');
+}
+async function applySavedEnv(){
+  if(!confirm('Gespeicherte Konfiguration aktivieren? Der Backend-Dienst wird neu gestartet.'))return;
+  applyEnvConfigBtn.disabled=true;
+  saveStatus.textContent='Backend-Neustart wird vorbereitet ...';
+  try{
+    const result=await restartBackendVerified(saveStatus);
+    if(!result.configActive)throw new Error('Backend neu gestartet, aber die gespeicherte .env ist noch nicht aktiv.');
     await loadProfile();
     await loadAdminEnvSettings();
-    applyEnvConfigBtn.hidden=true;
     envPendingRestart=false;
-    saveStatus.textContent='Backend neu gestartet. Die .env-Änderungen sind jetzt aktiv.';
-  }else{
-    saveStatus.textContent='Neustart nicht bestätigt oder alte .env weiterhin aktiv. Bitte auf dem Server scripts/reload-config.ps1 ausführen.';
-    applyEnvConfigBtn.disabled=false;
-  }
+    applyEnvConfigBtn.hidden=true;
+    saveStatus.textContent='Gespeicherte Einstellungen sind aktiv.';
+  }catch(e){
+    saveStatus.textContent='Neustart fehlgeschlagen: '+e.message;
+  }finally{applyEnvConfigBtn.disabled=false}
 }
-async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'profile_v2';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Freigegebene Einstellungen kannst du hier mit Backup und Validierung bearbeiten. Änderungen werden nach Backend-Neustart aktiv.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
+async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'Konfiguration';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Freigegebene Einstellungen kannst du hier mit Backup und Validierung bearbeiten. Änderungen werden nach Backend-Neustart aktiv.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
 async function saveProfile(){if(envManaged){return saveEnvSettings()}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert. V2 verwendet ab jetzt genau diesen Stand.'}
 
 function renderService(name,service){const ok=Boolean(service?.healthy);const detail=service?.statusCode?`HTTP ${service.statusCode} · ${service.responseMs??0} ms`:(service?.error||'nicht erreichbar');return `<div class="service-card"><span class="health-dot ${ok?'ok':'bad'}"></span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div></div>`}
 function renderSystem(snapshot={}){const services=snapshot.services||{};serviceGrid.innerHTML=[renderService('Backend',services.backend),renderService('Frontend',services.frontend)].join('');const tasks=Array.isArray(snapshot?.tasks?.tasks)?snapshot.tasks.tasks:[];if(!tasks.length){taskList.className='task-list empty-state';taskList.textContent=snapshot?.tasks?.reason||'Keine Task-Daten verfügbar.'}else{taskList.className='task-list';taskList.innerHTML=tasks.map(task=>`<div class="task-row"><span><strong>${escapeHtml(task.taskName)}</strong><br><small>Last result: ${escapeHtml(task.lastTaskResult??'--')}</small></span><span>${escapeHtml(task.state||'Unknown')}</span></div>`).join('')}}
 async function loadSystemStatus(){if(!(await ensureAdminSession()))return;systemActionStatus.textContent='Status wird geladen ...';try{const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/runner/status`,{},12000));if(!ok)throw new Error(body.error||`HTTP ${status}`);renderSystem(body);systemActionStatus.textContent=body.summary?.healthy?'Alles läuft.':'Status geladen – Prüfung empfohlen.';systemActionStatus.className=`inline-status ${body.summary?.healthy?'success':''}`}catch(error){systemActionStatus.textContent=`Systemstatus: ${error.message}`;systemActionStatus.className='inline-status error'}}
-async function runnerAction(scope){if(!(await ensureAdminSession()))return;systemActionStatus.textContent=`${scope} wird neu gestartet ...`;systemActionStatus.className='inline-status';try{const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/runner/control`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'restart',scope})},12000));if(!ok)throw new Error(body.error||`HTTP ${status}`);systemActionStatus.textContent=body.message||'Aktion ausgeführt.';systemActionStatus.className='inline-status success';if(scope==='backend'){apiBase='';setTimeout(async()=>{await connect();await loadSystemStatus()},3500)}else{setTimeout(loadSystemStatus,1200)}}catch(error){if(scope==='backend'){systemActionStatus.textContent='Backend-Restart ausgelöst; Verbindung wird erneut geprüft ...';setTimeout(async()=>{await connect();await loadSystemStatus()},3500);return}systemActionStatus.textContent=error.message;systemActionStatus.className='inline-status error'}}
+async function runnerAction(scope){
+  if(!(await ensureAdminSession()))return;
+  const button=scope==='backend'?restartBackendBtn:restartFrontendBtn;
+  button.disabled=true;
+  systemActionStatus.textContent=scope==='backend'?'Backend-Neustart wird vorbereitet ...':'Frontend wird neu gestartet ...';
+  systemActionStatus.className='inline-status';
+  try{
+    if(scope==='backend'){
+      await restartBackendVerified(systemActionStatus);
+      systemActionStatus.textContent='✓ Backend neu gestartet und neue Instanz bestätigt.';
+      await loadProfile();
+      await loadAdminEnvSettings();
+    }else{
+      const {ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/runner/control`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'restart',scope:'frontend'})
+      },15000));
+      if(!ok)throw new Error(body.error||`HTTP ${status}`);
+      systemActionStatus.textContent='Frontend-Neustart beauftragt. Seite ggf. neu laden.';
+    }
+    systemActionStatus.className='inline-status success';
+  }catch(e){
+    systemActionStatus.textContent='Neustart fehlgeschlagen: '+e.message;
+    systemActionStatus.className='inline-status error';
+  }finally{button.disabled=false}
+}
 async function checkDeploymentTarget(target){
   if(!(await ensureAdminSession()))return;
-  const isProduction=target==='production';
-  const statusEl=isProduction?productionPathStatus:previewPathStatus;
-  const button=isProduction?testProductionPathBtn:testPreviewPathBtn;
-  if(isProduction){productionPathHelp.hidden=true;productionPathHelp.open=false;productionPathHelpText.textContent=''}
-  statusEl.textContent='Wird geprüft ...';
+  const production=target==='production';
+  const input=production?productionPath:previewPath;
+  const statusEl=production?productionPathStatus:previewPathStatus;
+  const button=production?testProductionPathBtn:testPreviewPathBtn;
+  const entered=input.value.trim();
+  if(!entered){
+    statusEl.textContent='Bitte zuerst einen Pfad eingeben.';
+    statusEl.className='path-status error';return;
+  }
+  if(production){productionPathHelp.hidden=true;productionPathHelp.open=false;productionPathHelpText.textContent=''}
+  statusEl.textContent='Prüfe eingegebenen Pfad ...';
   statusEl.className='path-status muted';
   button.disabled=true;
   try{
-    if(envManaged&&envPendingRestart){statusEl.textContent='Zuerst die gespeicherte .env aktivieren.';statusEl.className='path-status error';return}
-    if(envManaged) {
-      const actual=isProduction?currentProfile?.targets?.production?.path:currentProfile?.targets?.preview?.path;
-      const drafted=(isProduction?productionPath:previewPath).value.trim();
-      if(drafted!==String(actual||'').trim()){
-        statusEl.textContent='Bitte die neuen Pfade erst in .env übernehmen und den Backend-Dienst neu laden. Bis dahin würde nur der alte Pfad geprüft.';
-        statusEl.className='path-status error';
-        return;
-      }
-    }
-    if(dirty){
-      statusEl.textContent='Bitte Konfiguration zuerst speichern, damit der gespeicherte Pfad geprüft wird.';
-      statusEl.className='path-status error';
-      return;
-    }
-    const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/targets/check`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({target})
-    },15000));
+    // Admin-only, one-off probe. This does not save a path, edit .env or run
+    // generation; the backend creates no folders for trial paths.
+    const {ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/targets/check`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target,path:entered})
+    },20000));
     if(!ok)throw new Error(body.error||`HTTP ${status}`);
-    if(body.exists&&body.directory&&body.writable&&(!isProduction||body.aclWritable)){
-      statusEl.textContent=body.message||'✓ Erreichbar und schreibbar';
+    const success=body.exists&&body.directory&&body.writable&&(!production||body.aclWritable);
+    const active=production?currentProfile?.targets?.production?.path:currentProfile?.targets?.preview?.path;
+    const modified=entered!==String(active||'').trim();
+    if(success){
+      statusEl.textContent=modified?'✓ Test erfolgreich – noch nicht gespeichert':'✓ Pfad erreichbar und beschreibbar';
       statusEl.className='path-status success';
     }else{
       statusEl.textContent=body.code==='SMB_ACCESS_DENIED'
         ? '✗ Kein Zugriff auf die SMB-Freigabe'
-        : body.code==='SMB_PATH_NOT_FOUND'
-          ? '✗ Netzwerkpfad nicht gefunden'
-          : body.stage==='acl' || (body.writable&&!body.aclWritable)
-            ? '✗ Berechtigung für Ordner-ACLs fehlt'
-            : '✗ '+(body.message||body.error||'Pfad nicht beschreibbar.');
+        : body.code==='SMB_PATH_NOT_FOUND'?'✗ Netzwerkpfad nicht gefunden'
+          : body.stage==='acl'||(body.writable&&!body.aclWritable)?'✗ Berechtigung für Ordner-ACLs fehlt'
+            :'✗ '+(body.message||body.error||'Pfad nicht beschreibbar.');
       statusEl.className='path-status error';
-      if(isProduction){
+      if(production){
         productionPathHelp.hidden=false;
         productionPathHelpText.textContent=[body.hint,
           body.error?'Technisch: '+body.error:'',
@@ -376,13 +402,10 @@ async function checkDeploymentTarget(target){
       }
     }
   }catch(error){
-    statusEl.textContent=`✗ ${error.message}`;
+    statusEl.textContent='✗ '+error.message;
     statusEl.className='path-status error';
-  }finally{
-    button.disabled=false;
-  }
+  }finally{button.disabled=false}
 }
-
 async function runAdSearchDiagnostic(){
   if(!(await ensureAdminSession()))return;
   adSearchTestBtn.disabled=true;
