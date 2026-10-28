@@ -4184,8 +4184,8 @@ async function handleV2SignatureCreate(req,res){
     });
     // Do not change .env, generate AD groups or restart tasks. The current
     // env-mode catalog is discovered when each profile request is handled.
-    return sendJson(res,201,{...result,profile:getV2Profile(),
-      message:'Signatur angelegt. Sie erscheint ab sofort im Template-Katalog. Die AD-Gruppe muss bereits existieren.'});
+    return sendJson(res,201,{...result,
+      message:'Signatur angelegt. Der Katalog wird beim nächsten Abruf neu eingelesen; die AD-Gruppe muss bereits existieren.'});
   }catch(error){
     return sendJson(res,error.status||getErrorStatus(error),{
       error:error instanceof SignatureCreateError?error.message:error.message,
