@@ -21,6 +21,12 @@
         <label>Passwort
           <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Passwort">
         </label>
+        <label>Anmeldeart
+          <select id="loginSource" aria-label="Anmeldeart">
+            <option value="ldap">Firmenkonto (Active Directory)</option>
+            <option value="local">Lokales Signaturee-Konto</option>
+          </select>
+        </label>
         <button type="submit">Anmelden</button>
         <div id="loginStatus" class="inline-status"></div>
       </form>

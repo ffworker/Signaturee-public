@@ -1514,6 +1514,9 @@ function New-OutlookSignatures {
         
         if ($resourceFolderSuccess) {
             Write-Log "Created resource folder for $Username ($Domain)"
+        } elseif ($resourceFolder) {
+            Write-Log "Required resource folder could not be copied for $Username ($Domain)" -Level "ERROR"
+            return $false
         }
         
         Write-Log "Created Outlook signatures for user $Username for domain $Domain"
@@ -1870,7 +1873,9 @@ foreach ($user in $users) {
                     New-Item -Path $userSignaturePath -ItemType Directory -Force | Out-Null
                     Write-Log "Created signature folder: $userSignaturePath"
                 }
-                Grant-UserAccessToFolder -Username $username -FolderPath $userSignaturePath -UserSid $user.SID -UserPrincipal $userPrincipal | Out-Null
+                if (-not (Grant-UserAccessToFolder -Username $username -FolderPath $userSignaturePath -UserSid $user.SID -UserPrincipal $userPrincipal)) {
+                    throw "Could not assign signature directory ACL to $username at $userSignaturePath"
+                }
             }
 
             foreach ($domain in $userDomains) {
@@ -1893,7 +1898,9 @@ foreach ($user in $users) {
                 New-Item -Path $userSignaturePath -ItemType Directory -Force | Out-Null
                 Write-Log "Created signature folder: $userSignaturePath"
             }
-            Grant-UserAccessToFolder -Username $username -FolderPath $userSignaturePath -UserSid $user.SID -UserPrincipal $userPrincipal | Out-Null
+            if (-not (Grant-UserAccessToFolder -Username $username -FolderPath $userSignaturePath -UserSid $user.SID -UserPrincipal $userPrincipal)) {
+                throw "Could not assign signature directory ACL to $username at $userSignaturePath"
+            }
         }
 
         foreach ($domain in $selectedDomains.Keys) {
@@ -1954,5 +1961,11 @@ Write-Host "`nSignature generation complete." -ForegroundColor Green
 Write-Host "Successful users: $successfulUsers of $totalUsers" -ForegroundColor $(if ($successfulUsers -eq $totalUsers) { "Green" } else { "Yellow" })
 if (-not $PreviewOnly) {
     Write-Host "Report saved to $reportPath" -ForegroundColor Cyan
+}
+
+# The Node backend must not report HTTP success when a user or resource failed.
+if ($failedUsers.Count -gt 0) {
+    Write-Log "Generation failed for $($failedUsers.Count) user(s): $($failedUsers -join ', ')" -Level "ERROR"
+    exit 1
 }
 

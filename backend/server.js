@@ -4003,8 +4003,73 @@ async function handleV2ProfilePut(req, res) {
   }
 }
 
+// Probe from the backend's actual Windows identity (SYSTEM/computer account or service account).
+// The temporary directory is removed even on failure. Production requires WRITE_DAC as
+// well as share/NTFS write access because the generator sets per-user directory ACLs.
+async function probeV2TargetAccess(targetPath, { requireAcl = false } = {}) {
+  if (!targetPath) return { exists: false, directory: false, writable: false, aclWritable: false, error: 'No path configured.' };
+  let stats;
+  try {
+    stats = await fs.promises.stat(targetPath);
+  } catch (error) {
+    return { exists: false, directory: false, writable: false, aclWritable: false, error: error.message };
+  }
+  if (!stats.isDirectory()) {
+    return { exists: true, directory: false, writable: false, aclWritable: false, error: 'Configured path is not a directory.' };
+  }
+
+  const probeDir = path.join(targetPath,
+    `.signaturee-access-test-${process.pid}-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`);
+  let created = false;
+  try {
+    await fs.promises.mkdir(probeDir);
+    created = true;
+    const probeFile = path.join(probeDir, 'write-test.tmp');
+    await fs.promises.writeFile(probeFile, 'Signaturee write test\n', { flag: 'wx' });
+    await fs.promises.readFile(probeFile, 'utf8');
+
+    if (!requireAcl) {
+      return { exists: true, directory: true, writable: true, aclWritable: null, message: 'Path is reachable and writable.' };
+    }
+    if (process.platform !== 'win32') {
+      return { exists: true, directory: true, writable: true, aclWritable: false, error: 'ACL validation requires a Windows backend.' };
+    }
+
+    const { command } = await resolvePowerShellCommand();
+    const aclScript = [
+      '$ErrorActionPreference = "Stop"',
+      '$acl = Get-Acl -LiteralPath $env:SIGNATUREE_ACL_PROBE_DIR',
+      'Set-Acl -LiteralPath $env:SIGNATUREE_ACL_PROBE_DIR -AclObject $acl',
+    ].join('; ');
+    const aclResult = await new Promise((resolve) => {
+      const child = spawn(command, ['-NoProfile', '-NonInteractive', '-Command', aclScript], {
+        env: { ...process.env, SIGNATUREE_ACL_PROBE_DIR: probeDir },
+      });
+      let stderr = '';
+      child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      child.on('error', (error) => resolve({ ok: false, error: error.message }));
+      child.on('close', (code) => resolve({
+        ok: code === 0,
+        error: code === 0 ? '' : (stderr.trim() || `Set-Acl failed (exit ${code})`),
+      }));
+    });
+    return {
+      exists: true, directory: true, writable: true, aclWritable: aclResult.ok,
+      ...(aclResult.ok
+        ? { message: 'Path is writable and the execution identity can set folder ACLs.' }
+        : { error: `Cannot set folder ACLs: ${aclResult.error}` }),
+    };
+  } catch (error) {
+    return { exists: true, directory: true, writable: false, aclWritable: false, error: error.message };
+  } finally {
+    if (created) {
+      await fs.promises.rm(probeDir, { recursive: true, force: true }).catch(
+        (error) => console.warn(`Cannot remove temporary deployment probe ${probeDir}: ${error.message}`));
+    }
+  }
+}
+
 async function handleV2TargetCheck(req, res) {
-  let probePath = '';
   try {
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
@@ -4015,79 +4080,14 @@ async function handleV2TargetCheck(req, res) {
     if (targetKey !== 'preview' && targetKey !== 'production') {
       return sendJson(res, 400, { error: 'Target must be preview or production.' });
     }
-
     const profile = getV2Profile();
     const targetPath = targetKey === 'production'
       ? String(profile.targets?.production?.path || '').trim()
       : String(profile.targets?.preview?.path || '').trim();
-
-    if (!targetPath) {
-      return sendJson(res, 422, {
-        target: targetKey,
-        path: '',
-        exists: false,
-        writable: false,
-        error: 'No path configured.',
-      });
-    }
-
-    let stats;
-    try {
-      stats = await fs.promises.stat(targetPath);
-    } catch (error) {
-      return sendJson(res, 200, {
-        target: targetKey,
-        path: targetPath,
-        exists: false,
-        directory: false,
-        writable: false,
-        error: error.code === 'ENOENT' ? 'Path does not exist.' : error.message,
-      });
-    }
-
-    if (!stats.isDirectory()) {
-      return sendJson(res, 200, {
-        target: targetKey,
-        path: targetPath,
-        exists: true,
-        directory: false,
-        writable: false,
-        error: 'Configured path is not a directory.',
-      });
-    }
-
-    probePath = path.join(
-      targetPath,
-      `.signaturee-write-test-${process.pid}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.tmp`,
-    );
-    try {
-      await fs.promises.writeFile(probePath, 'Signaturee write test\n', { flag: 'wx' });
-      await fs.promises.rm(probePath, { force: true });
-      probePath = '';
-      return sendJson(res, 200, {
-        target: targetKey,
-        path: targetPath,
-        exists: true,
-        directory: true,
-        writable: true,
-        message: 'Path is reachable and writable.',
-      });
-    } catch (error) {
-      return sendJson(res, 200, {
-        target: targetKey,
-        path: targetPath,
-        exists: true,
-        directory: true,
-        writable: false,
-        error: error.message,
-      });
-    }
+    const result = await probeV2TargetAccess(targetPath, { requireAcl: targetKey === 'production' });
+    return sendJson(res, targetPath ? 200 : 422, { target: targetKey, path: targetPath, ...result });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
-  } finally {
-    if (probePath) {
-      fs.promises.rm(probePath, { force: true }).catch(() => {});
-    }
   }
 }
 
@@ -4267,12 +4267,23 @@ async function buildV2RunPlan(body = {}) {
   const config = profileToLegacyConfig(profile);
   const configuredDomains = config.domains || {};
   const target = getV2Target(body.target, profile);
-  if (target.key === 'Network' && !String(profile.targets.production.path || '').trim()) {
-    issues.push({
-      level: 'error',
-      code: 'NETWORK_TARGET_NOT_CONFIGURED',
-      message: 'NETWORK_DEPLOYMENT_PATH is not configured. Production generation is blocked.',
-    });
+  if (target.key === 'Network') {
+    if (!String(profile.targets.production.path || '').trim()) {
+      issues.push({
+        level: 'error',
+        code: 'NETWORK_TARGET_NOT_CONFIGURED',
+        message: 'Production output path is not configured in the v2 Admin profile.',
+      });
+    } else {
+      const access = await probeV2TargetAccess(target.path, { requireAcl: true });
+      if (!access.writable || !access.aclWritable) {
+        issues.push({
+          level: 'error',
+          code: 'NETWORK_TARGET_NOT_WRITABLE',
+          message: `Production target is not ready: ${access.error || 'share/NTFS or ACL permissions missing'}`,
+        });
+      }
+    }
   }
   const schema = profile.variables;
   const profileMappings = buildVariableMappingsFromSchema(schema);
@@ -5326,8 +5337,21 @@ async function handleAuthLogin(req, res) {
     const body = await parseJsonBody(req);
     const username = String(body?.username || '').trim();
     const password = String(body?.password || '');
+    // Explicit provider selection resolves collisions between local accounts and AD users.
+    // Unspecified source preserves the previous local-first behavior for API clients.
+    const requestedSource = String(body?.source || 'auto').trim().toLowerCase();
+    const selectedSource = requestedSource === 'local' ? 'db' : requestedSource;
+    if (!['auto', 'db', 'ldap'].includes(selectedSource)) {
+      return sendJson(res, 400, { error: 'Invalid login source. Choose auto, local or ldap.' });
+    }
     if (!username || !password) {
       return sendJson(res, 400, { error: 'Username and password are required.' });
+    }
+    if (selectedSource === 'ldap' && !AUTH_LDAP_ENABLED) {
+      return sendJson(res, 503, { error: 'LDAP login is disabled. Select local login or contact IT.' });
+    }
+    if (selectedSource === 'db' && !AUTH_DB_LOGIN_ENABLED) {
+      return sendJson(res, 503, { error: 'Local login is disabled.' });
     }
 
     let loginSource = '';
@@ -5335,9 +5359,9 @@ async function handleAuthLogin(req, res) {
     let loginUsername = '';
     let ldapAttempt = null;
 
-    // Local Signaturee accounts own their username. This keeps Admin/IT identities
-    // deterministic even when the same username also exists in Active Directory.
-    const localAuthUser = AUTH_DB_LOGIN_ENABLED && authDb
+    // Local admin usernames retain priority for legacy/auto clients. An explicit
+    // LDAP choice never authenticates against the local DB, even for a collision.
+    const localAuthUser = selectedSource !== 'ldap' && AUTH_DB_LOGIN_ENABLED && authDb
       ? getAuthUserByUsername(username)
       : null;
 
@@ -5348,14 +5372,14 @@ async function handleAuthLogin(req, res) {
       loginSource = 'db';
       loginRole = localAuthUser.role;
       loginUsername = localAuthUser.username;
+    } else if (selectedSource === 'db') {
+      return sendJson(res, 401, { error: 'Invalid username or password.' });
     } else if (AUTH_LDAP_ENABLED) {
       try {
         ldapAttempt = await authenticateLdapUser({ username, password });
       } catch (error) {
-        if (!AUTH_DB_LOGIN_ENABLED || !AUTH_LDAP_FALLBACK_TO_DB) {
-          const status = getErrorStatus(error, 503);
-          return sendJson(res, status, { error: error.message || 'LDAP authentication unavailable.' });
-        }
+        console.warn(`LDAP authentication unavailable: ${error.message}`);
+        return sendJson(res, getErrorStatus(error, 503), { error: 'LDAP authentication unavailable.' });
       }
       if (ldapAttempt?.authenticated) {
         loginSource = 'ldap';
@@ -5366,7 +5390,8 @@ async function handleAuthLogin(req, res) {
 
     if (!loginRole) {
       const ldapServiceIssue = Boolean(ldapAttempt?.attempted && !ldapAttempt.invalidCredentials && ldapAttempt.stderr);
-      if (ldapServiceIssue && !AUTH_DB_LOGIN_ENABLED) {
+      if (ldapServiceIssue) {
+        console.warn(`LDAP authentication failed: ${ldapAttempt.stderr}`);
         return sendJson(res, 503, { error: 'LDAP authentication unavailable.' });
       }
       return sendJson(res, 401, { error: 'Invalid username or password.' });
