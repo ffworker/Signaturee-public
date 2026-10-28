@@ -45,7 +45,7 @@
         <button id="adminRetryBtn" type="button" class="secondary">Erneut prüfen</button>
       </section>
 
-      <section class="admin-banner">
+      <section id="profileSourceBanner" class="admin-banner">
         <div>
           <strong>V2-Konfiguration</strong>
           <p id="profileSourceText">Konfigurationsquelle wird ermittelt ...</p>
@@ -107,22 +107,21 @@
             <div>
               <span class="eyebrow">Ausgabe</span>
               <h2>Deployment-Ziele</h2>
-              <p>Diese Pfade werden vom v2-Preflight und bei der Generierung verwendet.</p>
+              
             </div>
           </div>
 
           <div class="deployment-targets">
             <article class="deployment-target-card">
               <div>
-                <span class="target-kind">Vorschau / Test</span>
-                <h3>Lokaler Vorschaupfad</h3>
-                <p>Hier erzeugt Signaturee Testläufe auf dem Server. Keine produktive ACL-Vergabe.</p>
+                <span class="target-kind">Vorschau</span>
+                <h3>Lokaler Pfad</h3>
               </div>
               <label>Pfad
                 <input id="previewPath" type="text" placeholder="C:\Signaturee\generatedsignatures">
               </label>
               <div class="path-test-row">
-                <button id="testPreviewPathBtn" type="button" class="secondary">Pfad testen</button>
+                <button id="testPreviewPathBtn" type="button" class="secondary">Testen</button>
                 <span id="previewPathStatus" class="path-status muted">Noch nicht geprüft.</span>
               </div>
             </article>
@@ -130,35 +129,21 @@
             <article class="deployment-target-card production">
               <div>
                 <span class="target-kind">Produktiv</span>
-                <h3>Produktiver Netzwerkpfad (UNC)</h3>
-                <p>Dorthin werden produktive Signaturen geschrieben. Der Backend-Dienst benötigt Schreibzugriff.</p>
+                <h3>Netzwerkpfad (UNC)</h3>
               </div>
               <label>UNC-Pfad
                 <input id="productionPath" type="text" placeholder="\\fileserver\Signaturen">
-                <small>Beispiel: <code>\\fileserver\Freigabe\Signaturen</code></small>
               </label>
               <div class="path-test-row">
-                <button id="testProductionPathBtn" type="button" class="secondary">Netzwerkpfad testen</button>
+                <button id="testProductionPathBtn" type="button" class="secondary">Testen</button>
                 <span id="productionPathStatus" class="path-status muted">Noch nicht geprüft.</span>
               </div>
             </article>
           </div>
-          <div id="envPathEditor" class="deployment-note" hidden>
-            <strong>Direkt in .env speichern</strong>
-            <p>Diese beiden Pfade kannst du mit <b>Konfiguration speichern</b> direkt in der einzigen .env ändern. Vor dem Speichern wird validiert und ein Backup erstellt. Anschließend den Backend-Neustart auslösen und erst dann die neuen Pfade testen.</p>
-            <button id="copyDeploymentEnvBtn" type="button" class="secondary">Pfade als .env-Zeilen kopieren (optional)</button>
-            <span id="copyDeploymentEnvStatus" class="path-status muted"></span>
-          </div>
-
-          <div class="deployment-note">
-            <strong>Welche Einstellung nutzt der Generate-Screen?</strong>
-            <p><b>Server-Vorschau</b> nutzt den lokalen Vorschaupfad. <b>Produktiv bereitstellen</b> nutzt ausschließlich den produktiven Netzwerkpfad aus diesem Profil.</p>
-          </div>
-
-          <div class="deployment-permission-note">
-            <strong>Windows-/SMB-Berechtigungen</strong>
-            <p>Läuft der Backend Scheduled Task als <code>SYSTEM</code>, greift er auf entfernte SMB-Freigaben als Computeraccount <code>DOMAIN\\SIGNATUREE-SERVER$</code> zu. Dieser Account benötigt auf dem produktiven Ziel sowohl passende <b>Share-</b> als auch <b>NTFS-Rechte</b>. Da Signaturee auf Benutzerordnern ACLs setzt, muss der Account dort auch Berechtigungen ändern dürfen. Rechte möglichst nur auf den dedizierten Signaturee-Zielbaum vergeben.</p>
-          </div>
+          <details id="productionPathHelp" class="deployment-help" hidden>
+            <summary>Fehlerdetails anzeigen</summary>
+            <p id="productionPathHelpText"></p>
+          </details>
         </section>
       </section>
 

@@ -16,7 +16,24 @@ const {
   buildAdSearchFilter,
   isSafeUsernameSegment,
   resolveDomainsFromMemberOf,
+  describeV2TargetFailure,
 } = require('../server');
+
+function testSmbErrorDiagnostics() {
+  const ipShare = '\\\\172.17.1.4\\files$\\Allgemein\\Signaturen';
+  const namedShare = '\\\\file01.example.local\\Signaturen';
+  const denial=describeV2TargetFailure(ipShare,{code:'EPERM'},'stat');
+  assert.strictEqual(denial.code,'SMB_ACCESS_DENIED');
+  assert.ok(denial.hint.includes('Servernamen/FQDN'));
+  assert.ok(denial.hint.includes('Taskkonto'));
+  const noIpTip=describeV2TargetFailure(namedShare,{code:'EACCES'},'stat');
+  assert.strictEqual(noIpTip.code,'SMB_ACCESS_DENIED');
+  assert.ok(!noIpTip.hint.includes('statt der IP'));
+  assert.strictEqual(describeV2TargetFailure(ipShare,{code:'ENOENT'},'stat').code,'SMB_PATH_NOT_FOUND');
+  assert.strictEqual(describeV2TargetFailure(ipShare,{code:'ETIMEDOUT'},'stat').code,'SMB_UNREACHABLE');
+  assert.strictEqual(describeV2TargetFailure('C:\\local',{code:'EPERM'},'stat').code,'EPERM');
+}
+testSmbErrorDiagnostics();
 
 function writeFakePowerShell(tempDir, recordPath, output) {
   const fakeScript = path.join(tempDir, 'fake-powershell.js');

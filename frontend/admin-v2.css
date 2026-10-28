@@ -311,3 +311,16 @@
 .ldap-test-result.success { border-color: #9dceb0; background: #eef8f0; color: #245c3a; }
 .ldap-test-result.error { border-color: #e9b8b5; background: #fcf3f1; color: #922f27; }
 @media(max-width:760px) { .ldap-test-form { grid-template-columns: 1fr; } }
+
+/* Deployment screen: only the two target inputs and their health checks.
+   Show troubleshooting details on demand, not as permanent instruction walls. */
+.admin-banner[hidden]{display:none!important}
+.admin-view[data-view="deployment"] .admin-section-head{margin-bottom:.65rem}
+.admin-view[data-view="deployment"] .deployment-target-card{gap:.6rem;padding:.85rem}
+.admin-view[data-view="deployment"] .deployment-target-card h3{margin:0;font-size:1.05rem}
+.admin-view[data-view="deployment"] .path-test-row{align-items:flex-start}
+.admin-view[data-view="deployment"] .path-status{overflow-wrap:anywhere;line-height:1.35}
+.deployment-help{margin-top:.7rem;padding:.65rem .85rem;border:1px solid #dfe5e0;border-radius:10px;background:#fbfcfb;font-size:.87rem}
+.deployment-help[hidden]{display:none!important}
+.deployment-help summary{cursor:pointer;font-weight:650;color:#576a5d}
+.deployment-help p{white-space:pre-line;line-height:1.45;margin:.5rem 0 0;overflow-wrap:anywhere}

@@ -11,7 +11,7 @@ const onboardingChecklist=byId('onboardingChecklist'),copyOnboardingBtn=byId('co
 const serviceGrid=byId('serviceGrid'),taskList=byId('taskList'),refreshSystemBtn=byId('refreshSystemBtn'),restartBackendBtn=byId('restartBackendBtn'),restartFrontendBtn=byId('restartFrontendBtn'),systemActionStatus=byId('systemActionStatus');
 const testPreviewPathBtn=byId('testPreviewPathBtn'),testProductionPathBtn=byId('testProductionPathBtn'),previewPathStatus=byId('previewPathStatus'),productionPathStatus=byId('productionPathStatus');
 const ldapDomainConfig=byId('ldapDomainConfig'),ldapServerConfig=byId('ldapServerConfig'),ldapContainerConfig=byId('ldapContainerConfig'),ldapUpnSuffixConfig=byId('ldapUpnSuffixConfig'),signatureGroupPrefixConfig=byId('signatureGroupPrefixConfig'),signatureConventionSettings=byId('signatureConventionSettings'),applyEnvConfigBtn=byId('applyEnvConfigBtn');
-const envPathEditor=byId('envPathEditor'),copyDeploymentEnvBtn=byId('copyDeploymentEnvBtn'),copyDeploymentEnvStatus=byId('copyDeploymentEnvStatus'),adSearchTestBtn=byId('adSearchTestBtn'),adSearchTestResult=byId('adSearchTestResult');
+const productionPathHelp=byId('productionPathHelp'),productionPathHelpText=byId('productionPathHelpText'),profileSourceBanner=byId('profileSourceBanner'),adSearchTestBtn=byId('adSearchTestBtn'),adSearchTestResult=byId('adSearchTestResult');
 
 let apiBase='',currentStatus={},currentProfile=null,dirty=false,envManaged=false,envRevision='',baseVariableIds=new Set(),envEditable=false,envPendingRestart=false;
 
@@ -31,7 +31,7 @@ function markDirty(){if(envManaged&&!envEditable)return;dirty=true;applyEnvConfi
 function markClean(message='Gespeichert.'){dirty=false;saveProfileBtn.disabled=true;saveStatus.textContent=message;updateSaveBarVisibility()}
 function field(card,name){return card.querySelector(`[data-field="${name}"]`)}
 
-function switchView(name){document.querySelectorAll('.admin-nav-item').forEach(b=>b.classList.toggle('active',b.dataset.adminView===name));document.querySelectorAll('.admin-view').forEach(v=>v.classList.toggle('active',v.dataset.view===name));location.hash=name;updateSaveBarVisibility()}
+function switchView(name){document.querySelectorAll('.admin-nav-item').forEach(b=>b.classList.toggle('active',b.dataset.adminView===name));document.querySelectorAll('.admin-view').forEach(v=>v.classList.toggle('active',v.dataset.view===name));location.hash=name;profileSourceBanner.hidden=name==='deployment';updateSaveBarVisibility()}
 document.querySelectorAll('.admin-nav-item').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.adminView)));
 
 function addSignatureCard(key='',value={}){const card=signatureTemplate.content.firstElementChild.cloneNode(true);field(card,'key').value=key;field(card,'label').value=value.label||key;field(card,'adGroups').value=(value.adGroups||[]).join(', ');field(card,'templateHtml').value=value.templateHtml||'';field(card,'templateTxt').value=value.templateTxt||'';field(card,'resourceFolder').value=value.resourceFolder||'';field(card,'customTitleAttr').value=value.customTitleAttr||'';field(card,'faxFallback').value=value.faxFallback||'';card.querySelectorAll('input').forEach(input=>input.addEventListener('input',()=>{card.querySelector('.signature-title').textContent=field(card,'key').value.trim()||'Neue Signatur';markDirty();renderOnboarding()}));card.querySelector('.remove-signature').addEventListener('click',()=>{card.remove();markDirty();renderOnboarding()});const upload=card.querySelector('[data-upload="templateFiles"]');upload.addEventListener('change',async()=>{const files=[...(upload.files||[])];if(!files.length)return;const status=card.querySelector('.asset-upload-status');status.textContent='Upload läuft ...';try{if(!(await ensureAdminSession()))return;const form=new FormData();files.forEach(file=>form.append('templates',file,file.name));const parsed=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/templates/import`,{method:'POST',body:form},30000));if(!parsed.ok)throw new Error(parsed.body.error||`HTTP ${parsed.status}`);if(!envManaged){files.forEach(file=>{const lower=file.name.toLowerCase();if(lower.endsWith('.txt'))field(card,'templateTxt').value=file.name;if(lower.endsWith('.htm')||lower.endsWith('.html'))field(card,'templateHtml').value=file.name});markDirty()}status.textContent=envManaged?`${files.length} Datei(en) hochgeladen. Dateinamen in .env prüfen.`:`${files.length} Datei(en) hochgeladen. Profil noch speichern.`}catch(error){status.textContent=`Upload fehlgeschlagen: ${error.message}`}finally{upload.value=''}});signatureCards.appendChild(card);return card}
@@ -184,8 +184,7 @@ function renderProfile(profile,status={}){currentProfile=profile;organizationNam
   // Paths may be drafted in the UI, but the only persistent source is .env.
   // No hidden database write and no automatic restart.
   previewPath.disabled=envManaged&&!envEditable;productionPath.disabled=envManaged&&!envEditable;
-  envPathEditor.hidden=!envManaged;
-  copyDeploymentEnvStatus.textContent='';
+
 
   signatureCards.querySelectorAll('input:not([type="file"]), select').forEach(el=>{el.disabled=envManaged});
   variableCards.querySelectorAll('input, select').forEach(el=>{el.disabled=envManaged&&!envEditable});
@@ -331,6 +330,7 @@ async function checkDeploymentTarget(target){
   const isProduction=target==='production';
   const statusEl=isProduction?productionPathStatus:previewPathStatus;
   const button=isProduction?testProductionPathBtn:testPreviewPathBtn;
+  if(isProduction){productionPathHelp.hidden=true;productionPathHelp.open=false;productionPathHelpText.textContent=''}
   statusEl.textContent='Wird geprüft ...';
   statusEl.className='path-status muted';
   button.disabled=true;
@@ -360,8 +360,20 @@ async function checkDeploymentTarget(target){
       statusEl.textContent=body.message||'✓ Erreichbar und schreibbar';
       statusEl.className='path-status success';
     }else{
-      statusEl.textContent=`✗ ${body.error||'Pfad ist nicht schreibbar.'}${body.hint?' — '+body.hint:''}`;
+      statusEl.textContent=body.code==='SMB_ACCESS_DENIED'
+        ? '✗ Kein Zugriff auf die SMB-Freigabe'
+        : body.code==='SMB_PATH_NOT_FOUND'
+          ? '✗ Netzwerkpfad nicht gefunden'
+          : body.stage==='acl' || (body.writable&&!body.aclWritable)
+            ? '✗ Berechtigung für Ordner-ACLs fehlt'
+            : '✗ '+(body.message||body.error||'Pfad nicht beschreibbar.');
       statusEl.className='path-status error';
+      if(isProduction){
+        productionPathHelp.hidden=false;
+        productionPathHelpText.textContent=[body.hint,
+          body.error?'Technisch: '+body.error:'',
+          body.stage?'Schritt: '+body.stage:''].filter(Boolean).join('\n');
+      }
     }
   }catch(error){
     statusEl.textContent=`✗ ${error.message}`;
@@ -396,15 +408,6 @@ async function runAdSearchDiagnostic(){
   }finally{adSearchTestBtn.disabled=false}
 }
 adSearchTestBtn.addEventListener('click',runAdSearchDiagnostic);
-copyDeploymentEnvBtn.addEventListener('click',async()=>{
-  const local=previewPath.value.trim(),network=productionPath.value.trim();
-  if(!local||!network||/[\r\n]/.test(local+network)){
-    copyDeploymentEnvStatus.textContent='Beide Pfade müssen gesetzt sein (ohne Zeilenumbrüche).';return;
-  }
-  const snippet=`LOCAL_DEPLOYMENT_PATH=${local}\nNETWORK_DEPLOYMENT_PATH=${network}`;
-  try{await navigator.clipboard.writeText(snippet);copyDeploymentEnvStatus.textContent='Kopiert! In .env ersetzen, speichern und reload-config.ps1 ausführen.'}
-  catch{prompt('Diese Zeilen in .env übernehmen:',snippet);copyDeploymentEnvStatus.textContent='Einstellungen danach neu laden.'}
-});
 function authRoleLabel(role){return role==='admin'?'Admin':'IT'}
 
 function renderLdap(system={}){
@@ -495,7 +498,7 @@ async function logoutAdmin() {
 }
 adminLogoutBtn?.addEventListener('click',logoutAdmin);
 
-[organizationName,directoryServer,directorySearchBase,previewPath,productionPath,secondaryTitleAttributes].forEach(input=>input.addEventListener('input',()=>{markDirty();renderOnboarding();if(input===previewPath){previewPathStatus.textContent='Noch nicht geprüft.';previewPathStatus.className='path-status muted'}if(input===productionPath){productionPathStatus.textContent='Noch nicht geprüft.';productionPathStatus.className='path-status muted'}}));
+[organizationName,directoryServer,directorySearchBase,previewPath,productionPath,secondaryTitleAttributes].forEach(input=>input.addEventListener('input',()=>{markDirty();renderOnboarding();if(input===previewPath){previewPathStatus.textContent='Noch nicht geprüft.';previewPathStatus.className='path-status muted'}if(input===productionPath){productionPathStatus.textContent='Noch nicht geprüft.';productionPathStatus.className='path-status muted';productionPathHelp.hidden=true;productionPathHelp.open=false}}));
 addSignatureBtn.addEventListener('click',()=>{addSignatureCard();markDirty();renderOnboarding()});
 addVariableBtn.addEventListener('click',()=>{const card=addVariableCard({required:false});markDirty();renderOnboarding();card.scrollIntoView({behavior:'smooth',block:'center'});variableField(card,'displayName').focus()});
 reloadProfileBtn.addEventListener('click',async()=>{if(dirty&&!confirm('Ungespeicherte Änderungen verwerfen?'))return;await loadProfile();await loadAdminEnvSettings()});

@@ -4274,6 +4274,32 @@ async function handleV2ProfilePut(req, res) {
   }
 }
 
+// A path test runs as the backend Scheduled Task identity. Categorize SMB
+// errors at their actual stage; do not claim write/ACL success after stat fails.
+function describeV2TargetFailure(targetPath, error, stage) {
+  const unc = String(targetPath || '').startsWith('\\\\');
+  const code = String(error?.code || '');
+  if (!unc) return { code: code || 'FS_ERROR' };
+  const ipUnc = /^\\\\(?:\d{1,3}\.){3}\d{1,3}\\/.test(targetPath);
+  const dnsTip = ipUnc
+    ? ' Verwende statt der IP den echten Servernamen/FQDN (Kerberos statt ggf. blockiertem NTLM).'
+    : '';
+  if (code === 'EACCES' || code === 'EPERM') {
+    return { code: 'SMB_ACCESS_DENIED',
+      hint: 'Der Backend-Dienst darf diesen UNC-Pfad nicht öffnen. Berechtigungen auf SMB-Freigabe und NTFS-Zielpfad für das tatsächliche Taskkonto prüfen (SYSTEM verwendet bei Domänenfreigaben normalerweise DOMAIN\\COMPUTER$).' + dnsTip };
+  }
+  if (code === 'ENOENT' || code === 'ENOTDIR') {
+    return { code: 'SMB_PATH_NOT_FOUND',
+      hint: 'Freigabename und alle Unterordner prüfen. Der Zielordner muss bereits existieren; er wird nicht automatisch angelegt.' + dnsTip };
+  }
+  if (['ENETUNREACH','EHOSTUNREACH','ETIMEDOUT','ECONNREFUSED'].includes(code)) {
+    return { code: 'SMB_UNREACHABLE',
+      hint: 'Netzwerk, DNS, Firewall und SMB-Port 445 zum Dateiserver prüfen.' + dnsTip };
+  }
+  return { code: code || 'SMB_TEST_FAILED',
+    hint: 'Servernamen, Erreichbarkeit und Berechtigungen des Taskkontos prüfen.' + dnsTip };
+}
+
 // Probe from the backend's actual Windows identity (SYSTEM/computer account or service account).
 // The temporary directory is removed even on failure. Production requires WRITE_DAC as
 // well as share/NTFS write access because the generator sets per-user directory ACLs.
@@ -4285,7 +4311,8 @@ async function probeV2TargetAccess(targetPath, { requireAcl = false, createIfMis
     stats = await fs.promises.stat(targetPath);
   } catch (error) {
     if (error.code !== 'ENOENT' || !createIfMissing) {
-      return { exists: false, directory: false, writable: false, aclWritable: false, stage: 'stat', error: error.message };
+      return { exists: false, directory: false, writable: false, aclWritable: false, stage: 'stat', error: error.message,
+        ...describeV2TargetFailure(targetPath, error, 'stat') };
     }
     try {
       // Only the LOCAL preview path may be created automatically, never the production UNC.
@@ -4348,9 +4375,8 @@ async function probeV2TargetAccess(targetPath, { requireAcl = false, createIfMis
     };
   } catch (error) {
     return { exists: true, directory: true, writable: false, aclWritable: false, stage, error: error.message,
-      hint: stage === 'mkdir' || stage === 'write'
-        ? 'Schreibzugriff verweigert. Share- und NTFS-Berechtigungen des Backend-Dienstkontos prüfen (SYSTEM auf SMB = Domänen-Computerkonto).'
-        : 'Berechtigung zum Ändern von Ordner-ACLs fehlt. NTFS-Rechte des Backend-Dienstkontos prüfen.' };
+      ...describeV2TargetFailure(targetPath, error, stage),
+      ...(stage === 'acl' ? { hint: 'Berechtigung zum Ändern von Ordner-ACLs fehlt. NTFS-Rechte des Backend-Dienstkontos prüfen.' } : {}) };
   } finally {
     if (probeCreated) {
       await fs.promises.rm(probeDir, { recursive: true, force: true }).catch(
@@ -6145,6 +6171,7 @@ module.exports = {
   buildAdSearchFilter,
   isSafeUsernameSegment,
   resolveDomainsFromMemberOf,
+  describeV2TargetFailure,
   findExactAdUserIndex,
   resolveLdapDefaultRole,
   resolveLdapRole,
