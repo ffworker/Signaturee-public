@@ -1,0 +1,237 @@
+/* Signaturee dark workspace — common to Login, Generator and Admin. */
+:root {
+  --sig-accent:#328b63;
+  --sig-focus:#55d29d;
+}
+.theme-toggle{
+  flex:0 0 auto;font:inherit;font-size:.83rem;font-weight:750;
+  border:1px solid #657369;border-radius:10px;padding:.55rem .72rem;
+  min-width:88px;min-height:39px;letter-spacing:.01em;
+}
+.theme-toggle:focus-visible,
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline:2px solid var(--sig-focus)!important;
+  outline-offset:3px;
+}
+.admin-view h2,.admin-view h3 {letter-spacing:-.015em}
+.admin-nav-item,.top-actions button,.top-actions a {transition:background .15s ease,color .15s ease,border .15s ease}
+.admin-nav-item {min-height:43px}
+input:disabled,button:disabled,select:disabled{opacity:.65;cursor:not-allowed}
+input[readonly]{cursor:default}
+@media(max-width:760px){
+ .top-actions{gap:.5rem}
+ .theme-toggle{min-width:76px}
+}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --sig-bg:#121916;
+  --sig-panel:#202a25;
+  --sig-panel-2:#26322b;
+  --sig-muted:#aebfb3;
+  --sig-border:#38483e;
+  --sig-text:#e8f0ea;
+  --sig-accent:#348c64;
+  --sig-focus:#72dfaf;
+  background:var(--sig-bg)!important;
+  color:var(--sig-text)!important;
+}
+html[data-theme="dark"] body,
+html[data-theme="dark"] .login-page-v2{
+  background:var(--sig-bg)!important;color:var(--sig-text)!important;
+}
+html[data-theme="dark"] .step-card,
+html[data-theme="dark"] .run-bar,
+html[data-theme="dark"] .system-panel,
+html[data-theme="dark"] .login-card,
+html[data-theme="dark"] .admin-nav,
+html[data-theme="dark"] .admin-summary-card,
+html[data-theme="dark"] .signature-card,
+html[data-theme="dark"] .variable-card,
+html[data-theme="dark"] .deployment-target-card,
+html[data-theme="dark"] .role-grid article,
+html[data-theme="dark"] .auth-user-row,
+html[data-theme="dark"] .create-user-panel,
+html[data-theme="dark"] .ldap-box,
+html[data-theme="dark"] .ldap-diagnostic,
+html[data-theme="dark"] .onboarding-group,
+html[data-theme="dark"] .template-status-row,
+html[data-theme="dark"] .service-card,
+html[data-theme="dark"] .target-card,
+html[data-theme="dark"] .person-row,
+html[data-theme="dark"] .selected-person-row,
+html[data-theme="dark"] .summary-box,
+html[data-theme="dark"] .task-row,
+html[data-theme="dark"] .preview-data,
+html[data-theme="dark"] .bulk-add,
+html[data-theme="dark"] .result-path,
+html[data-theme="dark"] .connection-panel,
+html[data-theme="dark"] .deployment-help,
+html[data-theme="dark"] .variable-map-block,
+html[data-theme="dark"] .variable-explainer>div,
+html[data-theme="dark"] .variable-toolbar,
+html[data-theme="dark"] .login-help,
+html[data-theme="dark"] .save-bar,
+html[data-theme="dark"] .admin-banner,
+html[data-theme="dark"] .source-pill,
+html[data-theme="dark"] .count-badge,
+html[data-theme="dark"] .domain-pill,
+html[data-theme="dark"] .signature-choice,
+html[data-theme="dark"] .check,
+html[data-theme="dark"] .preflight-user-row{
+  background:var(--sig-panel)!important;
+  color:var(--sig-text)!important;
+  border-color:var(--sig-border)!important;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] .deployment-target-card.production {
+  border-color:#6d593d!important;
+  background:#272820!important;
+}
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .auth-user-row input,
+html[data-theme="dark"] .auth-user-row select,
+html[data-theme="dark"] .variable-card input{
+  background:#15201a!important;
+  color:#f3f7f4!important;
+  border:1px solid #526559!important;
+  caret-color:#7fe8b0;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#91a99a!important;opacity:1}
+html[data-theme="dark"] input[disabled],html[data-theme="dark"] select[disabled]{
+  color:#acb9af!important;background:#232c26!important;
+}
+html[data-theme="dark"] button,
+html[data-theme="dark"] .button{
+  background:#317b57;color:#fff;border-color:#518b6b
+}
+html[data-theme="dark"] button:hover:not(:disabled),
+html[data-theme="dark"] .button:hover{background:#379264;filter:none}
+html[data-theme="dark"] button.secondary,
+html[data-theme="dark"] .button.secondary,
+html[data-theme="dark"] .theme-toggle {
+  color:#e4efe6!important;background:#32443a!important;
+  border:1px solid #536b5a!important;
+}
+html[data-theme="dark"] button.secondary:hover:not(:disabled),
+html[data-theme="dark"] .button.secondary:hover{background:#405b49!important}
+html[data-theme="dark"] button.danger{color:#ffb4aa!important;background:transparent!important}
+html[data-theme="dark"] .admin-nav-item {
+  background:transparent!important;color:#c8d6ca!important;border:1px solid transparent!important;
+}
+html[data-theme="dark"] .admin-nav-item:hover{background:#34473b!important}
+html[data-theme="dark"] .admin-nav-item.active {
+  background:#327853!important;color:#fff!important;border-color:#4da679!important;
+}
+html[data-theme="dark"] .subtitle,
+html[data-theme="dark"] .muted,
+html[data-theme="dark"] .connection-badge,
+html[data-theme="dark"] .inline-status,
+html[data-theme="dark"] .person-meta,
+html[data-theme="dark"] .person-row small,
+html[data-theme="dark"] .source-pill,
+html[data-theme="dark"] .admin-section-head p,
+html[data-theme="dark"] .admin-grid label small,
+html[data-theme="dark"] .template-status-row .asset-state,
+html[data-theme="dark"] .variable-card-summary,
+html[data-theme="dark"] .variable-map-block small,
+html[data-theme="dark"] .variable-advanced summary,
+html[data-theme="dark"] .ldap-box small,
+html[data-theme="dark"] .ldap-diagnostic p,
+html[data-theme="dark"] .role-grid p,
+html[data-theme="dark"] .deployment-target-card p,
+html[data-theme="dark"] .deployment-help summary,
+html[data-theme="dark"] .login-help p,
+html[data-theme="dark"] .task-row small,
+html[data-theme="dark"] .service-card small,
+html[data-theme="dark"] .save-bar span,
+html[data-theme="dark"] .summary-box small,
+html[data-theme="dark"] .system-summary,
+html[data-theme="dark"] .flow-status small,
+html[data-theme="dark"] .target-card small,
+html[data-theme="dark"] .asset-state,
+html[data-theme="dark"] .empty-state {
+  color:var(--sig-muted)!important;
+}
+html[data-theme="dark"] .empty-state {border-color:#4c6153!important}
+html[data-theme="dark"] .path-status.success,
+html[data-theme="dark"] .inline-status.success,
+html[data-theme="dark"] .signature-health.ok {color:#8ce5ad!important}
+html[data-theme="dark"] .path-status.error,
+html[data-theme="dark"] .inline-status.error,
+html[data-theme="dark"] .signature-health.bad,
+html[data-theme="dark"] .error-text {color:#ffb1a7!important}
+html[data-theme="dark"] .eyebrow,
+html[data-theme="dark"] .target-kind,
+html[data-theme="dark"] .variable-badge,
+html[data-theme="dark"] .variable-card-title code{color:#9bd8b2!important}
+html[data-theme="dark"] .production .target-kind{color:#f3c58a!important}
+html[data-theme="dark"] .variable-badge,
+html[data-theme="dark"] .variable-card-title code,
+html[data-theme="dark"] .domain-pill,
+html[data-theme="dark"] .beta{background:#2e4838!important;border-color:#496a55!important}
+html[data-theme="dark"] .check.warning,
+html[data-theme="dark"] .preflight-chip.warn,
+html[data-theme="dark"] .preflight-overall.bad,
+html[data-theme="dark"] .preview-unresolved{background:#493923!important;color:#f7d49a!important}
+html[data-theme="dark"] .check.error,
+html[data-theme="dark"] .ldap-test-result.error,
+html[data-theme="dark"] .domain-pill.missing{background:#442927!important;color:#ffb8ac!important;border-color:#85564f!important}
+html[data-theme="dark"] .ldap-test-result.success,
+html[data-theme="dark"] .connection-panel.success,
+html[data-theme="dark"] .check.ok,
+html[data-theme="dark"] .preflight-chip.ok,
+html[data-theme="dark"] .preview-safe-badge{background:#234534!important;color:#b3ebc3!important;border-color:#456f52!important}
+html[data-theme="dark"] .ldap-test-result{
+  background:#26332b!important;color:#e6f0e7!important;border-color:#4e6754!important;
+}
+html[data-theme="dark"] .save-bar {
+  background:rgba(28,39,32,.97)!important;
+  border-color:#516357!important;
+  box-shadow:0 18px 50px rgba(0,0,0,.33)!important;
+}
+html[data-theme="dark"] .signature-choice:has(input:checked),
+html[data-theme="dark"] .target-card:has(input:checked){
+  background:#284533!important;border-color:#60a77c!important;
+}
+html[data-theme="dark"] .target-card.production:has(input:checked){
+  background:#473a28!important;border-color:#b98a4b!important;
+}
+html[data-theme="dark"] .login-card .login-help{background:#26362c!important}
+html[data-theme="dark"] .login-page-v2 .connection-details,
+html[data-theme="dark"] .system-body,
+html[data-theme="dark"] .asset-upload-row,
+html[data-theme="dark"] .preview-result,
+html[data-theme="dark"] .variable-card-body,
+html[data-theme="dark"] .selected-header,
+html[data-theme="dark"] .compact-selected-header,
+html[data-theme="dark"] .bulk-body{border-color:var(--sig-border)!important}
+html[data-theme="dark"] a:not(.button){color:#9cdbb5}
+html[data-theme="dark"] code{color:#c6efd7}
+html[data-theme="dark"] .preview-canvas,
+html[data-theme="dark"] .signature-preview-surface {
+  background:#fff!important;color:#111!important;
+}
+/* Preserve actual signature rendering exactly as in Outlook, even in dark UI. */
+html[data-theme="dark"] .preview-canvas *{color:initial}
+html[data-theme="dark"] .preview-canvas .signature-preview-surface *{color:revert}
+html[data-theme="dark"] .preview-text-details pre,
+html[data-theme="dark"] .run-result pre{
+  background:#0c1510!important;color:#e2efe5!important;
+}
+html[data-theme="dark"] .variable-advanced,
+html[data-theme="dark"] .variable-advanced-grid,
+html[data-theme="dark"] .variable-card-head,
+html[data-theme="dark"] .onboarding-group h3{
+  background:var(--sig-panel-2)!important;border-color:var(--sig-border)!important;color:var(--sig-text)!important;
+}
+html[data-theme="dark"] .variable-explainer>span{color:#a9c5af!important}
+html[data-theme="dark"] .source-pill,
+html[data-theme="dark"] .signature-badge{color:#ccebd6!important}
