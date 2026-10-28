@@ -11,9 +11,11 @@ const onboardingChecklist=byId('onboardingChecklist'),copyOnboardingBtn=byId('co
 const serviceGrid=byId('serviceGrid'),taskList=byId('taskList'),refreshSystemBtn=byId('refreshSystemBtn'),restartBackendBtn=byId('restartBackendBtn'),restartFrontendBtn=byId('restartFrontendBtn'),systemActionStatus=byId('systemActionStatus');
 const testPreviewPathBtn=byId('testPreviewPathBtn'),testProductionPathBtn=byId('testProductionPathBtn'),previewPathStatus=byId('previewPathStatus'),productionPathStatus=byId('productionPathStatus');
 const ldapDomainConfig=byId('ldapDomainConfig'),ldapServerConfig=byId('ldapServerConfig'),ldapContainerConfig=byId('ldapContainerConfig'),ldapUpnSuffixConfig=byId('ldapUpnSuffixConfig'),signatureGroupPrefixConfig=byId('signatureGroupPrefixConfig'),signatureConventionSettings=byId('signatureConventionSettings'),applyEnvConfigBtn=byId('applyEnvConfigBtn');
+const newSignatureWizard=byId('newSignatureWizard'),newSignatureForm=byId('newSignatureForm'),newSignatureKey=byId('newSignatureKey'),newSignatureHtml=byId('newSignatureHtml'),newSignatureTxt=byId('newSignatureTxt'),newSignatureGroupPreview=byId('newSignatureGroupPreview'),newSignatureStatus=byId('newSignatureStatus'),submitSignatureCreateBtn=byId('submitSignatureCreateBtn'),cancelSignatureCreateBtn=byId('cancelSignatureCreateBtn');
+const signaturePrefixPreview=byId('signaturePrefixPreview'),signaturePrefixEditor=byId('signaturePrefixEditor'),editSignaturePrefixBtn=byId('editSignaturePrefixBtn');
 const productionPathHelp=byId('productionPathHelp'),productionPathHelpText=byId('productionPathHelpText'),profileSourceBanner=byId('profileSourceBanner'),adSearchTestBtn=byId('adSearchTestBtn'),adSearchTestResult=byId('adSearchTestResult');
 
-let apiBase='',currentStatus={},currentProfile=null,dirty=false,envManaged=false,envRevision='',baseVariableIds=new Set(),envEditable=false,envPendingRestart=false;
+let apiBase='',currentStatus={},currentProfile=null,dirty=false,envManaged=false,envRevision='',baseVariableIds=new Set(),envEditable=false,envPendingRestart=false,automaticSignatures=false,activeSignatureGroupPrefix='Signature-';
 
 function safeGet(k){try{return localStorage.getItem(k)}catch{return null}}
 function safeSet(k,v){try{localStorage.setItem(k,v)}catch{}}
@@ -252,11 +254,11 @@ function renderProfile(profile,status={}){currentProfile=profile;organizationNam
       variableField(card,'id').readOnly=true;
     }
   });
-  addSignatureBtn.hidden=envManaged;
-  addSignatureBtn.disabled=envManaged;
+  addSignatureBtn.hidden=envManaged&&!automaticSignatures;
+  addSignatureBtn.disabled=envManaged&&!automaticSignatures;
   addVariableBtn.disabled=envManaged&&!envEditable;
   saveProfileBtn.disabled=true;
-  signatureConventionSettings.hidden=!envManaged;
+  signatureConventionSettings.hidden=!envManaged||!automaticSignatures;
   renderOnboarding()}
 function collectProfile(){const signatures={},seen=new Set(),dupes=new Set();signatureCards.querySelectorAll('.signature-card').forEach(card=>{const key=field(card,'key').value.trim();if(!key)return;const low=key.toLowerCase();if(seen.has(low))dupes.add(key);seen.add(low);signatures[key]={label:field(card,'label').value.trim()||key,adGroups:splitList(field(card,'adGroups').value),templateHtml:field(card,'templateHtml').value.trim(),templateTxt:field(card,'templateTxt').value.trim(),resourceFolder:field(card,'resourceFolder').value.trim(),customTitleAttr:field(card,'customTitleAttr').value.trim(),faxFallback:field(card,'faxFallback').value.trim()}});if(dupes.size)throw new Error(`Doppelte Signatur-Schlüssel: ${[...dupes].join(', ')}`);const variables=[];variableCards.querySelectorAll('.variable-card').forEach(card=>{const id=variableField(card,'id').value.trim();if(!id)return;const original=card.__variableOriginal&&typeof card.__variableOriginal==='object'?card.__variableOriginal:{};const item={...original,id,displayName:variableField(card,'displayName').value.trim()||id,required:variableField(card,'required').checked,adProperties:splitList(variableField(card,'adProperties').value),placeholders:splitList(variableField(card,'placeholders').value)};const csv=variableField(card,'csvHeader').value.trim();if(csv)item.csvHeader=csv;else delete item.csvHeader;const description=variableField(card,'description').value.trim();if(description)item.description=description;else delete item.description;variables.push(item)});return{version:2,organization:{name:organizationName.value.trim()},directory:{server:directoryServer.value.trim(),searchBase:directorySearchBase.value.trim()},targets:{preview:{path:previewPath.value.trim()},production:{path:productionPath.value.trim()}},signatures,secondaryTitleAttributes:splitList(secondaryTitleAttributes.value),variables:{variables,ordering:variables.map(v=>v.id)}}}
 
@@ -286,7 +288,10 @@ async function loadAdminEnvSettings(){
     [signatureGroupPrefixConfig,'SIGNATUREE_AUTO_GROUP_PREFIX'],
   ]){el.value=val[key]||'';el.disabled=false}
   signatureGroupPrefixConfig.value=val.SIGNATUREE_AUTO_GROUP_PREFIX||'Signature-';
-  signatureConventionSettings.hidden=false;
+  signatureConventionSettings.hidden=!automaticSignatures;
+  signaturePrefixPreview.textContent=val.SIGNATUREE_AUTO_GROUP_PREFIX||'Signature-';
+  signaturePrefixEditor.hidden=true;
+  editSignaturePrefixBtn.disabled=false;
   variableCards.innerHTML='';
   for(const variable of body.variables||[])addVariableCard(variable);
   variableCards.querySelectorAll('.variable-card').forEach(card=>{
@@ -385,7 +390,11 @@ async function applySavedEnv(){
     applyEnvConfigBtn.disabled=false;
   }
 }
-async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'Konfiguration';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Freigegebene Einstellungen kannst du hier mit Backup und Validierung bearbeiten. Änderungen werden nach Backend-Neustart aktiv.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
+async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');
+automaticSignatures=Boolean(body.automaticSignatures);
+activeSignatureGroupPrefix=String(body.automaticGroupPrefix||'Signature-');
+updateNewSignatureGroupPreview();
+profileSourceBadge.textContent=body.source||'Konfiguration';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Freigegebene Einstellungen kannst du hier mit Backup und Validierung bearbeiten. Änderungen werden nach Backend-Neustart aktiv.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
 async function saveProfile(){if(envManaged){return saveEnvSettings()}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert.'}
 
 function renderService(name,service){const ok=Boolean(service?.healthy);const detail=service?.statusCode?`HTTP ${service.statusCode} · ${service.responseMs??0} ms`:(service?.error||'nicht erreichbar');return `<div class="service-card"><span class="health-dot ${ok?'ok':'bad'}"></span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div></div>`}
@@ -604,7 +613,72 @@ async function logoutAdmin() {
 adminLogoutBtn?.addEventListener('click',logoutAdmin);
 
 [organizationName,directoryServer,directorySearchBase,previewPath,productionPath,secondaryTitleAttributes].forEach(input=>input.addEventListener('input',()=>{markDirty();renderOnboarding();if(input===previewPath){previewPathStatus.textContent='Noch nicht geprüft.';previewPathStatus.className='path-status muted'}if(input===productionPath){productionPathStatus.textContent='Noch nicht geprüft.';productionPathStatus.className='path-status muted';productionPathHelp.hidden=true;productionPathHelp.open=false}}));
-addSignatureBtn.addEventListener('click',()=>{const card=addSignatureCard();card.querySelector('.signature-editor').open=true;markDirty();renderOnboarding();field(card,'key').focus()});
+function updateNewSignatureGroupPreview(){
+  const key=newSignatureKey.value.trim()||'XY';
+  newSignatureGroupPreview.textContent=activeSignatureGroupPrefix+key;
+}
+newSignatureKey.addEventListener('input',updateNewSignatureGroupPreview);
+editSignaturePrefixBtn.addEventListener('click',()=>{
+  if(!envEditable)return;
+  signaturePrefixEditor.hidden=false;
+  editSignaturePrefixBtn.hidden=true;
+  signatureGroupPrefixConfig.focus();
+});
+cancelSignatureCreateBtn.addEventListener('click',()=>{
+  newSignatureWizard.hidden=true;
+  newSignatureForm.reset();
+  newSignatureStatus.textContent='';
+});
+addSignatureBtn.addEventListener('click',()=>{
+  if(envManaged){
+    if(!automaticSignatures)return;
+    newSignatureWizard.hidden=!newSignatureWizard.hidden;
+    if(!newSignatureWizard.hidden){
+      newSignatureStatus.textContent='';
+      updateNewSignatureGroupPreview();
+      newSignatureKey.focus();
+    }
+    return;
+  }
+  const card=addSignatureCard();
+  card.querySelector('.signature-editor').open=true;
+  markDirty();renderOnboarding();field(card,'key').focus();
+});
+newSignatureForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const key=newSignatureKey.value.trim();
+  const html=newSignatureHtml.files?.[0],txt=newSignatureTxt.files?.[0];
+  if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/.test(key)||key.toLowerCase()==='example'){
+    newSignatureStatus.textContent='Bitte ein gültiges Kürzel (z. B. HR) eingeben.';
+    return;
+  }
+  if(!html||!txt||!/.html?$/i.test(html.name)||!/.txt$/i.test(txt.name)){
+    newSignatureStatus.textContent='Eine HTML- und eine TXT-Datei auswählen.';
+    return;
+  }
+  if(!(await ensureAdminSession()))return;
+  const form=new FormData();
+  form.append('key',key);
+  form.append('html',html,html.name);
+  form.append('txt',txt,txt.name);
+  submitSignatureCreateBtn.disabled=true;
+  newSignatureStatus.textContent='Prüfe und speichere Vorlagen …';
+  try{
+    const {ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/signatures/create`,{
+      method:'POST',body:form
+    },30000));
+    if(!ok)throw new Error(body.error||`HTTP ${status}`);
+    await loadProfile();
+    await loadAdminEnvSettings();
+    newSignatureStatus.textContent=`✓ ${body.key} angelegt. Gruppe: ${body.group}. Die AD-Gruppe muss bereits existieren.`;
+    newSignatureForm.reset();
+    newSignatureKey.value=key;
+    updateNewSignatureGroupPreview();
+    newSignatureWizard.hidden=false;
+  }catch(error){
+    newSignatureStatus.textContent='✗ '+error.message;
+  }finally{submitSignatureCreateBtn.disabled=false}
+});
 addVariableBtn.addEventListener('click',()=>{const card=addVariableCard({required:false});card.querySelector('.variable-editor').open=true;markDirty();renderOnboarding();card.scrollIntoView({behavior:'smooth',block:'center'});variableField(card,'displayName').focus()});
 reloadProfileBtn.addEventListener('click',async()=>{if(dirty&&!confirm('Ungespeicherte Änderungen verwerfen?'))return;await loadProfile();await loadAdminEnvSettings()});
 saveProfileBtn.addEventListener('click',saveProfile);
