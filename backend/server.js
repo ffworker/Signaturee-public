@@ -5961,6 +5961,17 @@ function startServer() {
     if (configured.errors.length) {
       throw new Error('Invalid .env business configuration: ' + configured.errors.join(' | '));
     }
+    // Create the local preview folder on normal startup; never create remote UNC
+    // directories automatically. A failed mkdir is reported but does not hide
+    // login/AD diagnostics behind a failed server startup.
+    const previewFolder = resolvePath(configured.profile.targets.preview.path);
+    if (!previewFolder.startsWith('\\\\')) {
+      try {
+        fs.mkdirSync(previewFolder, { recursive: true });
+      } catch (error) {
+        console.warn(`Local preview folder cannot be created at ${previewFolder}: ${error.message}`);
+      }
+    }
   }
   const server = http.createServer(routeRequest);
   server.requestTimeout = REQUEST_TIMEOUT_MS;
