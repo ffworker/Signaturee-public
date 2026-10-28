@@ -609,7 +609,7 @@ function resolveLdapRole({ samAccountName, userPrincipalName, attributes = {}, g
   return resolveLdapDefaultRole();
 }
 
-async function authenticateLdapUser({ username, password }) {
+async function authenticateLdapUser({ username, password, timeoutMs = 0 }) {
   const inputUsername = String(username || '').trim();
   const inputPassword = String(password || '');
   if (!AUTH_LDAP_ENABLED || !inputUsername || !inputPassword) {
@@ -639,8 +639,6 @@ async function authenticateLdapUser({ username, password }) {
     '}',
     `$bindIdentity = '${escapePowerShellString(bindIdentity)}'`,
     '$plainPassword = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([Console]::In.ReadLine()))',
-    '$ok = $ctx.ValidateCredentials($bindIdentity, $plainPassword)',
-    'if (-not $ok) { throw "INVALID_CREDENTIALS" }',
     `$samCandidate = '${escapePowerShellString(samCandidate)}'`,
     `$attributeNames = @(${AUTH_LDAP_ROLE_ATTRIBUTES.map((name) => `'${name}'`).join(',')})`,
     '$user = $null',
@@ -649,8 +647,12 @@ async function authenticateLdapUser({ username, password }) {
     '} elseif ($samCandidate) {',
     '  $user = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($ctx, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, $samCandidate)',
     '}',
-    'if (-not $user) { throw "AUTHENTICATED_USER_NOT_FOUND" }',
+    'if (-not $user) { throw "DIRECTORY_USER_NOT_FOUND" }',
+    // ValidateCredentials explicitly requires a simple SAM username, not a UPN
+    // or DOMAIN\username. Resolve the identity first to prevent wrong-user binds.
     '$sam = [string]$user.SamAccountName',
+    '$ok = $ctx.ValidateCredentials($sam, $plainPassword)',
+    'if (-not $ok) { throw "INVALID_CREDENTIALS" }',
     '$display = [string]$user.DisplayName',
     '$upn = [string]$user.UserPrincipalName',
     '$entry = $user.GetUnderlyingObject()',
@@ -673,6 +675,8 @@ async function authenticateLdapUser({ username, password }) {
 
   return new Promise((resolve, reject) => {
     const child = spawn(powershellCommand, ['-NoLogo', '-NoProfile', '-Command', psScript]);
+    let timedOut = false;
+    const timeout = timeoutMs > 0 ? setTimeout(() => { timedOut = true; child.kill(); }, timeoutMs) : null;
     child.stdin.on('error', () => {});
     child.stdin.end(`${Buffer.from(inputPassword, 'utf8').toString('base64')}\n`);
     let stdout = '';
@@ -685,6 +689,7 @@ async function authenticateLdapUser({ username, password }) {
       stderr += data.toString('utf8');
     });
     child.on('error', (error) => {
+      if (timeout) clearTimeout(timeout);
       const unavailableError = new Error(`LDAP auth unavailable: ${error.message}`);
       unavailableError.status = 503;
       unavailableError.code = 'LDAP_AUTH_UNAVAILABLE';
@@ -693,6 +698,11 @@ async function authenticateLdapUser({ username, password }) {
       reject(unavailableError);
     });
     child.on('close', (code) => {
+      if (timeout) clearTimeout(timeout);
+      if (timedOut) {
+        resolve({ attempted: true, authenticated: false, timeout: true });
+        return;
+      }
       if (code !== 0) {
         const invalidCreds = /INVALID_CREDENTIALS/i.test(stderr);
         resolve({
@@ -1323,9 +1333,122 @@ function authSystemSnapshot() {
       container: AUTH_LDAP_CONTAINER,
       defaultRole: resolveLdapDefaultRole(),
       roleRules: AUTH_LDAP_ROLE_RULES.length,
+      upnSuffix: AUTH_LDAP_UPN_SUFFIX,
       fallbackToLocal: AUTH_LDAP_FALLBACK_TO_DB,
     },
   };
+}
+
+// Admin-only diagnostic. Never returns, persists or logs the submitted password;
+// an attempted LDAP bind is performed by the same function used for real logins.
+let lastLdapDiagnosticAt = 0;
+let ldapDiagnosticBusy = false;
+function classifyLdapDiagnosticFailure(result) {
+  const detail = String(result?.stderr || '');
+  if (result?.timeout) {
+    return {
+      code: 'LDAP_TIMEOUT',
+      message: 'Zeitüberschreitung beim LDAP-Test (25 Sekunden).',
+      hint: 'DC-Erreichbarkeit, DNS und LDAP-Kontext prüfen.',
+    };
+  }
+  if (result?.invalidCredentials) {
+    return {
+      code: 'INVALID_CREDENTIALS',
+      message: 'AD-Anmeldedaten wurden abgelehnt.',
+      hint: 'Benutzername/UPN, Passwort und Kontostatus prüfen. Gegebenenfalls AUTH_LDAP_UPN_SUFFIX prüfen.',
+    };
+  }
+  if (/DIRECTORY_USER_NOT_FOUND|AUTHENTICATED_USER_NOT_FOUND/i.test(detail)) {
+    return {
+      code: 'USER_LOOKUP_FAILED',
+      message: 'Der AD-Benutzer konnte anhand des angegebenen Namens oder UPN nicht gefunden werden (vor der Passwortprüfung).',
+      hint: 'AUTH_LDAP_CONTAINER testweise weglassen und kontrollieren, ob die Benutzer-OU den Account enthält.',
+    };
+  }
+  if (/server.*(not operational|could not be contacted)|domain.*(not.*available|not.*exist)|LDAP_SERVER_DOWN|0x8007203a/i.test(detail)) {
+    return {
+      code: 'DIRECTORY_UNAVAILABLE',
+      message: 'Domänencontroller oder LDAP-Dienst nicht erreichbar.',
+      hint: 'DNS, Domain-Join, Netzwerk und AUTH_LDAP_SERVER / AUTH_LDAP_DOMAIN prüfen.',
+    };
+  }
+  if (/container|distinguished name|0x80072030|0x8007054b/i.test(detail)) {
+    return {
+      code: 'DIRECTORY_CONTEXT_ERROR',
+      message: 'LDAP-Kontext oder Suchcontainer konnte nicht geöffnet werden.',
+      hint: 'AUTH_LDAP_CONTAINER prüfen oder vorübergehend auskommentieren; Domain und DC prüfen.',
+    };
+  }
+  return {
+    code: 'LDAP_BIND_OR_LOOKUP_FAILED',
+    message: 'Die LDAP-Authentifizierung oder anschließende Benutzerauflösung ist fehlgeschlagen.',
+    hint: 'AUTH_LDAP_DOMAIN/SERVER, UPN-Suffix und Container prüfen; ggf. Server-Ereignisprotokoll für Details ansehen.',
+  };
+}
+
+async function handleV2LdapTest(req, res) {
+  if (!AUTH_LDAP_ENABLED) {
+    return sendJson(res, 200, {
+      ok: false, mode: 'configuration', code: 'LDAP_DISABLED',
+      message: 'LDAP ist deaktiviert. AUTH_LDAP_ENABLED=true in .env setzen und Backend neu starten.',
+      config: authSystemSnapshot().ldap,
+    });
+  }
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.includes('application/json')) {
+    return sendJson(res, 415, { error: 'LDAP-Test erwartet application/json.' });
+  }
+  let body;
+  try {
+    body = await parseJsonBody(req);
+  } catch (error) {
+    return sendJson(res, getErrorStatus(error, 400), { error: 'Ungültiger JSON-Body.' });
+  }
+  const username = String(body?.username || '').trim();
+  const password = String(body?.password || '');
+  if (!username && !password) {
+    return sendJson(res, 200, {
+      ok: true, mode: 'configuration', code: 'CONFIGURATION_LOADED',
+      message: 'LDAP-Konfiguration geladen. Das bestätigt noch KEINE Verbindung oder Anmeldung. Für einen echten Test AD-Konto und Passwort eingeben.',
+      config: authSystemSnapshot().ldap,
+    });
+  }
+  if (!username || !password) {
+    return sendJson(res, 400, { error: 'Für einen echten LDAP-Test Benutzername UND Passwort angeben.' });
+  }
+  if (username.length > 256 || password.length > 1024) {
+    return sendJson(res, 400, { error: 'Eingabe zu lang.' });
+  }
+  if (ldapDiagnosticBusy || Date.now() - lastLdapDiagnosticAt < 4000) {
+    return sendJson(res, 429, { error: 'LDAP-Test läuft bereits oder wurde kürzlich ausgeführt. Bitte kurz warten.' });
+  }
+  ldapDiagnosticBusy = true;
+  lastLdapDiagnosticAt = Date.now();
+  try {
+    const result = await authenticateLdapUser({ username, password, timeoutMs: 25000 });
+    if (result.authenticated) {
+      return sendJson(res, 200, {
+        ok: true, mode: 'credentials', code: 'LDAP_AUTHENTICATED',
+        message: 'AD-Anmeldung und Benutzerauflösung erfolgreich.',
+        account: { username: result.username, role: result.role, displayName: result.displayName },
+      });
+    }
+    const failure = classifyLdapDiagnosticFailure(result);
+    return sendJson(res, 200, { ok: false, mode: 'credentials', ...failure });
+  } catch (error) {
+    // Powershell child-process errors may contain system details. Do not reflect raw
+    // stderr, PowerShell invocation or any submitted credentials to the browser.
+    return sendJson(res, 200, {
+      ok: false, mode: 'credentials', code: error.code === 'POWERSHELL_NOT_AVAILABLE' ? 'POWERSHELL_UNAVAILABLE' : 'LDAP_DIAGNOSTIC_ERROR',
+      message: error.code === 'POWERSHELL_NOT_AVAILABLE'
+        ? 'PowerShell ist auf dem Backend nicht verfügbar.'
+        : 'LDAP-Test konnte nicht ausgeführt werden.',
+      hint: 'Backend-Dienstkonto, PowerShell-Installation und AD/LDAP-Konfiguration prüfen.',
+    });
+  } finally {
+    ldapDiagnosticBusy = false;
+  }
 }
 
 async function handleV2AuthUsersList(_req, res) {
@@ -4079,13 +4202,25 @@ async function handleV2ProfilePut(req, res) {
 // Probe from the backend's actual Windows identity (SYSTEM/computer account or service account).
 // The temporary directory is removed even on failure. Production requires WRITE_DAC as
 // well as share/NTFS write access because the generator sets per-user directory ACLs.
-async function probeV2TargetAccess(targetPath, { requireAcl = false } = {}) {
+async function probeV2TargetAccess(targetPath, { requireAcl = false, createIfMissing = false } = {}) {
   if (!targetPath) return { exists: false, directory: false, writable: false, aclWritable: false, error: 'No path configured.' };
   let stats;
+  let created = false;
   try {
     stats = await fs.promises.stat(targetPath);
   } catch (error) {
-    return { exists: false, directory: false, writable: false, aclWritable: false, error: error.message };
+    if (error.code !== 'ENOENT' || !createIfMissing) {
+      return { exists: false, directory: false, writable: false, aclWritable: false, stage: 'stat', error: error.message };
+    }
+    try {
+      // Only the LOCAL preview path may be created automatically, never the production UNC.
+      await fs.promises.mkdir(targetPath, { recursive: true });
+      stats = await fs.promises.stat(targetPath);
+      created = true;
+    } catch (mkdirError) {
+      return { exists: false, directory: false, writable: false, aclWritable: false, stage: 'mkdir',
+        error: mkdirError.message, hint: 'Der lokale Vorschaupfad konnte nicht angelegt werden. Dienstkonto und Laufwerksrechte prüfen.' };
+    }
   }
   if (!stats.isDirectory()) {
     return { exists: true, directory: false, writable: false, aclWritable: false, error: 'Configured path is not a directory.' };
@@ -4093,17 +4228,21 @@ async function probeV2TargetAccess(targetPath, { requireAcl = false } = {}) {
 
   const probeDir = path.join(targetPath,
     `.signaturee-access-test-${process.pid}-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`);
-  let created = false;
+  let probeCreated = false;
+  let stage = 'mkdir';
   try {
     await fs.promises.mkdir(probeDir);
-    created = true;
+    probeCreated = true;
+    stage = 'write';
     const probeFile = path.join(probeDir, 'write-test.tmp');
     await fs.promises.writeFile(probeFile, 'Signaturee write test\n', { flag: 'wx' });
     await fs.promises.readFile(probeFile, 'utf8');
 
     if (!requireAcl) {
-      return { exists: true, directory: true, writable: true, aclWritable: null, message: 'Path is reachable and writable.' };
+      return { exists: true, directory: true, writable: true, aclWritable: null, created,
+        message: created ? 'Vorschauordner angelegt; Pfad ist erreichbar und schreibbar.' : 'Path is reachable and writable.' };
     }
+    stage = 'acl';
     if (process.platform !== 'win32') {
       return { exists: true, directory: true, writable: true, aclWritable: false, error: 'ACL validation requires a Windows backend.' };
     }
@@ -4133,9 +4272,12 @@ async function probeV2TargetAccess(targetPath, { requireAcl = false } = {}) {
         : { error: `Cannot set folder ACLs: ${aclResult.error}` }),
     };
   } catch (error) {
-    return { exists: true, directory: true, writable: false, aclWritable: false, error: error.message };
+    return { exists: true, directory: true, writable: false, aclWritable: false, stage, error: error.message,
+      hint: stage === 'mkdir' || stage === 'write'
+        ? 'Schreibzugriff verweigert. Share- und NTFS-Berechtigungen des Backend-Dienstkontos prüfen (SYSTEM auf SMB = Domänen-Computerkonto).'
+        : 'Berechtigung zum Ändern von Ordner-ACLs fehlt. NTFS-Rechte des Backend-Dienstkontos prüfen.' };
   } finally {
-    if (created) {
+    if (probeCreated) {
       await fs.promises.rm(probeDir, { recursive: true, force: true }).catch(
         (error) => console.warn(`Cannot remove temporary deployment probe ${probeDir}: ${error.message}`));
     }
@@ -4156,8 +4298,11 @@ async function handleV2TargetCheck(req, res) {
     const profile = getV2Profile();
     const targetPath = targetKey === 'production'
       ? String(profile.targets?.production?.path || '').trim()
-      : String(profile.targets?.preview?.path || '').trim();
-    const result = await probeV2TargetAccess(targetPath, { requireAcl: targetKey === 'production' });
+      : resolvePath(String(profile.targets?.preview?.path || '').trim());
+    const result = await probeV2TargetAccess(targetPath, {
+      requireAcl: targetKey === 'production',
+      createIfMissing: targetKey === 'preview' && !targetPath.startsWith('\\\\'),
+    });
     return sendJson(res, targetPath ? 200 : 422, { target: targetKey, path: targetPath, ...result });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
@@ -4212,7 +4357,7 @@ function getV2Target(targetRaw, profileRaw) {
   return {
     key: 'Local',
     label: 'Server-Vorschau',
-    path: profile.targets.preview.path,
+    path: resolvePath(profile.targets.preview.path),
     skipAcls: true,
   };
 }
@@ -5468,7 +5613,10 @@ async function handleAuthLogin(req, res) {
     }
 
     if (!loginRole) {
-      const ldapServiceIssue = Boolean(ldapAttempt?.attempted && !ldapAttempt.invalidCredentials && ldapAttempt.stderr);
+      // An account missing from the configured AD container is a 401, not a
+      // directory outage (503). Detailed reasons remain admin-only.
+      const userNotFound = /DIRECTORY_USER_NOT_FOUND|AUTHENTICATED_USER_NOT_FOUND/i.test(String(ldapAttempt?.stderr || ''));
+      const ldapServiceIssue = Boolean(ldapAttempt?.attempted && !ldapAttempt.invalidCredentials && !userNotFound && ldapAttempt.stderr);
       if (ldapServiceIssue) {
         console.warn(`LDAP authentication failed: ${ldapAttempt.stderr}`);
         return sendJson(res, 503, { error: 'LDAP authentication unavailable.' });
@@ -5559,6 +5707,10 @@ function routeRequest(req, res) {
   if (relativePath === '/api/auth/login' && req.method === 'POST') return handleAuthLogin(req, res);
   if (relativePath === '/api/auth/me' && req.method === 'GET') return handleAuthMe(req, res);
   if (relativePath === '/api/auth/logout' && req.method === 'POST') return handleAuthLogout(req, res);
+  if (relativePath === '/api/v2/auth/ldap/test' && req.method === 'POST') {
+    if (!ensure('admin')) return;
+    return handleV2LdapTest(req, res);
+  }
   if (relativePath === '/api/v2/auth/users' && req.method === 'GET') {
     if (!ensure('admin')) return;
     return handleV2AuthUsersList(req, res);
