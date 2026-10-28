@@ -1,44 +1,55 @@
-# API
+# Signaturee v2 — API reference
 
-The UI is the primary interface. The routes below are the current v2 integration/troubleshooting surface.
+The web UI is the primary interface. The endpoints below are useful for integrations, health checks and diagnostics. Use authenticated requests, and give diagnostic/administrative calls the required Admin role.
 
-## Health / auth
+## Health and login
 
-- `GET /health`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `POST /api/auth/logout`
+| Method | Route | Description |
+| --- | --- | --- |
+| GET | `/health` | Backend health |
+| POST | `/api/auth/login` | Login (explicit `source: "local"` or `source: "ldap"`) |
+| GET | `/api/auth/me` | Session and role |
+| POST | `/api/auth/logout` | End session |
 
-## V2 profile / administration
+Local Admin and LDAP employee accounts are separate providers. To resolve an identical username in both, select the login source explicitly.
 
-- `GET /api/v2/profile`
-- `PUT /api/v2/profile`
-- `POST /api/v2/templates/import`
-- `POST /api/v2/targets/check`
-- `GET /api/v2/auth/users`
-- `POST /api/v2/auth/users`
-- `PATCH /api/v2/auth/users/:username`
-- `DELETE /api/v2/auth/users/:username`
+## Admin configuration and diagnostics
+
+| Method | Route | Description |
+| --- | --- | --- |
+| GET | `/api/v2/profile` | Effective v2 profile derived from `.env` and available templates |
+| PUT | `/api/v2/profile` | **HTTP 409** in env mode: edit `.env` and reload instead |
+| POST | `/api/v2/templates/import` | Upload template files to the active template directory |
+| POST | `/api/v2/targets/check` | Check local or productive target as the backend identity |
+| POST | `/api/v2/ad/test` | Admin-only `Get-ADUser` search diagnostic |
+| POST | `/api/v2/auth/ldap/test` | Admin-only config or AD credential diagnostic |
+| GET | `/api/v2/auth/users` | Local-account list |
+| POST | `/api/v2/auth/users` | Create local account |
+| PATCH | `/api/v2/auth/users/:username` | Update local account |
+| DELETE | `/api/v2/auth/users/:username` | Delete local account |
+
+The LDAP test accepts an empty JSON body for **configuration only**; submitting an AD username/password performs a real credential check and does not create a session. Do not transmit passwords over ordinary remote HTTP.
+
+The **signature catalog** is discovered from `XY_Template` HTML/TXT pairs in `TEMPLATE_DIR` on startup when `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`. Which ones a user may generate depends on AD security group membership `Signature-XY`, **not** LDAP role rules.
 
 ## AD / generation
 
-- `GET /api/users/ad`
-- `POST /api/run/preflight`
-- `POST /api/run/generate`
+- `GET /api/users/ad` — search employees.
+- `POST /api/run/preflight` — resolve users, group assignments, templates and target constraints.
+- `POST /api/run/generate` — generate signatures after validation.
 
-## Self-service
+## Employee self-service
 
-- `GET /api/self/bootstrap`
-- `POST /api/self/generate`
-- `GET /api/self/signature/download`
+- `GET /api/self/bootstrap` — discover the authenticated user's available signatures.
+- `POST /api/self/generate` — generate own signature.
+- `GET /api/self/signature/download` — download signature package.
 
-## Operations
+## Operations and backup
 
-- `GET /api/runner/status`
-- `POST /api/runner/control`
-- `GET /api/logs/latest`
-- `GET /api/logs/download`
-- `GET /api/storage/backup`
-- `POST /api/storage/restore`
+- `GET /api/runner/status`, `POST /api/runner/control` — Scheduled Task monitoring/control.
+- `GET /api/logs/latest`, `GET /api/logs/download` — generation logs.
+- `GET /api/storage/backup` — **settings-only** export; not an installation-level backup.
 
-Compatibility routes may remain internally, but new integrations should use only the v2 endpoints above.
+Keep `.env` and full template/resource files in a separate protected backup. The old persisted-business-profile restore/write path is not the configuration mechanism in env mode.
+
+[README](../README.md) · [Environment](environment.md)
