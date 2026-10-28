@@ -220,8 +220,7 @@ html[data-theme="dark"] .signature-preview-surface {
   background:#fff!important;color:#111!important;
 }
 /* Preserve actual signature rendering exactly as in Outlook, even in dark UI. */
-html[data-theme="dark"] .preview-canvas *{color:initial}
-html[data-theme="dark"] .preview-canvas .signature-preview-surface *{color:revert}
+/* Do not override colors inside user-supplied HTML previews. */
 html[data-theme="dark"] .preview-text-details pre,
 html[data-theme="dark"] .run-result pre{
   background:#0c1510!important;color:#e2efe5!important;
