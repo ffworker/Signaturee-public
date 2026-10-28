@@ -27,6 +27,50 @@ Describe 'Signaturee runner lifecycle' {
             Should -Be 3001
     }
 
+    It 'treats missing TCP listeners as not ready instead of throwing under StrictMode' {
+        $entry = [pscustomobject]@{
+            Port = 3001
+            Scripts = @('C:\Signaturee-clean\backend\server.js')
+        }
+        $nodes = @([pscustomobject]@{
+            ProcessId = 1234
+            CommandLine = 'node.exe C:\Signaturee-clean\backend\server.js'
+        })
+        Test-SignatureeListenerOwnership -Entry $entry -Nodes $nodes -Listeners @() |
+            Should -BeFalse
+    }
+
+    It 'accepts only a matching port owner AND this installations entrypoint' {
+        $entry = [pscustomobject]@{
+            Port = 3001
+            Scripts = @('C:\Signaturee-clean\backend\server.js')
+        }
+        $nodes = @(
+            [pscustomobject]@{ ProcessId = 1234; CommandLine = 'node.exe C:\Signaturee-clean\backend\server.js' },
+            [pscustomobject]@{ ProcessId = 5678; CommandLine = 'node.exe C:\Other\backend\server.js' }
+        )
+        $matching = @([pscustomobject]@{ LocalPort = 3001; OwningProcess = 1234 })
+        $otherPort = @([pscustomobject]@{ LocalPort = 3000; OwningProcess = 1234 })
+        $otherProcess = @([pscustomobject]@{ LocalPort = 3001; OwningProcess = 5678 })
+        Test-SignatureeListenerOwnership -Entry $entry -Nodes $nodes -Listeners $matching |
+            Should -BeTrue
+        Test-SignatureeListenerOwnership -Entry $entry -Nodes $nodes -Listeners $otherPort |
+            Should -BeFalse
+        Test-SignatureeListenerOwnership -Entry $entry -Nodes $nodes -Listeners $otherProcess |
+            Should -BeFalse
+    }
+
+    It 'does not report a port belonging to an unrelated Node service as Signaturee' {
+        $entry = [pscustomobject]@{
+            Port = 3000
+            Scripts = @('C:\Signaturee-clean\node_modules\http-server\bin\http-server')
+        }
+        $nodes = @([pscustomobject]@{ ProcessId = 7777; CommandLine = 'node C:\AnotherApp\http-server' })
+        $listeners = @([pscustomobject]@{ LocalPort = 3000; OwningProcess = 7777 })
+        Test-SignatureeListenerOwnership -Entry $entry -Nodes $nodes -Listeners $listeners |
+            Should -BeFalse
+    }
+
     It 'parses all lifecycle scripts without PowerShell syntax errors' {
         foreach ($filename in @('runner-lifecycle.ps1', 'reload-config.ps1', 'update-signaturee.ps1', 'run-backend.ps1', 'run-frontend.ps1', 'install-backend-task.ps1', 'install-frontend-task.ps1')) {
             $path = Join-Path $PSScriptRoot "..\scripts\$filename"
