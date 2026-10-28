@@ -32,8 +32,8 @@ npm ci --omit=dev
 ## 3) Prepare runtime environment
 
 ```powershell
-Copy-Item config\example\runner.example.env config\runner.env
-notepad config\runner.env
+Copy-Item .env.example .env
+notepad .env
 ```
 
 Set at minimum:
@@ -72,7 +72,7 @@ Normal employees should use LDAP/AD login rather than local Signaturee accounts.
 npm start
 ```
 
-`npm start` loads `config\runner.env` and starts backend + frontend.
+`npm start` loads `.env` and starts backend + frontend.
 
 Open:
 
@@ -113,8 +113,8 @@ See `docs/network-share-permissions.md` for the complete setup.
 For production:
 
 ```powershell
-.\scripts\install-backend-task.ps1 -RepoRoot C:\signaturee -EnvFile C:\signaturee\config\runner.env -StartNow
-.\scripts\install-frontend-task.ps1 -RepoRoot C:\signaturee -EnvFile C:\signaturee\config\runner.env -StartNow
+.\scripts\install-backend-task.ps1 -RepoRoot C:\signaturee -EnvFile C:\signaturee\.env -StartNow
+.\scripts\install-frontend-task.ps1 -RepoRoot C:\signaturee -EnvFile C:\signaturee\.env -StartNow
 ```
 
 Control both:
@@ -129,10 +129,10 @@ The Admin **System** page shows Backend and Frontend health/task state.
 ## 8) Backup
 
 Before manual repository recovery, stop both tasks and back up at least:
-- `config/runner.env`,
+- `.env`,
 - `config/signaturee.db`,
 - `config/signaturee_auth.db`,
-- `Templatefiles/`,
+- `config/templates/`,
 - optional `frontend/runtime-config.js`.
 
 The v2 profile is stored in `signaturee.db`.
