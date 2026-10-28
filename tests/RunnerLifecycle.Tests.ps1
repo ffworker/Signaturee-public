@@ -72,7 +72,7 @@ Describe 'Signaturee runner lifecycle' {
     }
 
     It 'parses all lifecycle scripts without PowerShell syntax errors' {
-        foreach ($filename in @('runner-lifecycle.ps1', 'reload-config.ps1', 'update-signaturee.ps1', 'run-backend.ps1', 'run-frontend.ps1', 'install-backend-task.ps1', 'install-frontend-task.ps1')) {
+        foreach ($filename in @('runner-lifecycle.ps1', 'reload-config.ps1', 'update-signaturee.ps1', 'run-backend.ps1', 'run-frontend.ps1', 'install-backend-task.ps1', 'install-frontend-task.ps1', 'restart-backend-once.ps1')) {
             $path = Join-Path $PSScriptRoot "..\scripts\$filename"
             $tokens = $null
             $errors = $null

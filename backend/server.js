@@ -15,6 +15,7 @@ const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 3001);
 const BASE_PATH_RAW = process.env.BACKEND_BASE_PATH || '/';
 const USE_TEST_TEMPLATES = (process.env.USE_TEST_TEMPLATES || '').toLowerCase() === 'true';
 const ROOT_DIR = path.resolve(__dirname, '..');
+const BACKEND_INSTANCE_ID = crypto.randomBytes(12).toString('hex');
 const STARTUP_ENV_REVISION = (() => {
   const selected = process.env.SIGNATUREE_ENV_FILE
     ? path.resolve(process.env.SIGNATUREE_ENV_FILE) : path.join(ROOT_DIR,'.env');
@@ -2627,33 +2628,45 @@ async function executeScopedRunnerAction(scopeRaw, actionRaw) {
   const taskLiteral = toPowerShellSingleQuoted(taskName);
 
   if (scope === 'backend') {
-    const { command: powershellCommand, attempted } = await resolvePowerShellCommand();
+    // A child process launched by the backend's own Scheduled Task can be
+    // terminated when Stop-ScheduledTask stops the task's entire process tree.
+    // Instead ask Windows Task Scheduler to start a separate one-shot task.
+    const helperName = 'Signaturee-Backend-Restart-Once';
+    const helperScript = path.join(ROOT_DIR, 'scripts', 'restart-backend-once.ps1');
+    if (!fs.existsSync(helperScript)) {
+      const error = new Error('Backend restart helper script missing.');
+      error.status=500; error.code='RESTART_HELPER_MISSING';
+      throw error;
+    }
+    const task = toPowerShellSingleQuoted(taskName);
+    const onceTask = toPowerShellSingleQuoted(helperName);
+    const scriptLiteral = toPowerShellSingleQuoted(helperScript);
+    const rootLiteral = toPowerShellSingleQuoted(ROOT_DIR);
     const psScript = [
-      "$ErrorActionPreference = 'SilentlyContinue'",
-      'Start-Sleep -Milliseconds 900',
-      `Stop-ScheduledTask -TaskName ${taskLiteral} -ErrorAction SilentlyContinue`,
-      'Start-Sleep -Milliseconds 900',
-      `Start-ScheduledTask -TaskName ${taskLiteral} -ErrorAction Stop`,
+      "$ErrorActionPreference = 'Stop'",
+      `$existing = Get-ScheduledTask -TaskName ${onceTask} -ErrorAction SilentlyContinue`,
+      "if ($existing) { throw 'A backend restart is already pending. Check Logs/backend-restart.log.' }",
+      `$backend = Get-ScheduledTask -TaskName ${task} -ErrorAction Stop`,
+      "$taskArgs = [string](($backend.Actions | ForEach-Object { $_.Arguments }) -join ' ')",
+      `$expected = Join-Path ${rootLiteral} 'scripts\\run-backend.ps1'`,
+      "if ($taskArgs.IndexOf($expected,[StringComparison]::OrdinalIgnoreCase) -lt 0) { throw 'Backend Scheduled Task points to a different installation.' }",
+      "$psExe = Join-Path $env:WINDIR 'System32\\WindowsPowerShell\\v1.0\\powershell.exe'",
+      `$arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ${scriptLiteral} + '" -TargetTask "' + ${task} + '" -HelperTask "' + ${onceTask} + '" -RepoRoot "' + ${rootLiteral} + '"'`,
+      `$actionDef = New-ScheduledTaskAction -Execute $psExe -Argument $arguments -WorkingDirectory ${rootLiteral}`,
+      // Task Scheduler, not the backend's process tree, starts the helper.
+      // A short delay leaves time for the API to respond before shutdown.
+      "$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(8)",
+      "$trigger.EndBoundary = (Get-Date).AddMinutes(2).ToString('s')",
+      "$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest",
+      "$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -DeleteExpiredTaskAfter (New-TimeSpan -Minutes 5)",
+      `Register-ScheduledTask -TaskName ${onceTask} -Action $actionDef -Trigger $trigger -Principal $principal -Settings $settings -ErrorAction Stop | Out-Null`,
+      "'Independent backend restart helper registered' ",
     ].join('; ');
-
-    const child = spawn(
-      powershellCommand,
-      ['-NoLogo', '-NoProfile', '-Command', psScript],
-      {
-        cwd: ROOT_DIR,
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true,
-      },
-    );
-    child.unref();
-    return {
-      scope,
-      action,
-      taskName,
-      queued: true,
-      attemptedPowerShellCommands: attempted,
-    };
+    // Await registration errors. Never tell the UI that a restart was queued
+    // when the helper task could not be registered or started.
+    const result = await runPowerShellInline(psScript);
+    return { scope, action, taskName, queued: true, helperTask: helperName,
+      stdout: result.stdout };
   }
 
   const commands = [
@@ -4192,6 +4205,7 @@ async function handleV2AdminEnvGet(_req, res) {
     return sendJson(res, 200, {
       ...snapshot,
       requiresRestart: snapshot.revision !== STARTUP_ENV_REVISION,
+      instanceId: BACKEND_INSTANCE_ID,
     });
   } catch (error) {
     return sendJson(res, error.status || 500, { error: error.message, code: error.code });
@@ -4387,6 +4401,7 @@ async function probeV2TargetAccess(targetPath, { requireAcl = false, createIfMis
 
 async function handleV2TargetCheck(req, res) {
   try {
+    if (!AUTH_REQUIRED) return sendJson(res,403,{error:'Path probes require authentication to be enabled.'});
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
       return sendJson(res, 415, { error: 'Target check expects application/json.' });
@@ -4397,14 +4412,40 @@ async function handleV2TargetCheck(req, res) {
       return sendJson(res, 400, { error: 'Target must be preview or production.' });
     }
     const profile = getV2Profile();
-    const targetPath = targetKey === 'production'
+    const trial = Object.prototype.hasOwnProperty.call(body || {}, 'path');
+    const activePath = targetKey === 'production'
       ? String(profile.targets?.production?.path || '').trim()
       : resolvePath(String(profile.targets?.preview?.path || '').trim());
+    let targetPath = activePath;
+    if (trial) {
+      if (typeof body.path !== 'string' || body.path.length < 3 ||
+          body.path.length > 1024 || /[\0\r\n]/.test(body.path)) {
+        return sendJson(res, 400, { error:'Ungültiger Testpfad.' });
+      }
+      const candidate = body.path.trim();
+      if (targetKey === 'production') {
+        // Only a UNC share, never a local disk or a URL. Nothing is saved.
+        if (!/^\\\\[^\\\/]+\\[^\\\/]+(?:\\[^\r\n]*)?$/.test(candidate) ||
+            candidate.includes('..') || /[<>|?*"]/u.test(candidate)) {
+          return sendJson(res, 400, { error:'Für Produktion ist ein gültiger UNC-Pfad erforderlich.' });
+        }
+        targetPath = candidate;
+      } else {
+        if (candidate.startsWith('\\\\') || candidate.split(/[\\/]/).includes('..')) {
+          return sendJson(res,400,{error:'Der Vorschau-Test akzeptiert keine UNC- oder übergeordneten Pfade.'});
+        }
+        targetPath = resolvePath(candidate);
+      }
+    }
     const result = await probeV2TargetAccess(targetPath, {
       requireAcl: targetKey === 'production',
-      createIfMissing: targetKey === 'preview' && !targetPath.startsWith('\\\\'),
+      // An arbitrary trial path is never created; only explicitly configured
+      // local preview output may be initialized automatically.
+      createIfMissing: !trial && targetKey === 'preview' && !targetPath.startsWith('\\\\'),
     });
-    return sendJson(res, targetPath ? 200 : 422, { target: targetKey, path: targetPath, ...result });
+    return sendJson(res, targetPath ? 200 : 422, {
+      target: targetKey, path: targetPath, temporaryTest: trial, ...result
+    });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
   }
@@ -5630,6 +5671,9 @@ function handleHealth(_req, res) {
     service: 'signaturee-backend',
     apiVersion: 2,
     authRequired: AUTH_REQUIRED,
+    // Random, non-secret instance nonce: allows the UI to confirm that an
+    // actual new backend process started after Scheduled Task restart.
+    instanceId: BACKEND_INSTANCE_ID,
   }));
 }
 

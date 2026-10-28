@@ -176,6 +176,18 @@ The updater stops the runners, performs `git pull --ff-only` and `npm ci --omit=
 
 Task Scheduler may show `Ready` after a task exits. The useful indicators are the task exit result, the actual Node processes, open ports and application response—not the status label alone.
 
+## Admin interface
+
+The Admin, login and generation pages share a high-contrast **dark appearance** by default. Use the **☀ Hell / ☾ Dunkel** switch in the header to toggle the light theme. Your preference is saved locally in the browser.
+
+### Testing a path without saving it
+
+Under **Administration → Ausgabe**, type a local preview directory or a production UNC target and click **Testen**. This performs an authenticated one-time directory/write/ACL check using the actual backend identity **without changing .env**. A temporary path that does not exist will **not** be created by the test. If you want to use the working path permanently, click **Konfiguration speichern** and then activate it.
+
+### Backend restart from Admin
+
+Under **System → Backend neu starten**, Signaturee registers and starts a separate one-shot Windows Scheduled Task to restart the backend, avoiding termination of the restart helper when the main task stops. The UI only reports success once a *new backend process instance* answers. The Admin save bar's **Gespeicherte .env aktivieren** uses the same verified mechanism. If Windows denies task registration, check the error and restart manually using `scripts/reload-config.ps1`. The separate helper writes status/errors to `Logs/backend-restart.log`.
+
 ## Validate the installation
 
 Start from **Administration** after local Admin login:

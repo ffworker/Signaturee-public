@@ -22,7 +22,7 @@ Local Admin and LDAP employee accounts are separate providers. To resolve an ide
 | GET | `/api/v2/profile` | Effective v2 profile derived from `.env` and available templates |
 | PUT | `/api/v2/profile` | **HTTP 409** in env mode: edit `.env` and reload instead |
 | POST | `/api/v2/templates/import` | Upload template files to the active template directory |
-| POST | `/api/v2/targets/check` | Check local or productive target as the backend identity |
+| POST | `/api/v2/targets/check` | Probe the configured path or a supplied `path` temporarily (admin-only); never saves to `.env` and does not create trial folders |
 | POST | `/api/v2/ad/test` | Admin-only `Get-ADUser` search diagnostic |
 | POST | `/api/v2/auth/ldap/test` | Admin-only config or AD credential diagnostic |
 | GET | `/api/v2/auth/users` | Local-account list |
@@ -55,3 +55,5 @@ The **signature catalog** is discovered from `XY_Template` HTML/TXT pairs in `TE
 Keep `.env` and full template/resource files in a separate protected backup. The old persisted-business-profile restore/write path is not the configuration mechanism in env mode.
 
 [README](../README.md) · [Environment](environment.md)
+
+The scoped backend `POST /api/runner/control` with `{ "scope": "backend", "action": "restart" }` runs via a separate one-shot Windows Scheduled Task; the response is only a queued acknowledgement. The Admin UI confirms a new backend instance before showing success. See `Logs/backend-restart.log` for host-side errors.

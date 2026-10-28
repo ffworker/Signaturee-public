@@ -99,6 +99,22 @@ async function run() {
     assert.equal(fs.statSync(previewPath).isDirectory(), true);
     assert.ok(!fs.readdirSync(previewPath).some(name => name.startsWith('.signaturee-access-test-')),
       'probe directory must be cleaned up');
+    // Trial path is checked directly and NEVER written into the .env.
+    const trialPath = path.join(tmp,'separate-test-only');
+    assert.equal(fs.existsSync(trialPath), false);
+    assert.equal((await post('/api/v2/targets/check', {target:'preview',path:trialPath})).status, 401,
+      'unsaved path checks must require an authenticated Admin');
+    const trial = await post('/api/v2/targets/check', {target:'preview',path:trialPath}, token);
+    assert.equal(trial.status, 200,JSON.stringify(trial.body));
+    assert.equal(trial.body.temporaryTest,true);
+    assert.equal(trial.body.writable,false,'nonexistent custom path must not be created');
+    assert.equal(fs.existsSync(trialPath), false, 'trial path must not be created');
+    assert.equal((await post('/api/v2/targets/check',{target:'production',path:'C:\\\\Windows'},token)).status,400,
+      'production trials must be UNC only');
+    assert.equal((await post('/api/v2/targets/check',{target:'preview',path:'../secret'},token)).status,400,
+      'relative path traversal must not be accepted');
+    assert.ok(fs.readFileSync(fixtureEnv,'utf8').includes('LOCAL_DEPLOYMENT_PATH='+previewPath),
+      'trial checks must leave the original env intact');
     const secondCheck = await post('/api/v2/targets/check', {target:'preview'}, token);
     assert.equal(secondCheck.body.writable, true);
     assert.equal(secondCheck.body.created, false);
