@@ -84,14 +84,14 @@ Copy-Item .\Templatefiles\* .\config\templates\ -Recurse -Force
 node backend/server.js --check
 ~~~
 
-**Edit .env before creating accounts or starting the server:** change AD_SERVER, OU_SEARCH_BASE, NETWORK_DEPLOYMENT_PATH, SIGNATUREE_SIGNATURES_JSON, and any optional SIGNATUREE_VARIABLES_JSON / LDAP settings. Each configured template name must exist in the chosen TEMPLATE_DIR. The example is NOT a usable company configuration.
+**Edit .env before creating accounts or starting the server:** change AD_SERVER, OU_SEARCH_BASE, NETWORK_DEPLOYMENT_PATH and the ONE required SIGNATUREE_SIGNATURES_JSON line. You can **remove or leave commented** SIGNATUREE_VARIABLES_JSON: Signaturee already includes normal AD fields (name, email, department, phone, etc.). LDAP role-rule paths must remain commented unless the referenced file exists; LDAP login itself doesn't require custom role rules. Each template name must exist in TEMPLATE_DIR. The example is NOT a usable company configuration.
 
 Create your new local Admin account without putting its password on the command line:
 
 ~~~powershell
 $secure = Read-Host "Choose an Admin password" -AsSecureString
 $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) | npm run auth:users -- add --username admin --password-stdin --role admin }
+try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) | node .\scripts\manage-auth-users.js add --username admin --password-stdin --role admin }
 finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 
 # For initial local testing; use Scheduled Tasks in production:
@@ -115,7 +115,7 @@ The Admin page is **read-only** for v2 business configuration in env mode. Local
 
 Simple business settings (edit individually): SIGNATUREE_ORGANIZATION_NAME, AD_SERVER, OU_SEARCH_BASE, LOCAL_DEPLOYMENT_PATH, NETWORK_DEPLOYMENT_PATH and TEMPLATE_DIR. Complex values are one-line JSON (SIGNATUREE_SIGNATURES_JSON and optionally SIGNATUREE_VARIABLES_JSON). Inline LDAP IT-role rules use AUTH_LDAP_ROLE_RULES_JSON. You may also use SIGNATUREE_PROFILE_JSON for a full export, but individual keys override the corresponding JSON fields. See [Environment reference](docs/environment.md) for examples and precedence rules.
 
-A fresh deployment **does not need config/runner.env, config/secrets.env or config/config.json**. Never copy those files into the clean clone. Historical installations without .env can still use database mode while you migrate them deliberately. Files with binary templates and the hashed local-auth database are intentionally not stored inside .env.
+A fresh deployment **does not need config/runner.env, config/secrets.env or config/config.json**. An active `AUTH_LDAP_ROLE_RULES_PATH` pointing at a nonexistent file **blocks backend startup**; comment it out until configured. Never copy those files into the clean clone. Historical installations without .env can still use database mode while you migrate them deliberately. Files with binary templates and the hashed local-auth database are intentionally not stored inside .env.
 
 ## Production
 
@@ -233,7 +233,7 @@ cd C:\Signaturee-clean
 node backend/server.js --check
 $secure = Read-Host "New Admin password" -AsSecureString
 $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) | npm run auth:users -- add --username admin --password-stdin --role admin }
+try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) | node .\scripts\manage-auth-users.js add --username admin --password-stdin --role admin }
 finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 ~~~
 
