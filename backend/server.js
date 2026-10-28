@@ -1,3 +1,4 @@
+require('../scripts/load-env').loadEnvironment();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +17,9 @@ const SECRETS_PATH = path.isAbsolute(process.env.SECRETS_PATH || '')
   ? process.env.SECRETS_PATH
   : path.join(ROOT_DIR, process.env.SECRETS_PATH || 'config/secrets.env');
 
-loadSecretsEnv(SECRETS_PATH);
+// Legacy secrets.env is supported only for installations without a root .env.
+// A fresh .env installation never combines config from multiple local files.
+if (!fs.existsSync(path.join(ROOT_DIR, '.env')) && !process.env.SIGNATUREE_ENV_FILE) loadSecretsEnv(SECRETS_PATH);
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || process.env.FRONTEND_URL || '';
 const CORS_ORIGINS_RAW = process.env.CORS_ORIGINS || FRONTEND_ORIGIN || '';
