@@ -17,6 +17,8 @@ Local Admin and LDAP employee accounts are separate providers. To resolve an ide
 
 | Method | Route | Description |
 | --- | --- | --- |
+| GET | `/api/v2/admin/env` | Local Admin-only allowlisted .env draft, revision hash, default/extra variables and restart state; never secrets |
+| PUT | `/api/v2/admin/env` | Local Admin-only validated save to .env with backup; expected revision, approved values and merged variables |
 | GET | `/api/v2/profile` | Effective v2 profile derived from `.env` and available templates |
 | PUT | `/api/v2/profile` | **HTTP 409** in env mode: edit `.env` and reload instead |
 | POST | `/api/v2/templates/import` | Upload template files to the active template directory |

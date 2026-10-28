@@ -1,6 +1,6 @@
 # Configuration reference — Signaturee v2
 
-The project-root `.env` is the **only source for v2 runtime and business settings** (`SIGNATUREE_CONFIG_MODE=env`). Copy [`.env.example`](../.env.example) to `.env` once, then edit the ignored local file. The Admin UI displays the effective settings; it does not maintain a second writable business profile.
+The project-root `.env` is the **only source for v2 runtime and business settings** (`SIGNATUREE_CONFIG_MODE=env`). Copy [`.env.example`](../.env.example) to `.env` once, then edit the ignored local file. The Admin UI reads and can safely edit selected settings in the same `.env`; no second business profile is stored.
 
 Apply changes with `.\scripts\reload-config.ps1` from elevated PowerShell. During initial setup, `.\scripts\reload-config.ps1 -Watch` can monitor and reload valid saves.
 
@@ -49,6 +49,14 @@ To use groups named `Signatur-XY`, configure `SIGNATUREE_AUTO_GROUP_PREFIX=Signa
 3. **SMB output:** uses the **Windows principal of the backend task**. When running as SYSTEM this is normally `DOMAIN\SERVER$` across a domain share. The identity needs share and NTFS rights, including the ability to modify folder ACLs.
 
 `OU_SEARCH_BASE` must be an existing **distinguished name** such as `DC=example,DC=local`. The built-in AD Users container is generally `CN=Users`, not `OU=Users`. Leave `AUTH_LDAP_CONTAINER` unset until the correct OU is known.
+
+## Safe Admin editing
+
+The local Admin web page can update only explicitly allowed organization, AD/LDAP lookup, group prefix and deployment path keys. It saves directly to the project-root `.env` after validation, creates a timestamped `.env.bak-...` backup and requires a backend restart to apply changes. Files changed outside the UI cause a revision conflict rather than silent overwrites. The backend task must have the necessary NTFS access. Secrets, ports, task identities and authentication policy remain outside the web editor.
+
+The **Variablen** page can edit existing standard mappings and add new ones. An additive `SIGNATUREE_VARIABLES_EXTRA_JSON` list stores only differences and new attributes, preserving the entire built-in schema. The advanced complete replacement `SIGNATUREE_VARIABLES_JSON` or complete `SIGNATUREE_PROFILE_JSON` must be removed from .env before using the Admin variable editor, to prevent conflicting owners of the schema.
+
+The save action writes the file, while **Gespeicherte .env aktivieren** initiates a backend restart and checks that the live process has loaded the current revision. If that operation fails, run `.\scripts\reload-config.ps1` elevated.
 
 ## On-disk layout and reload
 

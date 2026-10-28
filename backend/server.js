@@ -7,6 +7,7 @@ const { URL } = require('url');
 const crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
 const { parseLdapRoleRules, resolveLdapRuleRole } = require('./ldap-roles');
+const adminEnvEditor = require('./admin-env-editor');
 const { discoverSignatureProfiles } = require('./signature-discovery');
 
 const HOST = process.env.BACKEND_HOST || '0.0.0.0';
@@ -14,6 +15,12 @@ const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 3001);
 const BASE_PATH_RAW = process.env.BACKEND_BASE_PATH || '/';
 const USE_TEST_TEMPLATES = (process.env.USE_TEST_TEMPLATES || '').toLowerCase() === 'true';
 const ROOT_DIR = path.resolve(__dirname, '..');
+const STARTUP_ENV_REVISION = (() => {
+  const selected = process.env.SIGNATUREE_ENV_FILE
+    ? path.resolve(process.env.SIGNATUREE_ENV_FILE) : path.join(ROOT_DIR,'.env');
+  try { return require('node:crypto').createHash('sha256').update(fs.readFileSync(selected,'utf8')).digest('hex'); }
+  catch { return null; }
+})();
 const CONFIG_MODE = String(process.env.SIGNATUREE_CONFIG_MODE || (fs.existsSync(path.join(ROOT_DIR, '.env')) ? 'env' : 'database')).toLowerCase();
 if (!['env', 'database'].includes(CONFIG_MODE)) throw new Error('SIGNATUREE_CONFIG_MODE must be env or database.');
 const SECRETS_PATH = path.isAbsolute(process.env.SECRETS_PATH || '')
@@ -4037,7 +4044,12 @@ function envV2Profile() {
       groupPrefix: process.env.SIGNATUREE_AUTO_GROUP_PREFIX || 'Signature-',
     })
     : parseProfileEnvJson('SIGNATUREE_SIGNATURES_JSON', full.signatures || {});
-  const variables = parseProfileEnvJson('SIGNATUREE_VARIABLES_JSON', full.variables || DEFAULT_VARIABLE_SCHEMA);
+  const baseVariables = parseProfileEnvJson('SIGNATUREE_VARIABLES_JSON', full.variables || DEFAULT_VARIABLE_SCHEMA);
+  const variableExtrasRaw = process.env.SIGNATUREE_VARIABLES_EXTRA_JSON || '[]';
+  let variableExtras;
+  try { variableExtras = JSON.parse(variableExtrasRaw); }
+  catch { throw new Error('Invalid SIGNATUREE_VARIABLES_EXTRA_JSON JSON.'); }
+  const variables = adminEnvEditor.mergeVariables(baseVariables, variableExtras);
   return normalizeV2Profile({
     ...full,
     organization: {
@@ -4171,6 +4183,53 @@ async function handleV2TemplateImport(req, res) {
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
   }
+}
+
+async function handleV2AdminEnvGet(_req, res) {
+  try {
+    if (CONFIG_MODE !== 'env') return sendJson(res, 409, { error:'Admin .env editor requires env mode.' });
+    const snapshot=adminEnvEditor.publicSnapshot(ROOT_DIR, DEFAULT_VARIABLE_SCHEMA);
+    return sendJson(res, 200, {
+      ...snapshot,
+      requiresRestart: snapshot.revision !== STARTUP_ENV_REVISION,
+    });
+  } catch (error) {
+    return sendJson(res, error.status || 500, { error: error.message, code: error.code });
+  }
+}
+
+let adminEnvSaveBusy = false;
+async function handleV2AdminEnvPut(req, res) {
+  if (CONFIG_MODE !== 'env') return sendJson(res, 409, { error:'Admin .env editor requires env mode.' });
+  if (adminEnvSaveBusy) return sendJson(res, 409, { error:'Another configuration save is in progress.' });
+  if (!(req.headers['content-type'] || '').includes('application/json'))
+    return sendJson(res, 415, { error:'Expected JSON.' });
+  // A cross-origin request must never write a server-side .env even if an
+  // administrator's bearer token is available to unrelated JS.
+  const origin=req.headers.origin;
+  if (origin) {
+    let sameHost=false;
+    try {
+      const source=new URL(origin);
+      const backend=new URL('http://'+String(req.headers.host||''));
+      sameHost=source.hostname.toLowerCase()===backend.hostname.toLowerCase();
+    } catch {}
+    if (!sameHost) return sendJson(res,403,{ error:'Admin file edits require a same-host origin.' });
+  }
+  adminEnvSaveBusy = true;
+  try {
+    const body = await parseJsonBody(req);
+    const result=adminEnvEditor.persist(ROOT_DIR,body?.revision,body?.values,
+      body?.variables,DEFAULT_VARIABLE_SCHEMA);
+    return sendJson(res, 200, {
+      ...result,message:'.env safely saved and backed up. Restart the backend to activate changes.'
+    });
+  } catch (error) {
+    return sendJson(res, error.status || 500, {
+      error: error.code === 'ENV_CHECK_FAILED' ? error.message : error.message,
+      code: error.code,
+    });
+  } finally { adminEnvSaveBusy=false; }
 }
 
 async function handleV2ProfileGet(_req, res) {
@@ -5922,6 +5981,16 @@ function routeRequest(req, res) {
   if (relativePath === '/api/v2/templates/import' && req.method === 'POST') {
     if (!ensure('admin')) return;
     return handleV2TemplateImport(req, res);
+  }
+  if (relativePath === '/api/v2/admin/env' && req.method === 'GET') {
+    if (!AUTH_REQUIRED) return sendJson(res,403,{error:'Admin .env editing requires authentication to be enabled.'});
+    if (!ensure('admin')) return;
+    return handleV2AdminEnvGet(req, res);
+  }
+  if (relativePath === '/api/v2/admin/env' && req.method === 'PUT') {
+    if (!AUTH_REQUIRED) return sendJson(res,403,{error:'Admin .env editing requires authentication to be enabled.'});
+    if (!ensure('admin')) return;
+    return handleV2AdminEnvPut(req, res);
   }
   if (relativePath === '/api/v2/profile' && req.method === 'GET') {
     if (!ensure('viewer')) return;

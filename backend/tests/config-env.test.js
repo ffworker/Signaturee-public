@@ -45,6 +45,26 @@ async function run() {
     assert.equal(config.effectiveProfile.targets.production.path, '\\\\fileserver\\Signatures');
     assert.equal(config.effectiveProfile.signatures.demo.templateHtml, 'demo.htm');
     assert.ok(config.templateDirectory.endsWith(path.join('config', 'templates')));
+    const additiveEnvPath = path.join(tmp,'additive-vars.env');
+    const variableExtras = [
+      { id:'standort', displayName:'Standort', placeholders:['$standort'],
+        adProperties:['extensionAttribute10'], required:false },
+      { id:'mail', displayName:'E-Mail', placeholders:['$mail'],
+        adProperties:['userPrincipalName','mail'], required:true },
+    ];
+    fs.writeFileSync(additiveEnvPath,lines.join('\n') +
+      '\nSIGNATUREE_VARIABLES_EXTRA_JSON=' + JSON.stringify(variableExtras) + '\n');
+    const extraCheck=spawnSync(process.execPath,[serverFile,'--check'],{
+      env:{...env,SIGNATUREE_ENV_FILE:additiveEnvPath},encoding:'utf8',
+    });
+    assert.equal(extraCheck.status,0,extraCheck.stderr);
+    const mergedProfile=JSON.parse(extraCheck.stdout).effectiveProfile;
+    assert.ok(mergedProfile.variables.variables.some(v=>v.id==='givenName'),
+      'adding variables must retain built-in givenName');
+    assert.ok(mergedProfile.variables.variables.some(v=>v.id==='standort'),
+      'custom extensionAttribute10 must be available');
+    assert.deepEqual(mergedProfile.variables.variables.find(v=>v.id==='mail').adProperties,
+      ['userPrincipalName','mail'],'built-in mail AD mapping can be modified without replacing other variables');
     const incompleteEnv = path.join(tmp, 'incomplete-ad.env');
     fs.writeFileSync(incompleteEnv, lines.join('\n') + '\nAD_QUERY_USERNAME=EXAMPLE\\reader\n');
     const incomplete = spawnSync(process.execPath, [serverFile, '--check'], {

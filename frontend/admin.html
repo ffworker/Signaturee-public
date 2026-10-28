@@ -84,6 +84,19 @@
               <input id="secondaryTitleAttributes" type="text" placeholder="extensionAttribute6, extensionAttribute7, extensionAttribute8">
               <small>Kommagetrennt. Zentral für alle Signaturen.</small>
             </label>
+            <label>LDAP-Domäne
+              <input id="ldapDomainConfig" type="text" placeholder="example.local">
+            </label>
+            <label>LDAP-Server (optional)
+              <input id="ldapServerConfig" type="text" placeholder="dc01.example.local">
+            </label>
+            <label class="wide">LDAP-Suchcontainer (optional)
+              <input id="ldapContainerConfig" type="text" placeholder="OU=Employees,DC=example,DC=local">
+              <small>Leer lassen, solange die tatsächliche OU nicht bekannt ist.</small>
+            </label>
+            <label class="wide">UPN-Suffix (optional)
+              <input id="ldapUpnSuffixConfig" type="text" placeholder="example.local">
+            </label>
           </div>
         </section>
       </section>
@@ -131,11 +144,9 @@
             </article>
           </div>
           <div id="envPathEditor" class="deployment-note" hidden>
-            <strong>Pfade bearbeiten (Quelle: .env)</strong>
-            <p>Du kannst die zwei Pfade oben eingeben. Mit <b>Zeilen für .env kopieren</b> werden die passenden Einstellungen kopiert.
-            Füge sie in <code>C:\Signaturee-clean\.env</code> ein, speichere und führe <code>.\scripts\reload-config.ps1</code> aus.
-            Erst danach prüft „Pfad testen“ den neuen Wert. Es wird keine zweite Konfiguration angelegt.</p>
-            <button id="copyDeploymentEnvBtn" type="button" class="secondary">Zeilen für .env kopieren</button>
+            <strong>Direkt in .env speichern</strong>
+            <p>Diese beiden Pfade kannst du mit <b>Konfiguration speichern</b> direkt in der einzigen .env ändern. Vor dem Speichern wird validiert und ein Backup erstellt. Anschließend den Backend-Neustart auslösen und erst dann die neuen Pfade testen.</p>
+            <button id="copyDeploymentEnvBtn" type="button" class="secondary">Pfade als .env-Zeilen kopieren (optional)</button>
             <span id="copyDeploymentEnvStatus" class="path-status muted"></span>
           </div>
 
@@ -161,6 +172,13 @@
             </div>
             <button id="addSignatureBtn" type="button" class="secondary">+ Signatur</button>
           </div>
+          <div id="signatureConventionSettings" class="deployment-note" hidden>
+            <strong>Automatische AD-Zuordnung</strong>
+            <p>Bei aktivierter Template-Erkennung wird die Signatur XY der bestehenden AD-Gruppe Signature-XY zugeordnet. Individuelle Zuordnungen bleiben als erweiterte .env-Konfiguration möglich.</p>
+            <label>Gruppenpräfix
+              <input id="signatureGroupPrefixConfig" type="text" placeholder="Signature-">
+            </label>
+          </div>
           <div id="signatureCards" class="signature-cards"></div>
         </section>
 
@@ -182,7 +200,7 @@
             <div>
               <span class="eyebrow">Datenmodell</span>
               <h2>Variablen</h2>
-              <p>Ordne Active-Directory-Felder verständlichen Signaturee-Variablen und Template-Platzhaltern zu.</p>
+              <p>Die eingebauten Standardvariablen bleiben erhalten. Du kannst ihre AD-Zuordnung anpassen oder neue Variablen und Template-Platzhalter hinzufügen. Gespeichert werden nur Abweichungen und Ergänzungen in .env.</p>
             </div>
             <button id="addVariableBtn" type="button" class="secondary">+ Variable</button>
           </div>
@@ -364,6 +382,7 @@
         <div class="save-actions">
           <button id="reloadProfileBtn" type="button" class="secondary">Änderungen verwerfen</button>
           <button id="saveProfileBtn" type="button" disabled>Konfiguration speichern</button>
+          <button id="applyEnvConfigBtn" type="button" class="secondary" hidden>Gespeicherte .env aktivieren (Backend-Neustart)</button>
         </div>
       </section>
     </main>
