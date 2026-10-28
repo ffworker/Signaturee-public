@@ -38,3 +38,9 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# One local source of truth and untracked installed templates
+.env.*
+!.env.example
+config/templates/
+config/variables.local.json
