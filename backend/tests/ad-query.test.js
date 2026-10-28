@@ -267,6 +267,20 @@ async function run() {
   assert.deepStrictEqual(resolveDomainsFromMemberOf('CN=Other,OU=Signatur-example,DC=example,DC=com', groupConfig), [],
     'group mapping must not match an OU substring');
   assert.deepStrictEqual(resolveDomainsFromMemberOf('CN=Signatur-example,OU=Groups,DC=example,DC=com', groupConfig), ['example']);
+  const fullGroup = { domains: { AD: {} }, securityGroupMapping: {
+    'CN=Signature-AD,OU=Groups,DC=example,DC=com': 'AD',
+  } };
+  assert.deepStrictEqual(resolveDomainsFromMemberOf(
+    'CN=Signature-AD,OU=Groups,DC=example,DC=com', fullGroup), ['AD'],
+    'configured full DNs must match the actual memberOf DN');
+  assert.deepStrictEqual(resolveDomainsFromMemberOf(
+    'CN=Signature-AD,OU=Other,DC=example,DC=com', fullGroup), [],
+    'same CN in a different OU must never match a full DN mapping');
+  const shortGroup = { domains: { AD: {} }, securityGroupMapping: { 'Signature-AD': 'AD' } };
+  assert.deepStrictEqual(resolveDomainsFromMemberOf(
+    'CN=Signature-AD,OU=Groups,DC=example,DC=com', shortGroup), ['AD'],
+    'short name mappings must match the AD security group CN');
+
 
   await assertCredentialSecretsUseStdin();
 

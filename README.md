@@ -27,7 +27,7 @@ New-Item -ItemType Directory -Force .\config\templates | Out-Null
 node .\backend\server.js --check
 ~~~
 
-Edit `.env` before starting. At minimum replace: `AD_SERVER`, `OU_SEARCH_BASE`, `AUTH_LDAP_DOMAIN`, `NETWORK_DEPLOYMENT_PATH`, and `SIGNATUREE_SIGNATURES_JSON`. Copy your actual `.htm`, `.txt` and associated image/resource folders into `config\templates`; filenames must match the JSON signature definition. `SIGNATUREE_VARIABLES_JSON` is **not required** for normal AD fields.
+Edit `.env` before starting. At minimum replace: `AD_SERVER`, `OU_SEARCH_BASE`, `AUTH_LDAP_DOMAIN`, and `NETWORK_DEPLOYMENT_PATH`; for standard `XY_Template` filenames you can use `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` instead of writing JSON. Copy your actual `.htm`, `.txt` and associated image/resource folders into `config\templates`; filenames must match the JSON signature definition. `SIGNATUREE_VARIABLES_JSON` is **not required** for normal AD fields.
 
 Create the local Admin account (password is prompted, not passed as a command-line argument):
 
@@ -57,7 +57,7 @@ The committed [`.env.example`](.env.example) is the complete template. Copy it *
 | AD user search | `AD_SERVER`, `OU_SEARCH_BASE`, optional `AD_QUERY_USERNAME`/`AD_QUERY_PASSWORD` | Reads users for IT search, preflight and generation |
 | Employee LDAP login | `AUTH_LDAP_ENABLED`, `AUTH_LDAP_DOMAIN`; optional `AUTH_LDAP_SERVER`, `AUTH_LDAP_CONTAINER`, `AUTH_LDAP_UPN_SUFFIX` | Validates employees' own AD passwords |
 | Paths | `LOCAL_DEPLOYMENT_PATH`, `NETWORK_DEPLOYMENT_PATH`, `TEMPLATE_DIR` | Preview output, SMB production output and template sources |
-| Signatures | `SIGNATUREE_SIGNATURES_JSON` | AD group → HTML/TXT template mapping |
+| Signatures | `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` (recommended), alternatively `SIGNATUREE_SIGNATURES_JSON` | Discover template pairs and map `XY` to `Signature-XY`, or configure explicit groups |
 
 **Do not confuse these:** `AD_SERVER`/`OU_SEARCH_BASE` are for **Get-ADUser searches**; `AUTH_LDAP_DOMAIN`/`AUTH_LDAP_CONTAINER` are for **employee sign-in**. Working LDAP login does **not** prove Get-ADUser searches work, and vice versa.
 
@@ -89,6 +89,28 @@ Admin → **Benutzer & Zugriff → Konfiguration anzeigen** displays loaded LDAP
 Custom IT-role mapping is optional. No LDAP role rules are required for normal self-service. LDAP does **not** grant local Admin privileges.
 
 ### Templates and signature assignment
+
+**Recommended for v2:** If your templates are named `AD_Template.htm` + `AD_Template.txt`,
+`FF_Template.htm` + `FF_Template.txt`, etc., enable automatic discovery in your local `.env`:
+
+~~~dotenv
+TEMPLATE_DIR=config/templates
+SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true
+# SIGNATUREE_AUTO_GROUP_PREFIX=Signature-
+~~~
+
+Signaturee then scans `config/templates` at backend startup for **complete HTML/TXT pairs**, displays each as a signature in Admin, and maps it to the corresponding AD security group by **CN**:
+
+| Files (both required) | Signature | AD security group |
+| --- | --- | --- |
+| `AD_Template.htm` + `AD_Template.txt` | AD | `Signature-AD` |
+| `FF_Template.htm` + `FF_Template.txt` | FF | `Signature-FF` |
+| `HG_Template.htm` + `HG_Template.txt` | HG | `Signature-HG` |
+
+The optional `AD-Dateien`, `FF-Dateien`, etc. resource folders are detected automatically. `example_template.*` is ignored. **This does not create AD groups**: each corresponding group must already exist, and the employee must be a member of it. The relevant AD membership is evaluated independently from LDAP's login-role rules (which only grant IT/self-service privileges).
+
+**When auto-discovery is enabled, `SIGNATUREE_SIGNATURES_JSON` is ignored.** You can comment out the old example JSON. To define groups manually instead, set `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=false` and use the explicit JSON mappings below. Full group DNs are matched exactly; short group names match the AD group CN. Nested group memberships may require separate AD handling, so first validate direct memberships.
+
 
 Active files belong in the ignored folder `config\templates\`. The committed `Templatefiles\` contains **examples**, not your installed production files. Import/copy whole template folders including assets. The backend and PowerShell generator use the same `TEMPLATE_DIR`.
 

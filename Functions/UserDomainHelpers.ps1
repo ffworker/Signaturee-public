@@ -89,7 +89,17 @@ function Get-UserDomains {
         }
 
         foreach ($sgKey in $script:securityGroupMapping.Keys) {
-            if ($groupName -ieq $sgKey) {
+            $mappedKey = [string]$sgKey
+            # Full DNs match exactly. Short names (Signature-XY) match group CN.
+            # Do not fall back to CN when a full DN is configured: two groups
+            # with the same CN in separate OUs must not be interchangeable.
+            $isFullDn = $mappedKey -match '^CN=' -and $mappedKey.Contains(',')
+            $matchesGroup = if ($isFullDn) {
+                [string]$groupDn -ieq $mappedKey
+            } else {
+                [string]$groupName -ieq $mappedKey
+            }
+            if ($matchesGroup) {
                 $domainKey = $script:securityGroupMapping[$sgKey]
                 if ($domainKey -and -not ($domains -contains $domainKey)) {
                     $domains += $domainKey

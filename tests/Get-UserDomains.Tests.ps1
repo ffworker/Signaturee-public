@@ -51,6 +51,29 @@ Describe "Get-UserDomains" {
         $domains.Count | Should -Be 0
     }
 
+    It "maps a full DN exactly and rejects the same CN in a different OU" {
+        $user = [Microsoft.ActiveDirectory.Management.ADUser]::new()
+        $user.SamAccountName = "caseuser"
+        $script:securityGroupMapping.Clear()
+        $script:securityGroupMapping["CN=Signature-AD,OU=Groups,DC=example,DC=com"] = "example"
+
+        $match = Get-UserDomains -User $user -MemberOf @("CN=Signature-AD,OU=Groups,DC=example,DC=com")
+        ($match -contains "example") | Should -BeTrue
+
+        $noMatch = Get-UserDomains -User $user -MemberOf @("CN=Signature-AD,OU=Other,DC=example,DC=com")
+        $noMatch.Count | Should -Be 0
+    }
+
+    It "maps the configured Signature-AD short CN" {
+        $user = [Microsoft.ActiveDirectory.Management.ADUser]::new()
+        $user.SamAccountName = "caseuser"
+        $script:securityGroupMapping.Clear()
+        $script:securityGroupMapping["Signature-AD"] = "example"
+
+        $match = Get-UserDomains -User $user -MemberOf @("CN=Signature-AD,OU=Groups,DC=example,DC=com")
+        ($match -contains "example") | Should -BeTrue
+    }
+
     It "returns empty list when no matching mapping exists" {
         $user = [Microsoft.ActiveDirectory.Management.ADUser]::new()
         $user.SamAccountName = "caseuser"

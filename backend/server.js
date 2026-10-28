@@ -7,6 +7,7 @@ const { URL } = require('url');
 const crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
 const { parseLdapRoleRules, resolveLdapRuleRole } = require('./ldap-roles');
+const { discoverSignatureProfiles } = require('./signature-discovery');
 
 const HOST = process.env.BACKEND_HOST || '0.0.0.0';
 const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 3001);
@@ -4028,7 +4029,14 @@ function parseProfileEnvJson(key, fallback) {
 
 function envV2Profile() {
   const full = parseProfileEnvJson('SIGNATUREE_PROFILE_JSON', {});
-  const signatures = parseProfileEnvJson('SIGNATUREE_SIGNATURES_JSON', full.signatures || {});
+  // Explicit auto-discovery ignores SIGNATUREE_SIGNATURES_JSON: no stale
+  // example JSON can hide real on-disk signature templates.
+  const automatic = parseBooleanFlag(process.env.SIGNATUREE_SIGNATURES_AUTO_DISCOVER || false);
+  const signatures = automatic
+    ? discoverSignatureProfiles(TEMPLATE_DIRECTORY, {
+      groupPrefix: process.env.SIGNATUREE_AUTO_GROUP_PREFIX || 'Signature-',
+    })
+    : parseProfileEnvJson('SIGNATUREE_SIGNATURES_JSON', full.signatures || {});
   const variables = parseProfileEnvJson('SIGNATUREE_VARIABLES_JSON', full.variables || DEFAULT_VARIABLE_SCHEMA);
   return normalizeV2Profile({
     ...full,
@@ -4335,17 +4343,21 @@ function resolveDomainsFromMemberOf(memberOf, config = {}) {
   };
 
   normalizeMemberOfValues(memberOf).forEach((groupDn) => {
-    const match = groupDn.match(/CN=([^,]+)/i);
-    const groupName = (match ? match[1] : groupDn).trim();
+    const groupName = (groupDn.match(/^CN=([^,]+)/i)?.[1] || groupDn).trim();
     if (!groupName) return;
     if (groupName.toLowerCase() === 'signatur-alle') {
       Object.keys(domains).forEach(add);
       return;
     }
     Object.entries(mapping).forEach(([securityGroup, domainKey]) => {
-      if (groupName.toLowerCase() === String(securityGroup).toLowerCase()) {
-        add(domainKey);
-      }
+      const key = String(securityGroup).trim();
+      // A full DN must match that exact DN (not just its CN) to avoid granting
+      // signatures from an identically named group in another AD container.
+      const isDn = /^CN=/i.test(key) && key.includes(',');
+      const matches = isDn
+        ? groupDn.toLowerCase() === key.toLowerCase()
+        : groupName.toLowerCase() === key.toLowerCase();
+      if (matches) add(domainKey);
     });
   });
   return resolved;
