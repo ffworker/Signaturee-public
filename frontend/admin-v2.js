@@ -4,9 +4,9 @@ const byId=(id)=>document.getElementById(id);
 
 const connectionBadge=byId('adminConnectionBadge'),connectionPanel=byId('adminConnectionPanel'),connectionMessage=byId('adminConnectionMessage'),connectionApiBase=byId('adminConnectionApiBase'),retryBtn=byId('adminRetryBtn'),adminLogoutBtn=byId('adminLogoutBtn');
 const organizationName=byId('organizationName'),directoryServer=byId('directoryServer'),directorySearchBase=byId('directorySearchBase'),previewPath=byId('previewPath'),productionPath=byId('productionPath'),secondaryTitleAttributes=byId('secondaryTitleAttributes');
-const signatureCards=byId('signatureCards'),variableCards=byId('variableCards'),variableSearch=byId('variableSearch'),requiredVariablesOnly=byId('requiredVariablesOnly'),variableFilterSummary=byId('variableFilterSummary'),templateStatus=byId('templateStatus'),addSignatureBtn=byId('addSignatureBtn'),addVariableBtn=byId('addVariableBtn'),reloadProfileBtn=byId('reloadProfileBtn'),saveProfileBtn=byId('saveProfileBtn'),saveSummary=byId('saveSummary'),saveStatus=byId('saveStatus'),profileSourceBadge=byId('profileSourceBadge'),signatureTemplate=byId('signatureCardTemplate');
+const signatureCards=byId('signatureCards'),variableCards=byId('variableCards'),variableSearch=byId('variableSearch'),requiredVariablesOnly=byId('requiredVariablesOnly'),variableFilterSummary=byId('variableFilterSummary'),templateStatus=byId('templateStatus'),addSignatureBtn=byId('addSignatureBtn'),addVariableBtn=byId('addVariableBtn'),reloadProfileBtn=byId('reloadProfileBtn'),saveProfileBtn=byId('saveProfileBtn'),saveSummary=byId('saveSummary'),saveStatus=byId('saveStatus'),profileSourceBadge=byId('profileSourceBadge'),profileSourceText=byId('profileSourceText'),signatureTemplate=byId('signatureCardTemplate');
 const summarySignatureCount=byId('summarySignatureCount'),summaryVariableCount=byId('summaryVariableCount'),summaryGroupCount=byId('summaryGroupCount'),summaryTemplateState=byId('summaryTemplateState');
-const authUserList=byId('authUserList'),refreshAuthUsersBtn=byId('refreshAuthUsersBtn'),createAuthUserForm=byId('createAuthUserForm'),newAuthUsername=byId('newAuthUsername'),newAuthDisplayName=byId('newAuthDisplayName'),newAuthRole=byId('newAuthRole'),newAuthPassword=byId('newAuthPassword'),createAuthUserStatus=byId('createAuthUserStatus'),ldapStatus=byId('ldapStatus');
+const authUserList=byId('authUserList'),refreshAuthUsersBtn=byId('refreshAuthUsersBtn'),createAuthUserForm=byId('createAuthUserForm'),newAuthUsername=byId('newAuthUsername'),newAuthDisplayName=byId('newAuthDisplayName'),newAuthRole=byId('newAuthRole'),newAuthPassword=byId('newAuthPassword'),createAuthUserStatus=byId('createAuthUserStatus'),ldapStatus=byId('ldapStatus'),ldapTestForm=byId('ldapTestForm'),ldapTestUsername=byId('ldapTestUsername'),ldapTestPassword=byId('ldapTestPassword'),ldapCredentialTestBtn=byId('ldapCredentialTestBtn'),ldapConfigTestBtn=byId('ldapConfigTestBtn'),ldapTestResult=byId('ldapTestResult');
 const onboardingChecklist=byId('onboardingChecklist'),copyOnboardingBtn=byId('copyOnboardingBtn'),profileSaveBar=byId('profileSaveBar');
 const serviceGrid=byId('serviceGrid'),taskList=byId('taskList'),refreshSystemBtn=byId('refreshSystemBtn'),restartBackendBtn=byId('restartBackendBtn'),restartFrontendBtn=byId('restartFrontendBtn'),systemActionStatus=byId('systemActionStatus');
 const testPreviewPathBtn=byId('testPreviewPathBtn'),testProductionPathBtn=byId('testProductionPathBtn'),previewPathStatus=byId('previewPathStatus'),productionPathStatus=byId('productionPathStatus');
@@ -24,7 +24,7 @@ function escapeHtml(v){return String(v??'').replaceAll('&','&amp;').replaceAll('
 async function connect(){for(const base of candidateBases()){try{const r=await fetchTimeout(`${base}/health`);if(!r.ok)continue;apiBase=base;safeSet(API_BASE_STORAGE_KEY,base);connectionBadge.textContent='Backend verbunden';connectionPanel.hidden=true;return true}catch{}}apiBase='';connectionBadge.textContent='Backend nicht erreichbar';connectionPanel.hidden=false;connectionMessage.textContent='Signaturee Backend auf Port 3001 konnte nicht erreicht werden.';connectionApiBase.textContent=candidateBases().join(' · ');return false}
 async function ensureAdminSession(){if(!apiBase&&!(await connect()))return false;const{ok,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/auth/me`));if(!ok)return false;if(body.authRequired&&!body.authenticated){const u=new URL('login.html',location.href);u.searchParams.set('next','admin.html');location.replace(u.href);return false}const role=String(body.role||'').toLowerCase();if(body.authRequired&&role!=='admin'){location.replace(role==='selfservice'?'self-service.html':'index.html');return false}connectionBadge.textContent=body.username?`${body.username} · Admin`:'Admin';return true}
 function splitList(v){return String(v||'').split(/[;,\n]/).map(x=>x.trim()).filter(Boolean)}
-function updateSaveBarVisibility(){const active=document.querySelector('.admin-nav-item.active')?.dataset.adminView||'overview';const profileView=['overview','deployment','signatures','variables'].includes(active);profileSaveBar.hidden=!profileView&&!dirty}
+function updateSaveBarVisibility(){const active=document.querySelector('.admin-nav-item.active')?.dataset.adminView||'overview';const profileView=['overview','deployment','signatures','variables'].includes(active);profileSaveBar.hidden=envManaged||(!profileView&&!dirty)}
 function markDirty(){if(envManaged)return;dirty=true;saveProfileBtn.disabled=false;saveStatus.textContent='Ungespeicherte Änderungen.';updateSaveBarVisibility()}
 function markClean(message='Gespeichert.'){dirty=false;saveProfileBtn.disabled=true;saveStatus.textContent=message;updateSaveBarVisibility()}
 function field(card,name){return card.querySelector(`[data-field="${name}"]`)}
@@ -188,7 +188,7 @@ function renderProfile(profile,status={}){currentProfile=profile;organizationNam
   saveProfileBtn.disabled=envManaged;
   renderOnboarding()}
 function collectProfile(){const signatures={},seen=new Set(),dupes=new Set();signatureCards.querySelectorAll('.signature-card').forEach(card=>{const key=field(card,'key').value.trim();if(!key)return;const low=key.toLowerCase();if(seen.has(low))dupes.add(key);seen.add(low);signatures[key]={label:field(card,'label').value.trim()||key,adGroups:splitList(field(card,'adGroups').value),templateHtml:field(card,'templateHtml').value.trim(),templateTxt:field(card,'templateTxt').value.trim(),resourceFolder:field(card,'resourceFolder').value.trim(),customTitleAttr:field(card,'customTitleAttr').value.trim(),faxFallback:field(card,'faxFallback').value.trim()}});if(dupes.size)throw new Error(`Doppelte Signatur-Schlüssel: ${[...dupes].join(', ')}`);const variables=[];variableCards.querySelectorAll('.variable-card').forEach(card=>{const id=variableField(card,'id').value.trim();if(!id)return;const original=card.__variableOriginal&&typeof card.__variableOriginal==='object'?card.__variableOriginal:{};const item={...original,id,displayName:variableField(card,'displayName').value.trim()||id,required:variableField(card,'required').checked,adProperties:splitList(variableField(card,'adProperties').value),placeholders:splitList(variableField(card,'placeholders').value)};const csv=variableField(card,'csvHeader').value.trim();if(csv)item.csvHeader=csv;else delete item.csvHeader;const description=variableField(card,'description').value.trim();if(description)item.description=description;else delete item.description;variables.push(item)});return{version:2,organization:{name:organizationName.value.trim()},directory:{server:directoryServer.value.trim(),searchBase:directorySearchBase.value.trim()},targets:{preview:{path:previewPath.value.trim()},production:{path:productionPath.value.trim()}},signatures,secondaryTitleAttributes:splitList(secondaryTitleAttributes.value),variables:{variables,ordering:variables.map(v=>v.id)}}}
-async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'profile_v2';renderProfile(body.profile,body.status)}
+async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'profile_v2';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Einstellungen hier sind schreibgeschützt; Änderungen an .env erfordern einen Backend-Neustart.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
 async function saveProfile(){if(envManaged){saveStatus.textContent='Profil ist in .env verwaltet. Dort bearbeiten und Backend neu starten.';return}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert. V2 verwendet ab jetzt genau diesen Stand.'}
 
 function renderService(name,service){const ok=Boolean(service?.healthy);const detail=service?.statusCode?`HTTP ${service.statusCode} · ${service.responseMs??0} ms`:(service?.error||'nicht erreichbar');return `<div class="service-card"><span class="health-dot ${ok?'ok':'bad'}"></span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div></div>`}
@@ -216,10 +216,10 @@ async function checkDeploymentTarget(target){
     },15000));
     if(!ok)throw new Error(body.error||`HTTP ${status}`);
     if(body.exists&&body.directory&&body.writable&&(!isProduction||body.aclWritable)){
-      statusEl.textContent='✓ Erreichbar und schreibbar';
+      statusEl.textContent=body.message||'✓ Erreichbar und schreibbar';
       statusEl.className='path-status success';
     }else{
-      statusEl.textContent=`✗ ${body.error||'Pfad ist nicht schreibbar.'}`;
+      statusEl.textContent=`✗ ${body.error||'Pfad ist nicht schreibbar.'}${body.hint?' — '+body.hint:''}`;
       statusEl.className='path-status error';
     }
   }catch(error){
@@ -231,7 +231,67 @@ async function checkDeploymentTarget(target){
 }
 
 function authRoleLabel(role){return role==='admin'?'Admin':'IT'}
-function renderLdap(system={}){const ldap=system.ldap||{};ldapStatus.className='ldap-status';ldapStatus.innerHTML=`<div class="ldap-grid"><div class="ldap-box"><small>Status</small><strong>${ldap.enabled?'Aktiv':'Deaktiviert'}</strong></div><div class="ldap-box"><small>Server / Domain</small><strong>${escapeHtml(ldap.server||ldap.domain||'Windows-Domainkontext')}</strong></div><div class="ldap-box"><small>Standardrolle</small><strong>AD-User / Self-Service</strong></div><div class="ldap-box"><small>Lokaler Fallback</small><strong>${ldap.fallbackToLocal?'Aktiv':'Aus'}</strong></div></div>${ldap.enabled?'':'<div class="check warning">Für AD-User-Login: <code>AUTH_LDAP_ENABLED=true</code> setzen und Backend neu starten. Optional <code>AUTH_LDAP_DOMAIN</code> oder <code>AUTH_LDAP_SERVER</code>.</div>'}`}
+
+function renderLdap(system={}){
+  const ldap=system.ldap||{};
+  ldapStatus.className='ldap-status';
+  ldapStatus.innerHTML=`<div class="ldap-grid">
+    <div class="ldap-box"><small>Login</small><strong>${ldap.enabled?'Aktiv':'Deaktiviert'}</strong></div>
+    <div class="ldap-box"><small>Server / Domäne</small><strong>${escapeHtml(ldap.server||ldap.domain||'Windows-Domänenkontext')}</strong></div>
+    <div class="ldap-box"><small>Suchcontainer</small><strong>${escapeHtml(ldap.container||'Gesamte Domäne')}</strong></div>
+    <div class="ldap-box"><small>UPN-Suffix</small><strong>${escapeHtml(ldap.upnSuffix||ldap.domain||'Windows-Standard')}</strong></div>
+    <div class="ldap-box"><small>Rollenregeln</small><strong>${Number(ldap.roleRules||0)} konfiguriert</strong></div>
+    <div class="ldap-box"><small>Standardrolle</small><strong>Self-Service</strong></div>
+  </div>
+  ${ldap.enabled?'':'<div class="check warning">Für AD-Login AUTH_LDAP_ENABLED=true setzen und Backend neu starten.</div>'}`;
+}
+
+async function runLdapDiagnostic(withCredentials){
+  if(!(await ensureAdminSession()))return;
+  if(withCredentials&&location.protocol!=='https:'&&!['localhost','127.0.0.1','::1','[::1]'].includes(location.hostname.toLowerCase())){
+    ldapTestResult.hidden=false;
+    ldapTestResult.className='ldap-test-result error';
+    ldapTestResult.textContent='Passworttests erfordern HTTPS oder localhost. Keine AD-Passwörter über unverschlüsseltes HTTP übertragen.';
+    return;
+  }
+  const username=withCredentials?ldapTestUsername.value.trim():'';
+  const password=withCredentials?ldapTestPassword.value:'';
+  if(withCredentials&&(!username||!password)){
+    ldapTestResult.hidden=false;
+    ldapTestResult.className='ldap-test-result error';
+    ldapTestResult.textContent='Bitte AD-Benutzername und Passwort eingeben.';
+    return;
+  }
+  ldapTestResult.hidden=false;
+  ldapTestResult.className='ldap-test-result';
+  ldapTestResult.textContent=withCredentials?'Prüfe echte AD-Anmeldung ...':'Prüfe geladene LDAP-Konfiguration ...';
+  ldapConfigTestBtn.disabled=true;
+  ldapCredentialTestBtn.disabled=true;
+  try{
+    const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/auth/ldap/test`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,password}),
+    },33000));
+    if(!ok)throw new Error(body.error||`HTTP ${status}`);
+    ldapTestResult.className=`ldap-test-result ${body.ok?'success':'error'}`;
+    const config=body.config;
+    const lines=[body.message||body.code||'Keine Antwort',body.code?`Status: ${body.code}`:'',
+      body.account?`AD-Account: ${body.account.username} · Rolle: ${body.account.role}`:'',
+      config?`Server: ${config.server||'(Domänenkontext)'}, Domäne: ${config.domain||'(auto)'}, Container: ${config.container||'(keiner)'}, UPN-Suffix: ${config.upnSuffix||'(auto)'}`:'',
+      body.hint||''].filter(Boolean);
+    ldapTestResult.textContent=lines.join('\n');
+  }catch(error){
+    ldapTestResult.className='ldap-test-result error';
+    ldapTestResult.textContent=`LDAP-Test fehlgeschlagen: ${error.message}`;
+  }finally{
+    ldapTestPassword.value='';
+    ldapConfigTestBtn.disabled=false;
+    ldapCredentialTestBtn.disabled=false;
+  }
+}
+ldapTestForm.addEventListener('submit',(event)=>{event.preventDefault();runLdapDiagnostic(true)});
+ldapConfigTestBtn.addEventListener('click',()=>runLdapDiagnostic(false));
+
 function renderAuthUsers(users=[]){authUserList.className='auth-user-list';if(!users.length){authUserList.className='auth-user-list empty-state';authUserList.textContent='Noch keine lokalen Benutzer.';return}authUserList.innerHTML='';users.forEach(user=>{const row=document.createElement('div');row.className='auth-user-row';row.innerHTML=`<div class="auth-user-identity"><strong>${escapeHtml(user.username)}</strong><small>lokales Konto</small></div><input data-user-field="displayName" value="${escapeHtml(user.displayName||'')}" placeholder="Anzeigename"><select data-user-field="role"><option value="it" ${user.role==='it'||user.role==='operator'||user.role==='user'?'selected':''}>IT</option><option value="admin" ${user.role==='admin'?'selected':''}>Admin</option></select><label><input data-user-field="enabled" type="checkbox" ${user.enabled?'checked':''}> aktiv</label><input data-user-field="password" type="password" placeholder="neues Passwort (optional)"><div class="auth-user-actions"><button type="button" class="secondary" data-user-action="save">Speichern</button><button type="button" class="danger" data-user-action="delete">Löschen</button></div>`;row.querySelector('[data-user-action="save"]').addEventListener('click',async()=>{const payload={displayName:row.querySelector('[data-user-field="displayName"]').value.trim(),role:row.querySelector('[data-user-field="role"]').value,enabled:row.querySelector('[data-user-field="enabled"]').checked};const password=row.querySelector('[data-user-field="password"]').value;if(password)payload.password=password;const result=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/auth/users/${encodeURIComponent(user.username)}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}));if(!result.ok){alert(result.body.error||`HTTP ${result.status}`);return}await loadAuthUsers()});row.querySelector('[data-user-action="delete"]').addEventListener('click',async()=>{if(!confirm(`Lokalen Benutzer "${user.username}" wirklich löschen?`))return;const result=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/auth/users/${encodeURIComponent(user.username)}`,{method:'DELETE'}));if(!result.ok){alert(result.body.error||`HTTP ${result.status}`);return}await loadAuthUsers()});authUserList.appendChild(row)})}
 async function loadAuthUsers(){if(!(await ensureAdminSession()))return;const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/auth/users`,{},10000));if(!ok){authUserList.className='auth-user-list empty-state';authUserList.textContent=body.error||`HTTP ${status}`;return}renderAuthUsers(body.users||[]);renderLdap(body.system||{})}
 
