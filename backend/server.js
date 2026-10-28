@@ -15,6 +15,12 @@ const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 3001);
 const BASE_PATH_RAW = process.env.BACKEND_BASE_PATH || '/';
 const USE_TEST_TEMPLATES = (process.env.USE_TEST_TEMPLATES || '').toLowerCase() === 'true';
 const ROOT_DIR = path.resolve(__dirname, '..');
+const STARTUP_ENV_REVISION = (() => {
+  const selected = process.env.SIGNATUREE_ENV_FILE
+    ? path.resolve(process.env.SIGNATUREE_ENV_FILE) : path.join(ROOT_DIR,'.env');
+  try { return require('node:crypto').createHash('sha256').update(fs.readFileSync(selected,'utf8')).digest('hex'); }
+  catch { return null; }
+})();
 const CONFIG_MODE = String(process.env.SIGNATUREE_CONFIG_MODE || (fs.existsSync(path.join(ROOT_DIR, '.env')) ? 'env' : 'database')).toLowerCase();
 if (!['env', 'database'].includes(CONFIG_MODE)) throw new Error('SIGNATUREE_CONFIG_MODE must be env or database.');
 const SECRETS_PATH = path.isAbsolute(process.env.SECRETS_PATH || '')
@@ -4182,7 +4188,11 @@ async function handleV2TemplateImport(req, res) {
 async function handleV2AdminEnvGet(_req, res) {
   try {
     if (CONFIG_MODE !== 'env') return sendJson(res, 409, { error:'Admin .env editor requires env mode.' });
-    return sendJson(res, 200, adminEnvEditor.publicSnapshot(ROOT_DIR, DEFAULT_VARIABLE_SCHEMA));
+    const snapshot=adminEnvEditor.publicSnapshot(ROOT_DIR, DEFAULT_VARIABLE_SCHEMA);
+    return sendJson(res, 200, {
+      ...snapshot,
+      requiresRestart: snapshot.revision !== STARTUP_ENV_REVISION,
+    });
   } catch (error) {
     return sendJson(res, error.status || 500, { error: error.message, code: error.code });
   }
