@@ -102,7 +102,7 @@ select,textarea):focus-visible {
   box-shadow: 0 0 0 3px rgba(95,160,245,.16)!important;
   outline: none!important;
 }
-html[data-theme="dark"] :is(input[type="file"]::file-selector-button) {
+html[data-theme="dark"] input[type="file"]::file-selector-button {
   color: #fff;
   background: #305e9d;
   border: 0;
