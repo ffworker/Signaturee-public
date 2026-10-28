@@ -95,4 +95,5 @@ For production:
 - restrict direct access to ports 3000/3001 with the host firewall as appropriate,
 - keep `AUTH_REQUIRED=true`,
 - use LDAP/AD authentication for employee self-service,
-- use local Signaturee accounts for Admin/IT roles.
+- use local Signaturee accounts for full Admin rights; IT may be a local account or a deliberately configured LDAP IT role.
+- set the public HTTPS origin in the project-root `.env` (`CORS_ORIGINS`), then restart with `scripts/reload-config.ps1`.
