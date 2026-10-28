@@ -1,59 +1,101 @@
-# Signaturee v2 — API reference
+# API reference
 
-The web UI is the primary interface. The endpoints below are useful for integrations, health checks and diagnostics. Use authenticated requests, and give diagnostic/administrative calls the required Admin role.
+Signaturee exposes a Node.js HTTP API. The **web UI is the supported primary entry point** for normal administration, targeted generation and LDAP self-service. The API also retains older routes for compatibility.
 
-## Health and login
+Use `AUTH_REQUIRED=true`, HTTPS when accessing the API across a network, and the intended account role. A local Signaturee **Admin** login is required for the administrative endpoints below; an LDAP account is not silently promoted to Admin.
 
-| Method | Route | Description |
+## Authentication and health
+
+| Method | Route | Purpose |
 | --- | --- | --- |
-| GET | `/health` | Backend health |
-| POST | `/api/auth/login` | Login (explicit `source: "local"` or `source: "ldap"`) |
-| GET | `/api/auth/me` | Session and role |
-| POST | `/api/auth/logout` | End session |
+| GET | `/health` | Basic backend status and instance ID; not a test of AD/SMB/Word |
+| POST | `/api/auth/login` | Login; send JSON with `username`, `password` and `source` (`local` or `ldap`) |
+| GET | `/api/auth/me` | Current session, role and identity source |
+| POST | `/api/auth/logout` | End current session |
 
-Local Admin and LDAP employee accounts are separate providers. To resolve an identical username in both, select the login source explicitly.
+For identical local/AD usernames, the login UI lets users choose their source explicitly.
 
-## Admin configuration and diagnostics
+## Configuration, templates and diagnostics (Admin)
 
-| Method | Route | Description |
+| Method | Route | Purpose |
 | --- | --- | --- |
-| GET | `/api/v2/admin/env` | Local Admin-only allowlisted .env draft, revision hash, default/extra variables and restart state; never secrets |
-| PUT | `/api/v2/admin/env` | Local Admin-only validated save to .env with backup; expected revision, approved values and merged variables |
-| GET | `/api/v2/profile` | Effective v2 profile derived from `.env` and available templates |
-| PUT | `/api/v2/profile` | **HTTP 409** in env mode: edit `.env` and reload instead |
-| POST | `/api/v2/templates/import` | Upload template files to the active template directory |
-| POST | `/api/v2/targets/check` | Probe the configured path or a supplied `path` temporarily (admin-only); never saves to `.env` and does not create trial folders |
-| POST | `/api/v2/ad/test` | Admin-only `Get-ADUser` search diagnostic |
-| POST | `/api/v2/auth/ldap/test` | Admin-only config or AD credential diagnostic |
-| GET | `/api/v2/auth/users` | Local-account list |
-| POST | `/api/v2/auth/users` | Create local account |
-| PATCH | `/api/v2/auth/users/:username` | Update local account |
+| GET | `/api/v2/profile` | Effective signature and variable profile; automatic template discovery is reevaluated when read |
+| PUT | `/api/v2/profile` | Database-profile compatibility only; **409 in `SIGNATUREE_CONFIG_MODE=env`** |
+| GET | `/api/v2/admin/env` | Read editable, allowlisted `.env` settings and revision state (no secrets) |
+| PUT | `/api/v2/admin/env` | Validate/write allowlisted settings; revision check and backup; activate separately |
+| POST | `/api/v2/signatures/create` | **New-signature wizard:** create a conventional HTML/TXT pair in automatic-discovery mode |
+| POST | `/api/v2/templates/import` | General template file upload to the active template directory |
+| POST | `/api/v2/targets/check` | Probe configured or temporary local/production path using backend task identity |
+| POST | `/api/v2/ad/test` | AD lookup diagnostic |
+| POST | `/api/v2/auth/ldap/test` | LDAP configuration or credential diagnostic |
+| GET | `/api/v2/auth/users` | List local accounts |
+| POST | `/api/v2/auth/users` | Add local account |
+| PATCH | `/api/v2/auth/users/:username` | Modify local account |
 | DELETE | `/api/v2/auth/users/:username` | Delete local account |
 
-The LDAP test accepts an empty JSON body for **configuration only**; submitting an AD username/password performs a real credential check and does not create a session. Do not transmit passwords over ordinary remote HTTP.
+### Create a signature
 
-The **signature catalog** is discovered from `XY_Template` HTML/TXT pairs in `TEMPLATE_DIR` on startup when `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`. Which ones a user may generate depends on AD security group membership `Signature-XY`, **not** LDAP role rules.
+In `SIGNATUREE_CONFIG_MODE=env` with `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`, `POST /api/v2/signatures/create` accepts **multipart/form-data**:
 
-## AD / generation
+- `key`: a technical signature key, e.g. `HR` (1–40 characters; letters, numbers, `_` and `-`).
+- `html`: one nonempty `.htm` or `.html` upload (max 1 MiB).
+- `txt`: one nonempty `.txt` upload (max 1 MiB).
 
-- `GET /api/users/ad` — search employees.
-- `POST /api/run/preflight` — resolve users, group assignments, templates and target constraints.
-- `POST /api/run/generate` — generate signatures after validation.
+A successful request returns **201**, with files `HR_Template.htm` and `HR_Template.txt` created under the configured `TEMPLATE_DIR`, and the automatically derived group `Signature-HR` (or your effective prefix). Duplicate keys/files are rejected (409) without overwriting existing templates. The endpoint **does not edit `.env` or create AD groups**; a subsequent profile request discovers the new pair without a backend restart. The group must already exist for employee assignment. An existing template pair may also be installed manually on disk.
+
+This new constrained wizard endpoint is separate from the general `/api/v2/templates/import` route. Do not assume the general import provides the same no-overwrite transaction semantics.
+
+### Test a target
+
+`POST /api/v2/targets/check` accepts JSON with `target` (`preview` or `production`) and optionally `path`. If `path` is supplied, it is only tested—not saved to `.env`. An arbitrary test path is **not auto-created**. The probe uses temporary filesystem operations, cleans up after itself and checks ACL modification for the production target.
+
+### LDAP test
+
+An empty JSON object runs a configuration check; supplying AD credentials triggers an actual login test and does not create a session. **Do not transmit employee passwords over unencrypted remote HTTP.**
+
+## Current AD-first generation (IT/Admin)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/users/ad` | AD employee lookup |
+| POST | `/api/run/preflight` | Resolve identifiers against live AD, group assignments, required attributes and templates |
+| POST | `/api/run/preview` | Render one assigned signature in temporary local output |
+| POST | `/api/run/generate` | Generate selected employees/signatures into an allowed output target |
+
+The targeted Preflight/Generate workflow accepts a `users` list and an optional `signatureSelection` mapping. It rejects requests with more than **50 distinct identifiers**. These requests **do not accept full CSV records as employee data**; they query AD again. Preview uses temporary rendering and does not write to the selected production target.
 
 ## Employee self-service
 
-- `GET /api/self/bootstrap` — discover the authenticated user's available signatures.
-- `POST /api/self/generate` — generate own signature.
-- `GET /api/self/signature/download` — download signature package.
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/self/bootstrap` | Authenticated user's record and assignable signatures |
+| POST | `/api/self/generate` | Generate own assigned signature(s) |
+| GET | `/api/self/signature/download` | Download own signature files |
+
+A local Admin/IT role or an eligible LDAP session is required; self-service must not be confused with an endpoint for generating arbitrary other employees' signatures.
 
 ## Operations and backup
 
-- `GET /api/runner/status`, `POST /api/runner/control` — Scheduled Task monitoring/control.
-- `GET /api/logs/latest`, `GET /api/logs/download` — generation logs.
-- `GET /api/storage/backup` — **settings-only** export; not an installation-level backup.
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/runner/status` | Backend/frontend Windows runner health |
+| POST | `/api/runner/control` | Start/stop/restart runner task(s); Admin-only |
+| GET | `/api/logs/latest` | Read most recent generator log |
+| GET | `/api/logs/download` | Download generator log |
+| GET | `/api/storage/backup` | **Settings-oriented backup only**; not an installation backup |
 
-Keep `.env` and full template/resource files in a separate protected backup. The old persisted-business-profile restore/write path is not the configuration mechanism in env mode.
+The scoped backend restart request `{"scope":"backend","action":"restart"}` acknowledges **202** when queued. The Admin UI subsequently checks a new backend instance ID rather than treating the queue acknowledgement as completion. Review `Logs/backend-restart.log` for host-side errors.
 
-[README](../README.md) · [Environment](environment.md)
+Back up the actual `.env`, templates/resources, SQLite databases and any configured output/state paths independently.
 
-The scoped backend `POST /api/runner/control` with `{ "scope": "backend", "action": "restart" }` runs via a separate one-shot Windows Scheduled Task; the response is only a queued acknowledgement. The Admin UI confirms a new backend instance before showing success. See `Logs/backend-restart.log` for host-side errors.
+## Legacy/compatibility routes
+
+The API still contains `/api/generate`, `/api/generate/single`, `/api/users/import`, `/api/users/import-single` and older domain/variable/preset/storage routes. Some of these require the historical `config/config.json`/database configuration or have different semantics from the current AD-first web workflow.
+
+- `/api/users/import` uploads full CSV data for an **older** workflow. It does not change `/api/run/preflight` into an offline-CSV renderer.
+- `/api/generate/single` accepts supplied user attributes but reads the historical configuration path.
+- `/api/storage/restore` and older business-profile writes return **409** under `SIGNATUREE_CONFIG_MODE=env`.
+
+These routes are **not removed**, but their complete compatibility contract is pending a separate acceptance-test audit. Avoid presenting them as supported replacements for the current UI.
+
+[README](../README.md) · [Data sources](data-sources.md) · [Environment](environment.md) · [Security](../SECURITY.md)
