@@ -2080,8 +2080,12 @@ function initializeStorage() {
   if (storageInitialized) return;
   initStorageDb();
   initAuthDb();
-  migrateStorageToDb();
-  syncDbStorageToFiles();
+  if (CONFIG_MODE !== 'env') {
+    // Legacy migration/mirroring may modify tracked sample presets/variables.
+    // Env mode must never rewrite repository files during startup.
+    migrateStorageToDb();
+    syncDbStorageToFiles();
+  }
   storageInitialized = true;
 }
 
@@ -5771,6 +5775,10 @@ function startServer() {
 
 function printCheck() {
   initializeStorage();
+  if (CONFIG_MODE === 'env') {
+    const checked = validateV2Profile(getV2Profile());
+    if (checked.errors.length) throw new Error('Invalid .env business configuration: ' + checked.errors.join(' | '));
+  }
   console.log(JSON.stringify({
     host: HOST,
     port: PORT,
