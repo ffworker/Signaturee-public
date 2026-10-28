@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="generate-v2.css">
   <link rel="stylesheet" href="admin-v2.css">
   <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="admin-compact.css">
   <script src="theme.js"></script>
 </head>
 <body>
@@ -70,7 +71,7 @@
       </section>
 
       <section class="admin-view active" data-view="overview">
-        <div class="admin-summary-grid">
+        <div class="admin-summary-grid" aria-label="Kennzahlen">
           <article class="admin-summary-card"><small>Signaturen</small><strong id="summarySignatureCount">–</strong></article>
           <article class="admin-summary-card"><small>Variablen</small><strong id="summaryVariableCount">–</strong></article>
           <article class="admin-summary-card"><small>AD-Gruppen</small><strong id="summaryGroupCount">–</strong></article>
@@ -92,7 +93,7 @@
 
             </label>
             <label class="wide">AD-Suchbasis
-              <input id="directorySearchBase" type="text" placeholder="OU=Users,DC=example,DC=local">
+              <input id="directorySearchBase" type="text" placeholder="DC=example,DC=local">
             </label>
           </div>
           <details class="compact-disclosure config-advanced">
@@ -354,7 +355,7 @@
 
       <section id="profileSaveBar" class="save-bar">
         <div>
-          <strong id="saveSummary">Profil wird geladen ...</strong>
+          <strong id="saveSummary">Änderungen</strong>
           <span id="saveStatus">Noch keine Änderungen.</span>
         </div>
         <div class="save-actions">
