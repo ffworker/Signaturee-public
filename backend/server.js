@@ -5983,10 +5983,12 @@ function routeRequest(req, res) {
     return handleV2TemplateImport(req, res);
   }
   if (relativePath === '/api/v2/admin/env' && req.method === 'GET') {
+    if (!AUTH_REQUIRED) return sendJson(res,403,{error:'Admin .env editing requires authentication to be enabled.'});
     if (!ensure('admin')) return;
     return handleV2AdminEnvGet(req, res);
   }
   if (relativePath === '/api/v2/admin/env' && req.method === 'PUT') {
+    if (!AUTH_REQUIRED) return sendJson(res,403,{error:'Admin .env editing requires authentication to be enabled.'});
     if (!ensure('admin')) return;
     return handleV2AdminEnvPut(req, res);
   }
