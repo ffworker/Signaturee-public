@@ -39,6 +39,21 @@ To use `Signatur-XY` groups instead, set `SIGNATUREE_AUTO_GROUP_PREFIX=Signatur-
 
 **Both HTML and TXT are required.** An incomplete pair causes configuration validation to fail rather than silently hiding it. After adding or renaming a template, run `.\scripts\reload-config.ps1` and refresh Admin.
 
+## Neue Signatur im Admin anlegen
+
+Unter **Administration → Signaturen → + Signatur** kannst du bei aktivierter automatischer Erkennung eine Signatur erstellen, ohne `.env` oder die Signatur-Zuordnung manuell zu bearbeiten:
+
+1. **Kürzel** eingeben, z. B. `HR`. Das Kürzel ist der stabile technische Schlüssel.
+2. **HTML-Datei** mit Layout und AD-Platzhaltern hochladen. Beispiel: `<p>$givenname $sn<br>$mail</p>`.
+3. **TXT-Datei** mit der unformatierten Variante hochladen, z. B. `$givenname $sn` und `$mail` auf getrennten Zeilen.
+4. **Signatur anlegen**. Signaturee speichert atomar und ohne Überschreiben `HR_Template.htm` und `HR_Template.txt`, nimmt `HR` direkt in den Katalog auf und erwartet die bestehende AD-Gruppe `Signature-HR` (oder das konfigurierte Gruppenpräfix).
+
+Das Anlegen verändert **keine** `.env`, legt **keine** AD-Gruppen an und ersetzt keine vorhandenen Templates. Ein System-Neustart ist für die neue Anzeige in diesem Workflow nicht erforderlich. Für Bilder/Logos müssen zugehörige Ressourcen derzeit separat in das passende `HR-Dateien/`-Verzeichnis übertragen werden.
+
+Die Präfixkonfiguration ist unter **Erweiterte Gruppenzuordnung → Bearbeiten** erreichbar. Eine Änderung betrifft die automatische Zuordnung **aller** Signaturen; erst nach bewusstem Speichern und Backend-Aktivieren wird sie wirksam.
+
+**Aktuelle Formatgrenze:** Für den bestehenden Classic-Outlook-Generator sind HTML und TXT als Quellen erforderlich. Bei produktiven Läufen wird eine passende RTF-Ausgabe aus dem fertig generierten HTML erzeugt. Ein einfaches HTML-only-Template ist als zukünftiger, separat getesteter Workflow geplant; es darf nicht stillschweigend TXT/RTF mit ungeprüfter Qualität ersetzen.
+
 ## Manual mapping (optional)
 
 If your template filenames/groups do not follow the convention, disable discovery and define an explicit one-line JSON mapping in `.env`:

@@ -65,6 +65,16 @@ Install and start both Windows Scheduled Tasks:
 
 Open [http://127.0.0.1:3000/login.html](http://127.0.0.1:3000/login.html) locally and select **Lokales Signaturee-Konto** for the Admin account. For another host, configure the origin and preferably an HTTPS reverse proxy.
 
+## Add signatures from Admin
+
+In the default automatic template-discovery mode, open **Administration → Signaturen → + Signatur**. Provide a technical key (e.g. `HR`), one HTML file (`.htm`/`.html`) and one `.txt` file. The built-in help shows example placeholders such as `$givenname`, `$sn` and `$mail`.
+
+Signaturee creates **`HR_Template.htm` + `HR_Template.txt`** in the active `TEMPLATE_DIR`, detects the pair on the next profile request, and assigns it to the *existing* group `Signature-HR` (or the configured prefix). It does not edit `.env`, create groups, overwrite templates or require a restart just to refresh the catalog. Uploaded source files retain their original bytes.
+
+The AD group-prefix setting is intentionally an **advanced** action, under **Erweiterte Gruppenzuordnung → Bearbeiten**. Changing it affects all convention-based signature assignments and requires the normal save/activate flow.
+
+The current Classic Outlook generator requires HTML and TXT sources and creates RTF output during productive generation. For future HTML-only clients and non-Outlook delivery, see [Product direction](docs/product-direction.md). Never assume that local classic Outlook signature files install into new Outlook.
+
 ## How signatures are assigned
 
 Signaturee scans `TEMPLATE_DIR` **on backend startup** when `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`.

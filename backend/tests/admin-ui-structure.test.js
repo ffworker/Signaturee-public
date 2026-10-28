@@ -65,4 +65,13 @@ for(const id of ['authUserList','requiredVariablesOnly','adSearchTestBtn',
   'ldapTestForm','restartBackendBtn','saveProfileBtn']){
   assert.ok(ids.includes(id),'Functional UI element unexpectedly removed: '+id);
 }
+assert.ok(html.includes('id="newSignatureWizard"'),'+ Signatur wizard must exist');
+for(const id of ['newSignatureForm','newSignatureKey','newSignatureHtml','newSignatureTxt',
+  'signatureGroupPrefixConfig','signaturePrefixPreview','editSignaturePrefixBtn',
+  'signaturePrefixEditor']){
+  assert.ok(ids.includes(id),'New signature workflow is missing '+id);
+}
+assert.match(client,/api\/v2\/signatures\/create/,'Wizard must send a real API request');
+assert.match(client,/signaturePrefixEditor\.hidden=false/,'Prefix must require an explicit Edit click');
+assert.match(client,/activeSignatureGroupPrefix/,'Wizard must use active AD group prefix');
 console.log('admin-ui-structure.test.js: ok');
