@@ -609,7 +609,7 @@ function resolveLdapRole({ samAccountName, userPrincipalName, attributes = {}, g
   return resolveLdapDefaultRole();
 }
 
-async function authenticateLdapUser({ username, password }) {
+async function authenticateLdapUser({ username, password, timeoutMs = 0 }) {
   const inputUsername = String(username || '').trim();
   const inputPassword = String(password || '');
   if (!AUTH_LDAP_ENABLED || !inputUsername || !inputPassword) {
@@ -673,6 +673,8 @@ async function authenticateLdapUser({ username, password }) {
 
   return new Promise((resolve, reject) => {
     const child = spawn(powershellCommand, ['-NoLogo', '-NoProfile', '-Command', psScript]);
+    let timedOut = false;
+    const timeout = timeoutMs > 0 ? setTimeout(() => { timedOut = true; child.kill(); }, timeoutMs) : null;
     child.stdin.on('error', () => {});
     child.stdin.end(`${Buffer.from(inputPassword, 'utf8').toString('base64')}\n`);
     let stdout = '';
@@ -685,6 +687,7 @@ async function authenticateLdapUser({ username, password }) {
       stderr += data.toString('utf8');
     });
     child.on('error', (error) => {
+      if (timeout) clearTimeout(timeout);
       const unavailableError = new Error(`LDAP auth unavailable: ${error.message}`);
       unavailableError.status = 503;
       unavailableError.code = 'LDAP_AUTH_UNAVAILABLE';
@@ -693,6 +696,11 @@ async function authenticateLdapUser({ username, password }) {
       reject(unavailableError);
     });
     child.on('close', (code) => {
+      if (timeout) clearTimeout(timeout);
+      if (timedOut) {
+        resolve({ attempted: true, authenticated: false, timeout: true });
+        return;
+      }
       if (code !== 0) {
         const invalidCreds = /INVALID_CREDENTIALS/i.test(stderr);
         resolve({
@@ -1327,6 +1335,118 @@ function authSystemSnapshot() {
       fallbackToLocal: AUTH_LDAP_FALLBACK_TO_DB,
     },
   };
+}
+
+// Admin-only diagnostic. Never returns, persists or logs the submitted password;
+// an attempted LDAP bind is performed by the same function used for real logins.
+let lastLdapDiagnosticAt = 0;
+let ldapDiagnosticBusy = false;
+function classifyLdapDiagnosticFailure(result) {
+  const detail = String(result?.stderr || '');
+  if (result?.timeout) {
+    return {
+      code: 'LDAP_TIMEOUT',
+      message: 'Zeitüberschreitung beim LDAP-Test (25 Sekunden).',
+      hint: 'DC-Erreichbarkeit, DNS und LDAP-Kontext prüfen.',
+    };
+  }
+  if (result?.invalidCredentials) {
+    return {
+      code: 'INVALID_CREDENTIALS',
+      message: 'AD-Anmeldedaten wurden abgelehnt.',
+      hint: 'Benutzername/UPN, Passwort und Kontostatus prüfen. Gegebenenfalls AUTH_LDAP_UPN_SUFFIX prüfen.',
+    };
+  }
+  if (/AUTHENTICATED_USER_NOT_FOUND/i.test(detail)) {
+    return {
+      code: 'USER_LOOKUP_FAILED',
+      message: 'AD hat die Zugangsdaten akzeptiert, aber der Benutzer konnte anschließend nicht gefunden werden.',
+      hint: 'AUTH_LDAP_CONTAINER testweise weglassen und kontrollieren, ob die Benutzer-OU den Account enthält.',
+    };
+  }
+  if (/server.*(not operational|could not be contacted)|domain.*(not.*available|not.*exist)|LDAP_SERVER_DOWN|0x8007203a/i.test(detail)) {
+    return {
+      code: 'DIRECTORY_UNAVAILABLE',
+      message: 'Domänencontroller oder LDAP-Dienst nicht erreichbar.',
+      hint: 'DNS, Domain-Join, Netzwerk und AUTH_LDAP_SERVER / AUTH_LDAP_DOMAIN prüfen.',
+    };
+  }
+  if (/container|distinguished name|0x80072030|0x8007054b/i.test(detail)) {
+    return {
+      code: 'DIRECTORY_CONTEXT_ERROR',
+      message: 'LDAP-Kontext oder Suchcontainer konnte nicht geöffnet werden.',
+      hint: 'AUTH_LDAP_CONTAINER prüfen oder vorübergehend auskommentieren; Domain und DC prüfen.',
+    };
+  }
+  return {
+    code: 'LDAP_BIND_OR_LOOKUP_FAILED',
+    message: 'Die LDAP-Authentifizierung oder anschließende Benutzerauflösung ist fehlgeschlagen.',
+    hint: 'AUTH_LDAP_DOMAIN/SERVER, UPN-Suffix und Container prüfen; ggf. Server-Ereignisprotokoll für Details ansehen.',
+  };
+}
+
+async function handleV2LdapTest(req, res) {
+  if (!AUTH_LDAP_ENABLED) {
+    return sendJson(res, 200, {
+      ok: false, mode: 'configuration', code: 'LDAP_DISABLED',
+      message: 'LDAP ist deaktiviert. AUTH_LDAP_ENABLED=true in .env setzen und Backend neu starten.',
+      config: authSystemSnapshot().ldap,
+    });
+  }
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.includes('application/json')) {
+    return sendJson(res, 415, { error: 'LDAP-Test erwartet application/json.' });
+  }
+  let body;
+  try {
+    body = await parseJsonBody(req);
+  } catch (error) {
+    return sendJson(res, getErrorStatus(error, 400), { error: 'Ungültiger JSON-Body.' });
+  }
+  const username = String(body?.username || '').trim();
+  const password = String(body?.password || '');
+  if (!username && !password) {
+    return sendJson(res, 200, {
+      ok: true, mode: 'configuration', code: 'CONFIGURATION_LOADED',
+      message: 'LDAP-Konfiguration geladen. Das bestätigt noch KEINE Verbindung oder Anmeldung. Für einen echten Test AD-Konto und Passwort eingeben.',
+      config: authSystemSnapshot().ldap,
+    });
+  }
+  if (!username || !password) {
+    return sendJson(res, 400, { error: 'Für einen echten LDAP-Test Benutzername UND Passwort angeben.' });
+  }
+  if (username.length > 256 || password.length > 1024) {
+    return sendJson(res, 400, { error: 'Eingabe zu lang.' });
+  }
+  if (ldapDiagnosticBusy || Date.now() - lastLdapDiagnosticAt < 4000) {
+    return sendJson(res, 429, { error: 'LDAP-Test läuft bereits oder wurde kürzlich ausgeführt. Bitte kurz warten.' });
+  }
+  ldapDiagnosticBusy = true;
+  lastLdapDiagnosticAt = Date.now();
+  try {
+    const result = await authenticateLdapUser({ username, password, timeoutMs: 25000 });
+    if (result.authenticated) {
+      return sendJson(res, 200, {
+        ok: true, mode: 'credentials', code: 'LDAP_AUTHENTICATED',
+        message: 'AD-Anmeldung und Benutzerauflösung erfolgreich.',
+        account: { username: result.username, role: result.role, displayName: result.displayName },
+      });
+    }
+    const failure = classifyLdapDiagnosticFailure(result);
+    return sendJson(res, 200, { ok: false, mode: 'credentials', ...failure });
+  } catch (error) {
+    // Powershell child-process errors may contain system details. Do not reflect raw
+    // stderr, PowerShell invocation or any submitted credentials to the browser.
+    return sendJson(res, 200, {
+      ok: false, mode: 'credentials', code: error.code === 'POWERSHELL_NOT_AVAILABLE' ? 'POWERSHELL_UNAVAILABLE' : 'LDAP_DIAGNOSTIC_ERROR',
+      message: error.code === 'POWERSHELL_NOT_AVAILABLE'
+        ? 'PowerShell ist auf dem Backend nicht verfügbar.'
+        : 'LDAP-Test konnte nicht ausgeführt werden.',
+      hint: 'Backend-Dienstkonto, PowerShell-Installation und AD/LDAP-Konfiguration prüfen.',
+    });
+  } finally {
+    ldapDiagnosticBusy = false;
+  }
 }
 
 async function handleV2AuthUsersList(_req, res) {
@@ -5582,6 +5702,10 @@ function routeRequest(req, res) {
   if (relativePath === '/api/auth/login' && req.method === 'POST') return handleAuthLogin(req, res);
   if (relativePath === '/api/auth/me' && req.method === 'GET') return handleAuthMe(req, res);
   if (relativePath === '/api/auth/logout' && req.method === 'POST') return handleAuthLogout(req, res);
+  if (relativePath === '/api/v2/auth/ldap/test' && req.method === 'POST') {
+    if (!ensure('admin')) return;
+    return handleV2LdapTest(req, res);
+  }
   if (relativePath === '/api/v2/auth/users' && req.method === 'GET') {
     if (!ensure('admin')) return;
     return handleV2AuthUsersList(req, res);
