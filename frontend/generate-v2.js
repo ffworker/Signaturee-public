@@ -292,10 +292,15 @@ function personMarkup(user, actionHtml) {
     </div>
     <div>${actionHtml}</div>`;
 }
+function setStatusTone(element,tone=''){
+  if(!element)return;
+  element.classList.remove('success','error','loading');
+  if(['success','error','loading'].includes(tone))element.classList.add(tone);
+}
 function resetPreview() {
   if (previewStep) previewStep.hidden = true;
   if (previewResult) previewResult.hidden = true;
-  if (previewStatus) previewStatus.textContent = '';
+  if (previewStatus) { previewStatus.textContent = ''; setStatusTone(previewStatus); }
   if (previewSelect) previewSelect.innerHTML = '';
   if (previewSurface) {
     previewSurface.replaceChildren();
@@ -335,6 +340,7 @@ function populatePreviewOptions(plan) {
   previewStatus.textContent = options.length
     ? `${options.length} Vorschau${options.length===1?'':'en'} verfügbar.`
     : 'Keine Signatur für eine Vorschau verfügbar.';
+  setStatusTone(previewStatus);
 }
 
 function renderPreviewDocument(html) {
@@ -399,12 +405,14 @@ async function loadPreview() {
     selection = JSON.parse(previewSelect.value);
   } catch {
     previewStatus.textContent = 'Ungültige Vorschau-Auswahl.';
+    setStatusTone(previewStatus,'error');
     return;
   }
 
   previewBtn.disabled = true;
   previewBtn.textContent = 'Vorschau wird gerendert ...';
   previewStatus.textContent = 'Der echte Generator rendert temporär ...';
+  setStatusTone(previewStatus,'loading');
   previewResult.hidden = true;
 
   try {
@@ -432,8 +440,10 @@ async function loadPreview() {
 
     previewResult.hidden = false;
     previewStatus.textContent = 'Vorschau erfolgreich gerendert.';
+    setStatusTone(previewStatus,'success');
   } catch (error) {
     previewStatus.textContent = `Vorschau fehlgeschlagen: ${describeConnectionError(error)}`;
+    setStatusTone(previewStatus,'error');
   } finally {
     previewBtn.disabled = !lastPlan?.ok;
     previewBtn.textContent = 'Vorschau rendern';
@@ -448,6 +458,7 @@ function invalidatePreflight() {
   generateBtn.disabled = true;
   preflightPanel.className = 'preflight-panel empty-state';
   preflightPanel.textContent = 'Auswahl geändert. Preflight erneut durchführen.';
+  setStatusTone(preflightHint);
   updateControls();
 }
 function updateControls() {
@@ -765,6 +776,7 @@ async function runPreflight() {
   if (!selected.size || !(await ensureSession())) return;
   preflightBtn.disabled = true;
   preflightHint.textContent = 'Prüfung läuft ...';
+  setStatusTone(preflightHint,'loading');
   preflightPanel.className = 'preflight-panel empty-state';
   preflightPanel.textContent = 'AD-Zuordnung, Templates und Ziel werden geprüft ...';
   const payload = {
@@ -780,6 +792,7 @@ async function runPreflight() {
     if (Array.isArray(body.users) && body.users.length) syncSelectedFromPlan(body);
     renderPlan(body);
     preflightHint.textContent = body.ok ? 'Preflight erfolgreich.' : 'Bitte blockierende Fehler beheben.';
+    setStatusTone(preflightHint,body.ok?'success':'error');
   } catch (error) {
     lastPlan = null;
     resetPreview();
@@ -787,6 +800,7 @@ async function runPreflight() {
     preflightPanel.className = 'preflight-panel empty-state';
     preflightPanel.textContent = `Preflight fehlgeschlagen: ${describeConnectionError(error)}`;
     preflightHint.textContent = 'Preflight fehlgeschlagen.';
+    setStatusTone(preflightHint,'error');
   } finally {
     updateControls();
   }
