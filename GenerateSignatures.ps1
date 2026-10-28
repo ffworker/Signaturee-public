@@ -57,6 +57,9 @@ param(
     [Parameter(Mandatory=$false, HelpMessage="Optional runtime variable schema path. Used by Signaturee v2.")]
     [string]$VariablesFilePath,
 
+    [Parameter(Mandatory=$false, HelpMessage="Absolute or relative template directory. Shared with the v2 backend.")]
+    [string]$TemplateDirectory,
+
     [Parameter(Mandatory=$false, HelpMessage="Optional local deployment path override. Used by Signaturee v2.")]
     [string]$LocalDeploymentPath,
 
@@ -1011,12 +1014,13 @@ if (-not $variableMappings -or $variableMappings.Count -eq 0) {
 # Template folder selection
 # =========================
 $templateFolder = "Templatefiles"
-if ($UseTestTemplates) {
-    $templateFolder = "Templatefiles_test"
-    Write-Log "Using test templates from '$templateFolder'"
+if ($UseTestTemplates) { $templateFolder = "Templatefiles_test" }
+if ($TemplateDirectory) {
+    $templateRootPath = [System.IO.Path]::GetFullPath($(if ([System.IO.Path]::IsPathRooted($TemplateDirectory)) { $TemplateDirectory } else { Join-Path $scriptDir $TemplateDirectory }))
 } else {
-    Write-Log "Using production templates from '$templateFolder'"
+    $templateRootPath = Join-Path $scriptDir $templateFolder
 }
+Write-Log "Using templates from '$templateRootPath'"
 
 # =========================
 # Build domain structures from config
@@ -1051,7 +1055,7 @@ foreach ($domainKey in $config.domains.Keys) {
     $htmlRel = $domCfg.templateHtml
     $resRel  = $domCfg.resourceFolder
 
-    $allDomains[$domainKey] = Join-Path -Path $scriptDir -ChildPath (Join-Path $templateFolder $htmlRel)
+    $allDomains[$domainKey] = Join-Path -Path $templateRootPath -ChildPath $htmlRel
 
     if ($domCfg.faxFallback) {
         $domainFaxFallbacks[$domainKey] = $domCfg.faxFallback
@@ -1060,7 +1064,7 @@ foreach ($domainKey in $config.domains.Keys) {
     }
 
     if ($resRel) {
-        $domainResourceFolders[$domainKey] = Join-Path -Path $scriptDir -ChildPath (Join-Path $templateFolder $resRel)
+        $domainResourceFolders[$domainKey] = Join-Path -Path $templateRootPath -ChildPath $resRel
     }
 
     if ($domCfg.customTitleAttr) {
@@ -1166,7 +1170,7 @@ function Test-SignatureConfiguration {
     return $validationPassed
 }
 
-$templateRootPath = Join-Path -Path $scriptDir -ChildPath $templateFolder
+# $templateRootPath was resolved above and is shared with the v2 backend.
 
 if ($ValidateOnly) {
     $allowPartialTemplates = [bool]$UseTestTemplates
@@ -1461,7 +1465,7 @@ function New-OutlookSignatures {
             Write-Log "TXT template not configured for domain $Domain" -Level "ERROR"
             throw "Missing TXT template configuration for domain $Domain"
         }
-        $txtTemplatePath = Join-Path -Path $scriptDir -ChildPath (Join-Path $templateFolder $domainCfg.templateTxt)
+        $txtTemplatePath = Join-Path -Path $templateRootPath -ChildPath $domainCfg.templateTxt
         if (-not (Test-Path -LiteralPath $txtTemplatePath)) {
             Write-Log "TXT template not found for $Username - $Domain at $txtTemplatePath" -Level "ERROR"
             throw "Missing TXT template: $txtTemplatePath"
