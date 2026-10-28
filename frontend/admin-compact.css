@@ -1,0 +1,247 @@
+/* Signaturee Admin — compact, hierarchy-first UI.
+   Loaded after both existing stylesheets and the light/dark shared theme. */
+:root {
+  --admin-card:#ffffff;
+  --admin-card-alt:#f7f9f7;
+  --admin-border:#dae4db;
+  --admin-text:#23382a;
+  --admin-secondary:#5a6d5e;
+  --admin-focus:#397b53;
+  --admin-good:#246d42;
+  --admin-good-bg:#e4f3e7;
+  --admin-bad:#a13e34;
+  --admin-bad-bg:#faeae7;
+}
+html[data-theme="dark"] {
+  --admin-card:#202a25;
+  --admin-card-alt:#28352c;
+  --admin-border:#435949;
+  --admin-text:#eaf3ec;
+  --admin-secondary:#b5c9b9;
+  --admin-focus:#7bd9a0;
+  --admin-good:#a6e8b7;
+  --admin-good-bg:#254633;
+  --admin-bad:#ffb2a7;
+  --admin-bad-bg:#4a302e;
+}
+
+/* Airier typography, less padding, no bulky permanent helper panels. */
+.admin-topbar{padding-top:.9rem;padding-bottom:.65rem;align-items:center}
+.admin-topbar h1{font-size:1.55rem;letter-spacing:-.025em;margin:.15rem 0}
+.admin-topbar .top-actions{gap:.4rem}
+.admin-shell{gap:.7rem;padding:0 1.1rem}
+.admin-workspace{gap:.65rem;padding-bottom:5rem}
+.admin-nav{padding:.4rem;gap:.15rem;border-radius:13px}
+.admin-nav-item{min-height:37px;padding:.5rem .72rem;font-size:.88rem;border-radius:8px}
+.admin-view{gap:.65rem}
+.admin-view .step-card{padding:.85rem 1rem;border-radius:12px}
+.admin-section-head{margin-bottom:.55rem}
+.admin-section-head h2{font-size:1.13rem;line-height:1.2;margin:0}
+.admin-section-head p{font-size:.8rem;margin-top:.25rem}
+.admin-section-head.split{gap:.7rem;align-items:center}
+.admin-grid{gap:.6rem}
+.admin-grid label,.deployment-target-card label{gap:.23rem;font-size:.83rem}
+.admin-grid input,.admin-grid select,.deployment-target-card input,
+.ldap-test-form input,.auth-user-row input,.auth-user-row select{
+  padding:.5rem .65rem;min-height:35px;border-radius:8px;
+}
+.admin-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:.48rem}
+.admin-summary-card{border-radius:10px;padding:.55rem .75rem;display:flex;align-items:center;justify-content:space-between;gap:.7rem}
+.admin-summary-card small{font-size:.77rem}
+.admin-summary-card strong{font-size:1.1rem;margin:0}
+.deployment-targets{gap:.6rem}
+.deployment-target-card,.admin-view[data-view="deployment"] .deployment-target-card{padding:.72rem .8rem;gap:.5rem;border-radius:10px}
+.deployment-target-card h3{font-size:.94rem}
+.admin-view[data-view="deployment"] .target-kind{font-size:.66rem}
+.path-test-row button{padding:.49rem .72rem}
+.admin-section-head .eyebrow{display:none}
+.admin-banner[hidden],.template-overview-details:not([open]) .template-status{display:none!important}
+
+/* Persistent glanceable health strip: each signature is a single pill. */
+.template-overview{
+  position:sticky;top:.35rem;z-index:18;display:flex;align-items:center;
+  gap:.55rem;padding:.5rem .7rem;border:1px solid var(--admin-border);
+  background:var(--admin-card);color:var(--admin-text);
+  box-shadow:0 7px 21px rgba(0,0,0,.075);border-radius:12px;min-height:51px;
+}
+.template-overview-primary{display:flex;align-items:center;gap:.7rem;min-width:0;flex:1}
+.template-overview-heading{display:flex;align-items:center;gap:.48rem;white-space:nowrap;flex:0 0 auto;font-size:.88rem}
+.template-overview-heading strong{font-weight:800}
+.template-overview-count{font-size:.72rem;font-weight:750;padding:.2rem .46rem;border-radius:999px;background:var(--admin-card-alt);color:var(--admin-secondary)}
+.template-overview-count.ok{color:var(--admin-good);background:var(--admin-good-bg)}
+.template-overview-count.bad{color:var(--admin-bad);background:var(--admin-bad-bg)}
+.template-chip-list{display:flex;gap:.32rem;align-items:center;overflow-x:auto;scrollbar-width:thin;padding:.1rem 0;min-width:0;flex:1}
+.template-chip-list .template-chip{
+  display:inline-flex;gap:.35rem;align-items:center;justify-content:center;
+  flex:0 0 auto;padding:.32rem .48rem;min-height:29px;
+  font-size:.75rem;border:1px solid var(--admin-border);border-radius:7px;
+  background:var(--admin-card-alt);color:var(--admin-text);
+  cursor:pointer;line-height:1.1;
+}
+.template-chip-list .template-chip:hover,
+.template-chip-list .template-chip:focus-visible{border-color:var(--admin-focus);box-shadow:0 0 0 1px var(--admin-focus)}
+.template-chip-list .template-chip.bad{background:var(--admin-bad-bg);color:var(--admin-bad)}
+.template-chip .health-dot{width:.4rem;height:.4rem;flex-basis:.4rem}
+.template-overview-details{position:relative;flex:0 0 auto;font-size:.77rem}
+.template-overview-details>summary{cursor:pointer;list-style:none;padding:.42rem .5rem;font-weight:650;border-radius:7px;color:var(--admin-secondary);border:1px solid var(--admin-border);white-space:nowrap}
+.template-overview-details>summary::-webkit-details-marker{display:none}
+.template-overview-details>summary:hover{background:var(--admin-card-alt)}
+.template-overview-details[open]>summary{border-color:var(--admin-focus);color:var(--admin-text)}
+.template-overview-details .template-status{
+  position:absolute;right:0;top:calc(100% + .65rem);
+  width:min(760px,calc(100vw - 48px));max-height:310px;overflow-y:auto;
+  padding:.5rem;background:var(--admin-card);color:var(--admin-text);
+  border:1px solid var(--admin-border);border-radius:11px;
+  box-shadow:0 14px 30px rgba(0,0,0,.18);
+}
+.template-status{display:grid;gap:.22rem}
+.template-status-row{grid-template-columns:72px repeat(3,minmax(0,1fr));gap:.4rem;padding:.45rem .55rem;font-size:.77rem;background:var(--admin-card-alt);border:1px solid var(--admin-border);border-radius:8px;color:var(--admin-text)}
+.template-status-row strong{font-size:.83rem}
+.template-status-row .asset-state{display:flex;gap:.28rem;align-items:center;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.74rem;color:var(--admin-secondary)}
+.template-status-row .asset-state.bad{color:var(--admin-bad)}
+.template-status-row .asset-state.ok{color:var(--admin-good)}
+.template-status-row .health-dot{width:.38rem;height:.38rem;flex:0 0 .38rem}
+html[data-theme="dark"] .template-overview,
+html[data-theme="dark"] .template-overview-details .template-status{background:var(--admin-card)!important;color:var(--admin-text)!important}
+html[data-theme="dark"] .template-chip-list .template-chip{color:var(--admin-text)!important;background:var(--admin-card-alt)!important}
+html[data-theme="dark"] .template-chip-list .template-chip.bad{color:var(--admin-bad)!important;background:var(--admin-bad-bg)!important}
+html[data-theme="dark"] .template-status-row{background:var(--admin-card-alt)!important;color:var(--admin-text)!important}
+
+/* Small disclosures replace long descriptions; keyboard and touch friendly. */
+.compact-disclosure,.signature-editor{
+  border:1px solid var(--admin-border);border-radius:9px;
+  background:var(--admin-card-alt);color:var(--admin-text);
+}
+.compact-disclosure>summary,.signature-editor>summary{
+  display:flex;align-items:center;justify-content:space-between;gap:.4rem;
+  padding:.52rem .72rem;cursor:pointer;list-style:none;
+  font-size:.82rem;font-weight:680;color:var(--admin-secondary);
+}
+.compact-disclosure>summary::-webkit-details-marker,
+.signature-editor>summary::-webkit-details-marker{display:none}
+.compact-disclosure>summary::after,.signature-editor>summary::after{content:"⌄";font-size:1rem;margin-left:auto}
+.compact-disclosure[open]>summary::after,.signature-editor[open]>summary::after{content:"⌃"}
+.compact-disclosure>summary:hover,.signature-editor>summary:hover{color:var(--admin-text)}
+.compact-disclosure[open]>summary,.signature-editor[open]>summary{border-bottom:1px solid var(--admin-border);color:var(--admin-text)}
+.compact-disclosure .admin-grid,.compact-disclosure>p{padding:.7rem .8rem;margin:0}
+.compact-disclosure>ol{margin:.5rem .8rem .8rem;padding-left:1.45rem;font-size:.83rem}
+.compact-disclosure .role-grid{padding:.7rem}
+.compact-disclosure .role-grid article{padding:.5rem .6rem;font-size:.82rem}
+.compact-disclosure .role-grid p{font-size:.76rem}
+.compact-disclosure .ldap-diagnostic-body{padding:.6rem .8rem .85rem}
+.compact-disclosure .ldap-test-form{margin:0}
+.compact-disclosure .task-list{padding:.45rem}
+.config-advanced{margin-top:.65rem}
+.disclosure-meta{font-size:.7rem;color:var(--admin-secondary);font-weight:500}
+.field-hint{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;margin-left:.15rem;border:1px solid var(--admin-border);
+  border-radius:50%;font-size:.65rem;cursor:help;color:var(--admin-secondary);
+}
+
+/* Signature rows: name, group and health visible without full forms. */
+.signature-cards{gap:.38rem}
+.signature-card{padding:.55rem .7rem;border-radius:10px}
+.signature-card-head{margin:0;display:grid;grid-template-columns:minmax(95px,.65fr) minmax(120px,1.3fr) auto;gap:.6rem;align-items:center}
+.signature-card-head>div{display:flex;flex-direction:column;gap:.05rem;min-width:0}
+.signature-card-head .signature-title{font-size:.9rem}
+.signature-card-head .signature-health{font-size:.71rem}
+.signature-mapping-preview{font-size:.77rem;color:var(--admin-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.signature-card-head .remove-signature{font-size:.72rem}
+.signature-card-head .remove-signature:disabled{display:none}
+.signature-editor{margin-top:.45rem;background:transparent;border-color:var(--admin-border)}
+.signature-editor>summary{padding:.42rem .58rem;font-size:.75rem}
+.signature-editor>.admin-grid{padding:.6rem}
+.signature-editor .asset-upload-row{margin:0;padding:.55rem .6rem;border-color:var(--admin-border)}
+.signature-convention{margin-bottom:.6rem}
+.signature-convention label{display:flex;align-items:center;gap:.4rem;font-weight:700;font-size:.8rem}
+.signature-convention input{max-width:180px;width:100%;font:inherit;font-size:.82rem;padding:.43rem .55rem;border:1px solid var(--admin-border);border-radius:7px;background:var(--admin-card);color:var(--admin-text)}
+html[data-theme="dark"] .signature-card,html[data-theme="dark"] .compact-disclosure,html[data-theme="dark"] .signature-editor{background:var(--admin-card)!important;border-color:var(--admin-border)!important;color:var(--admin-text)!important}
+html[data-theme="dark"] .signature-mapping-preview{color:var(--admin-secondary)!important}
+
+/* Variables: one collapsed editable row per mapping, not a tall form grid. */
+.variable-cards{gap:.36rem}
+.variable-card{border-radius:10px}
+.variable-card-head{display:flex;align-items:center;padding:.6rem .7rem;cursor:pointer;min-height:53px}
+.variable-card-title{flex:1;display:flex;align-items:center;gap:.7rem;min-width:0}
+.variable-card-title-line{flex:0 0 auto;min-width:0}
+.variable-card-title h3{font-size:.88rem}
+.variable-card-placeholder{font-size:.73rem}
+.variable-card-summary{font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.variable-badge{padding:.15rem .37rem;font-size:.67rem}
+.variable-editor>summary{list-style:none}
+.variable-editor>summary::-webkit-details-marker{display:none}
+.variable-editor>summary::after{content:"Bearbeiten ⌄";font-size:.72rem;font-weight:600;color:var(--admin-secondary);white-space:nowrap;margin-left:auto}
+.variable-editor[open]>summary::after{content:"Schließen ⌃"}
+.variable-editor[open]>summary{border-bottom:1px solid var(--admin-border)}
+.variable-primary-settings,.variable-card-body{padding:.55rem .7rem;gap:.5rem}
+.variable-map-block input,.variable-primary-settings input[type="text"]{padding:.45rem .55rem;min-height:34px}
+.variable-map-block small{font-size:.7rem;line-height:1.25}
+.variable-map-arrow{padding-top:.8rem}
+.variable-advanced>summary{padding:.44rem .65rem}
+.variable-advanced-grid{padding:.4rem .7rem .65rem}
+.variable-remove-row{padding:.4rem .65rem}
+.variable-toolbar{gap:.5rem;margin-bottom:.5rem}
+.variable-toolbar input[type="search"]{padding:.5rem .65rem}
+.variable-explainer-help{margin-bottom:.5rem}
+.variable-explainer-help p{font-size:.78rem;line-height:1.4}
+html[data-theme="dark"] .variable-editor>summary{color:var(--admin-text)}
+html[data-theme="dark"] .variable-card-summary{color:var(--admin-secondary)!important}
+
+/* Access, Onboarding and System lose redundant vertical padding. */
+.ldap-grid{gap:.42rem}
+.ldap-box{padding:.5rem .6rem}
+.ldap-box small{font-size:.7rem}
+.ldap-box strong{font-size:.82rem}
+.ldap-diagnostic{margin-top:.6rem;padding:.65rem}
+.ldap-diagnostic h3{font-size:.87rem;margin:0 0 .4rem}
+.ldap-test-actions{gap:.45rem}
+.onboarding-checklist{gap:.45rem}
+.onboarding-group{border-radius:9px}
+.onboarding-group>summary{padding:.55rem .65rem;font-weight:700;font-size:.82rem;cursor:pointer;list-style:none;background:var(--admin-card-alt)}
+.onboarding-group>summary::-webkit-details-marker{display:none}
+.onboarding-group>summary::after{content:"⌄";float:right}
+.onboarding-group[open]>summary::after{content:"⌃"}
+.onboarding-group ul{padding:.5rem .75rem .65rem 1.65rem;font-size:.8rem}
+.admin-system-section{margin-top:.55rem}
+.system-actions{margin-top:.55rem}
+.service-grid{gap:.5rem}
+.service-card{padding:.55rem .65rem}
+.service-card strong{font-size:.87rem}
+.service-card small{font-size:.72rem}
+.save-bar{padding:.65rem .8rem;border-radius:12px;gap:.65rem;max-width:970px}
+.save-bar span{font-size:.77rem}
+.save-actions{gap:.4rem}
+.save-actions button{padding:.5rem .7rem;font-size:.82rem}
+html[data-theme="dark"] .onboarding-group>summary{background:var(--admin-card-alt)!important;color:var(--admin-text)!important}
+html[data-theme="dark"] .onboarding-group{border-color:var(--admin-border)!important}
+
+/* Detail panels must remain usable without hover on touch screens. */
+@media(max-width:1000px){
+  .admin-shell{padding:0 .8rem}
+  .template-overview{top:.2rem}
+}
+@media(max-width:760px){
+  .admin-topbar{padding-top:.65rem}
+  .admin-shell{padding:0 .55rem}
+  .admin-view .step-card{padding:.72rem}
+  .template-overview{position:relative;top:auto;align-items:flex-start}
+  .template-overview-primary{flex-direction:column;align-items:flex-start;gap:.4rem}
+  .template-chip-list{width:100%;max-width:calc(100vw - 145px)}
+  .template-overview-details .template-status{width:calc(100vw - 32px);right:-.4rem}
+  .template-status-row{grid-template-columns:1fr 1fr;gap:.3rem}
+  .admin-summary-card{padding:.46rem .6rem}
+  .admin-summary-card small{font-size:.71rem}
+  .admin-summary-card strong{font-size:.92rem}
+  .signature-card-head{grid-template-columns:minmax(60px,.6fr) minmax(90px,1fr) auto}
+  .variable-card-title{flex-wrap:wrap;gap:.15rem .6rem}
+  .variable-card-title-line{width:100%}
+  .variable-card-body{grid-template-columns:1fr}
+  .variable-map-arrow{display:none}
+  .variable-primary-settings{grid-template-columns:1fr}
+  .signature-editor .admin-grid.two{grid-template-columns:1fr}
+  .save-bar{bottom:.45rem;width:calc(100% - .9rem)}
+}
+@media(prefers-reduced-motion:reduce){
+  .template-chip, .template-overview-details summary {transition:none}
+}
