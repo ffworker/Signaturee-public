@@ -1711,6 +1711,15 @@ if ($filteredOutProps.Count -gt 0) {
 
   Write-Log "Base AD properties: $($baseProperties -join ', ')"
 
+# Optional least-privilege AD read credentials for Get-ADUser (not LDAP or SMB).
+$adQueryCredentialArgs = @{}
+if ($env:AD_QUERY_USERNAME -and $env:AD_QUERY_PASSWORD) {
+    $querySecret = ConvertTo-SecureString $env:AD_QUERY_PASSWORD -AsPlainText -Force
+    $adQueryCredentialArgs["Credential"] = [System.Management.Automation.PSCredential]::new($env:AD_QUERY_USERNAME, $querySecret)
+} elseif ($env:AD_QUERY_USERNAME -or $env:AD_QUERY_PASSWORD) {
+    throw "AD_QUERY_USERNAME and AD_QUERY_PASSWORD must both be set."
+}
+
 $users = @()
 if ($MassGeneration) {
     $DomainSelection = "ALL"
@@ -1723,7 +1732,7 @@ if ($MassGeneration) {
         Write-Host "Starting Mass Generation for all active users in $ouSearchBase..." -ForegroundColor Magenta
         try {
             $users = Get-ADUser -Filter {Enabled -eq $true} -SearchBase $ouSearchBase `
-                    -Properties $baseProperties -Server $Server
+                    -Properties $baseProperties -Server $Server @adQueryCredentialArgs
             
             Write-Log "Mass Generation: Retrieved $($users.Count) active users from $ouSearchBase"
         } catch {
@@ -1762,14 +1771,14 @@ if ($MassGeneration) {
     } else {
         try {
             if ($UserSelection -eq "ALL" -or $UserSelection -eq "A" -or [string]::IsNullOrWhiteSpace($UserSelection)) {
-                $users = Get-ADUser -Filter {Enabled -eq $true} -Properties $baseProperties -Server $Server
+                $users = Get-ADUser -Filter {Enabled -eq $true} -Properties $baseProperties -Server $Server @adQueryCredentialArgs
                 Write-Log "Processing all enabled users using server $Server"
             } else {
                 $userList = $UserSelection.Split(',') | ForEach-Object { $_.Trim() }
                 $users = @()
                 foreach ($username in $userList) {
                     try {
-                        $user = Get-ADUser -Identity $username -Properties $baseProperties -Server $Server
+                        $user = Get-ADUser -Identity $username -Properties $baseProperties -Server $Server @adQueryCredentialArgs
                         if ($user.Enabled) {
                             $users += $user
                         } else {

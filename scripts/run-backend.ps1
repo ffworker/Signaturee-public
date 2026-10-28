@@ -26,7 +26,53 @@ function Import-EnvFile {
 
         $key = $trimmed.Substring(0, $idx).Trim()
         $value = $trimmed.Substring($idx + 1).Trim()
-        if (-not $key) { continue }
+        if ($key -notmatch '^[a-zA-Z_][a-zA-Z_0-9]*
+    }
+}
+
+if (-not $EnvFile) {
+    $EnvFile = Join-Path $RepoRoot ".env"
+}
+
+if (-not (Test-Path -LiteralPath $RepoRoot)) {
+    throw "RepoRoot does not exist: $RepoRoot"
+}
+
+$EnvFile = [System.IO.Path]::GetFullPath($EnvFile)
+$env:SIGNATUREE_ENV_FILE = $EnvFile
+Import-EnvFile -Path $EnvFile
+
+if (-not $env:BACKEND_HOST) { $env:BACKEND_HOST = "0.0.0.0" }
+if (-not $env:BACKEND_PORT) { $env:BACKEND_PORT = "3001" }
+if (-not $env:BACKEND_BASE_PATH) { $env:BACKEND_BASE_PATH = "/" }
+
+$serverPath = Join-Path $RepoRoot "backend\server.js"
+if (-not (Test-Path -LiteralPath $serverPath)) {
+    throw "Could not find backend/server.js at: $serverPath"
+}
+
+$nodeCmd = Get-Command node -ErrorAction Stop
+
+Write-Host "Starting Signaturee backend..."
+Write-Host "RepoRoot: $RepoRoot"
+Write-Host "Host/Port/BasePath: $($env:BACKEND_HOST):$($env:BACKEND_PORT)$($env:BACKEND_BASE_PATH)"
+
+Push-Location $RepoRoot
+try {
+    & $nodeCmd.Source $serverPath
+    exit $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+) {
+            throw "Invalid key in env file: $key"
+        }
+        if ($value.Length -ge 2 -and
+            (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+             ($value.StartsWith("'") -and $value.EndsWith("'")))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
 
         [Environment]::SetEnvironmentVariable($key, $value, "Process")
     }

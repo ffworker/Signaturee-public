@@ -128,6 +128,6 @@ use:
 
 **Netzwerkpfad testen**
 
-The check verifies that the backend identity can reach the configured directory and create a temporary file.
+The check runs as the **actual backend execution identity** and verifies access, temporary directory/file creation, and Windows ACL modification on that temporary directory. The probe removes the temporary directory afterward. Production generation still needs correct permissions for every target user directory.
 
-A successful write test confirms basic filesystem access. Productive generation additionally requires permission to apply the configured ACLs to generated user directories.
+An `EPERM` at the `stat` or `mkdir` stage means the backend identity cannot access the share/path; a separate AD-query credential in `.env` **does not** change this identity. Check the SMB share ACL, NTFS ACL, domain trust/DNS and the exact task principal. The test will never grant permissions automatically.

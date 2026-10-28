@@ -67,6 +67,8 @@ async function run() {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     assert.ok(ready, stderr);
+    assert.equal(fs.statSync(previewPath).isDirectory(), true, 'preview folder created at startup');
+    fs.rmSync(previewPath, { recursive: true, force: true });
     async function post(route, body, token) {
       const response = await fetch(base + route, {
         method: 'POST',
@@ -75,6 +77,7 @@ async function run() {
       });
       return { status: response.status, body: await response.json() };
     }
+    assert.equal((await post('/api/v2/ad/test', {})).status, 401, 'AD diagnosis requires local Admin');
     assert.equal((await post('/api/v2/auth/ldap/test', {})).status, 401,
       'test endpoint must require an authenticated admin');
     const login = await post('/api/auth/login', {

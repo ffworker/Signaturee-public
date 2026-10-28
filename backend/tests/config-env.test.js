@@ -34,7 +34,7 @@ async function run() {
   ['SIGNATUREE_CONFIG_MODE','AD_SERVER','OU_SEARCH_BASE','SIGNATUREE_ORGANIZATION_NAME',
     'SIGNATUREE_SIGNATURES_JSON','SIGNATUREE_PROFILE_JSON','SIGNATUREE_VARIABLES_JSON',
     'NETWORK_DEPLOYMENT_PATH','LOCAL_DEPLOYMENT_PATH','TEMPLATE_DIR','BACKEND_PORT',
-    'BACKEND_HOST','AUTH_REQUIRED','DB_PATH','AUTH_DB_PATH'].forEach(key => delete env[key]);
+    'BACKEND_HOST','AUTH_REQUIRED','DB_PATH','AUTH_DB_PATH','AD_QUERY_USERNAME','AD_QUERY_PASSWORD'].forEach(key => delete env[key]);
   let server;
   try {
     const checked = spawnSync(process.execPath, [serverFile, '--check'], { env, encoding: 'utf8' });
@@ -45,6 +45,20 @@ async function run() {
     assert.equal(config.effectiveProfile.targets.production.path, '\\\\fileserver\\Signatures');
     assert.equal(config.effectiveProfile.signatures.demo.templateHtml, 'demo.htm');
     assert.ok(config.templateDirectory.endsWith(path.join('config', 'templates')));
+    const incompleteEnv = path.join(tmp, 'incomplete-ad.env');
+    fs.writeFileSync(incompleteEnv, lines.join('\n') + '\nAD_QUERY_USERNAME=EXAMPLE\\reader\n');
+    const incomplete = spawnSync(process.execPath, [serverFile, '--check'], {
+      env: { ...env, SIGNATUREE_ENV_FILE: incompleteEnv }, encoding: 'utf8',
+    });
+    assert.notEqual(incomplete.status, 0, 'AD query username requires matching password');
+    const completeEnv = path.join(tmp, 'complete-ad.env');
+    fs.writeFileSync(completeEnv, lines.join('\n') +
+      '\nAD_QUERY_USERNAME=EXAMPLE\\reader\nAD_QUERY_PASSWORD=not-a-real-secret\n');
+    const complete = spawnSync(process.execPath, [serverFile, '--check'], {
+      env: { ...env, SIGNATUREE_ENV_FILE: completeEnv }, encoding: 'utf8',
+    });
+    assert.equal(complete.status, 0, complete.stderr);
+    assert.ok(!complete.stdout.includes('not-a-real-secret'), 'no AD password in --check output');
     server = spawn(process.execPath, [serverFile], { env, stdio: ['ignore','ignore','pipe'] });
     let stderr = '';
     server.stderr.on('data', chunk => { stderr += chunk; });

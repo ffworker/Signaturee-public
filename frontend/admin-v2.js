@@ -10,6 +10,7 @@ const authUserList=byId('authUserList'),refreshAuthUsersBtn=byId('refreshAuthUse
 const onboardingChecklist=byId('onboardingChecklist'),copyOnboardingBtn=byId('copyOnboardingBtn'),profileSaveBar=byId('profileSaveBar');
 const serviceGrid=byId('serviceGrid'),taskList=byId('taskList'),refreshSystemBtn=byId('refreshSystemBtn'),restartBackendBtn=byId('restartBackendBtn'),restartFrontendBtn=byId('restartFrontendBtn'),systemActionStatus=byId('systemActionStatus');
 const testPreviewPathBtn=byId('testPreviewPathBtn'),testProductionPathBtn=byId('testProductionPathBtn'),previewPathStatus=byId('previewPathStatus'),productionPathStatus=byId('productionPathStatus');
+const envPathEditor=byId('envPathEditor'),copyDeploymentEnvBtn=byId('copyDeploymentEnvBtn'),copyDeploymentEnvStatus=byId('copyDeploymentEnvStatus'),adSearchTestBtn=byId('adSearchTestBtn'),adSearchTestResult=byId('adSearchTestResult');
 
 let apiBase='',currentStatus={},currentProfile=null,dirty=false,envManaged=false;
 
@@ -177,8 +178,14 @@ function renderStatus(status={}){currentStatus=status;const map=new Map((status.
 function renderProfile(profile,status={}){currentProfile=profile;organizationName.value=profile.organization?.name||'';directoryServer.value=profile.directory?.server||'';directorySearchBase.value=profile.directory?.searchBase||'';previewPath.value=profile.targets?.preview?.path||'';productionPath.value=profile.targets?.production?.path||'';secondaryTitleAttributes.value=(profile.secondaryTitleAttributes||[]).join(', ');signatureCards.innerHTML='';Object.entries(profile.signatures||{}).forEach(([key,value])=>addSignatureCard(key,value));variableCards.innerHTML='';const variables=profile.variables?.variables||[];variables.forEach(addVariableCard);applyVariableFilters();renderStatus(status);summarySignatureCount.textContent=Object.keys(profile.signatures||{}).length;summaryVariableCount.textContent=variables.length;summaryGroupCount.textContent=Object.values(profile.signatures||{}).reduce((n,s)=>n+(s.adGroups||[]).length,0);saveSummary.textContent=`${Object.keys(profile.signatures||{}).length} Signaturen · ${variables.length} Variablen`;markClean(envManaged?'Konfiguration aus .env (nur lesbar). Änderungen an .env erfordern einen Backend-Neustart.':'Profil geladen.');
   // Local accounts and template uploads remain operational; all v2 profile
   // settings are read-only so the UI cannot diverge from the .env source.
-  const readonlyInputs=[organizationName,directoryServer,directorySearchBase,previewPath,productionPath,secondaryTitleAttributes];
+  const readonlyInputs=[organizationName,directoryServer,directorySearchBase,secondaryTitleAttributes];
   readonlyInputs.forEach(el=>{el.disabled=envManaged});
+  // Paths may be drafted in the UI, but the only persistent source is .env.
+  // No hidden database write and no automatic restart.
+  previewPath.disabled=false;productionPath.disabled=false;
+  envPathEditor.hidden=!envManaged;
+  copyDeploymentEnvStatus.textContent='';
+
   signatureCards.querySelectorAll('input:not([type="file"]), select').forEach(el=>{el.disabled=envManaged});
   variableCards.querySelectorAll('input, select').forEach(el=>{el.disabled=envManaged});
   signatureCards.querySelectorAll('.remove-signature').forEach(el=>{el.disabled=envManaged});
@@ -204,6 +211,15 @@ async function checkDeploymentTarget(target){
   statusEl.className='path-status muted';
   button.disabled=true;
   try{
+    if(envManaged) {
+      const actual=isProduction?currentProfile?.targets?.production?.path:currentProfile?.targets?.preview?.path;
+      const drafted=(isProduction?productionPath:previewPath).value.trim();
+      if(drafted!==String(actual||'').trim()){
+        statusEl.textContent='Bitte die neuen Pfade erst in .env übernehmen und den Backend-Dienst neu laden. Bis dahin würde nur der alte Pfad geprüft.';
+        statusEl.className='path-status error';
+        return;
+      }
+    }
     if(dirty){
       statusEl.textContent='Bitte Konfiguration zuerst speichern, damit der gespeicherte Pfad geprüft wird.';
       statusEl.className='path-status error';
@@ -230,6 +246,40 @@ async function checkDeploymentTarget(target){
   }
 }
 
+async function runAdSearchDiagnostic(){
+  if(!(await ensureAdminSession()))return;
+  adSearchTestBtn.disabled=true;
+  adSearchTestResult.hidden=false;
+  adSearchTestResult.className='ldap-test-result';
+  adSearchTestResult.textContent='Prüfe Get-ADUser unter der effektiven Backend-Identität ...';
+  try{
+    const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/ad/test`,{
+      method:'POST',headers:{'Content-Type':'application/json'},body:'{}',
+    },30000));
+    if(!ok)throw new Error(body.error||`HTTP ${status}`);
+    adSearchTestResult.className=`ldap-test-result ${body.ok?'success':'error'}`;
+    adSearchTestResult.textContent=[
+      body.message||body.code,
+      `Status: ${body.code||'unbekannt'}`,
+      `Server: ${body.server||'(Windows-Standard)'} · Suchbasis: ${body.searchBase||'(ganze Domäne)'}`,
+      `Ausführung: ${body.authMode==='dedicated-read-account'?'eigenes AD-Lesekonto':'Windows-Dienstidentität (bei SYSTEM: Computerkonto)'}`,
+      body.hint||'',
+    ].filter(Boolean).join('\n');
+  }catch(e){
+    adSearchTestResult.className='ldap-test-result error';
+    adSearchTestResult.textContent='AD-Diagnose fehlgeschlagen: '+e.message;
+  }finally{adSearchTestBtn.disabled=false}
+}
+adSearchTestBtn.addEventListener('click',runAdSearchDiagnostic);
+copyDeploymentEnvBtn.addEventListener('click',async()=>{
+  const local=previewPath.value.trim(),network=productionPath.value.trim();
+  if(!local||!network||/[\r\n]/.test(local+network)){
+    copyDeploymentEnvStatus.textContent='Beide Pfade müssen gesetzt sein (ohne Zeilenumbrüche).';return;
+  }
+  const snippet=`LOCAL_DEPLOYMENT_PATH=${local}\nNETWORK_DEPLOYMENT_PATH=${network}`;
+  try{await navigator.clipboard.writeText(snippet);copyDeploymentEnvStatus.textContent='Kopiert! In .env ersetzen, speichern und reload-config.ps1 ausführen.'}
+  catch{prompt('Diese Zeilen in .env übernehmen:',snippet);copyDeploymentEnvStatus.textContent='Einstellungen danach neu laden.'}
+});
 function authRoleLabel(role){return role==='admin'?'Admin':'IT'}
 
 function renderLdap(system={}){
