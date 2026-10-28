@@ -74,7 +74,11 @@ async function run() {
       { env: { ...env, SIGNATUREE_ENV_FILE: badFile }, encoding:'utf8' });
     assert.notEqual(bad.status, 0, 'bad JSON must fail, never silently use SQLite');
   } finally {
-    if (server && server.exitCode === null) server.kill();
+    if (server && server.exitCode === null && server.signalCode === null) {
+      const exited = new Promise(resolve => server.once('exit', resolve));
+      server.kill();
+      await exited;
+    }
     fs.rmSync(tmp, { recursive:true, force:true });
   }
   console.log('config-env.test.js: ok');
