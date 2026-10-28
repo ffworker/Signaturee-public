@@ -1,115 +1,41 @@
+# Signaturee backend Scheduled Task entrypoint.
+# The Node application itself parses SIGNATUREE_ENV_FILE with scripts/load-env.js.
+# Never parse or duplicate .env logic in PowerShell (prevents configuration drift).
 param(
-    [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
-    [string]$EnvFile = ""
+    [string]$RepoRoot = (Join-Path $PSScriptRoot '..'),
+    [string]$EnvFile = ''
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
-function Import-EnvFile {
-    param([Parameter(Mandatory = $true)][string]$Path)
-
-    if (-not (Test-Path -LiteralPath $Path)) {
-        throw "Signaturee .env file not found at '$Path'. Create it from .env.example."
-    }
-
-    Write-Host "Loading runner env from '$Path'..."
-    foreach ($line in Get-Content -LiteralPath $Path -Encoding UTF8) {
-        $trimmed = [string]$line
-        if (-not $trimmed) { continue }
-        $trimmed = $trimmed.Trim()
-        if (-not $trimmed) { continue }
-        if ($trimmed.StartsWith("#")) { continue }
-
-        $idx = $trimmed.IndexOf("=")
-        if ($idx -lt 1) { continue }
-
-        $key = $trimmed.Substring(0, $idx).Trim()
-        $value = $trimmed.Substring($idx + 1).Trim()
-        if ($key -notmatch '^[a-zA-Z_][a-zA-Z_0-9]*
-    }
-}
-
-if (-not $EnvFile) {
-    $EnvFile = Join-Path $RepoRoot ".env"
-}
-
-if (-not (Test-Path -LiteralPath $RepoRoot)) {
-    throw "RepoRoot does not exist: $RepoRoot"
-}
-
+$RepoRoot = (Resolve-Path -LiteralPath $RepoRoot -ErrorAction Stop).Path
+if (-not $EnvFile) { $EnvFile = Join-Path $RepoRoot '.env' }
 $EnvFile = [System.IO.Path]::GetFullPath($EnvFile)
-$env:SIGNATUREE_ENV_FILE = $EnvFile
-Import-EnvFile -Path $EnvFile
 
-if (-not $env:BACKEND_HOST) { $env:BACKEND_HOST = "0.0.0.0" }
-if (-not $env:BACKEND_PORT) { $env:BACKEND_PORT = "3001" }
-if (-not $env:BACKEND_BASE_PATH) { $env:BACKEND_BASE_PATH = "/" }
-
-$serverPath = Join-Path $RepoRoot "backend\server.js"
-if (-not (Test-Path -LiteralPath $serverPath)) {
-    throw "Could not find backend/server.js at: $serverPath"
+if (-not (Test-Path -LiteralPath $EnvFile -PathType Leaf)) {
+    throw "Signaturee .env not found: $EnvFile"
+}
+$entry = Join-Path $RepoRoot 'backend\server.js'
+if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) {
+    throw "Signaturee backend entrypoint not found: $entry"
 }
 
-$nodeCmd = Get-Command node -ErrorAction Stop
+# A SYSTEM Scheduled Task may have a different PATH from an interactive user.
+$nodeCommand = Get-Command 'node.exe' -ErrorAction SilentlyContinue
+$nodePath = if ($nodeCommand) { $nodeCommand.Source } else { Join-Path $env:ProgramFiles 'nodejs\node.exe' }
+if (-not (Test-Path -LiteralPath $nodePath -PathType Leaf)) {
+    throw "Node.js executable not found for the Scheduled Task identity. Install Node.js system-wide."
+}
 
-Write-Host "Starting Signaturee backend..."
-Write-Host "RepoRoot: $RepoRoot"
-Write-Host "Host/Port/BasePath: $($env:BACKEND_HOST):$($env:BACKEND_PORT)$($env:BACKEND_BASE_PATH)"
-
+$env:SIGNATUREE_ENV_FILE = $EnvFile
+Write-Host "Starting Signaturee backend from $RepoRoot with env file $EnvFile"
 Push-Location $RepoRoot
 try {
-    & $nodeCmd.Source $serverPath
-    exit $LASTEXITCODE
-}
-finally {
+    & $nodePath $entry
+    $exitCode = $LASTEXITCODE
+} finally {
     Pop-Location
 }
-) {
-            throw "Invalid key in env file: $key"
-        }
-        if ($value.Length -ge 2 -and
-            (($value.StartsWith('"') -and $value.EndsWith('"')) -or
-             ($value.StartsWith("'") -and $value.EndsWith("'")))) {
-            $value = $value.Substring(1, $value.Length - 2)
-        }
-
-        [Environment]::SetEnvironmentVariable($key, $value, "Process")
-    }
-}
-
-if (-not $EnvFile) {
-    $EnvFile = Join-Path $RepoRoot ".env"
-}
-
-if (-not (Test-Path -LiteralPath $RepoRoot)) {
-    throw "RepoRoot does not exist: $RepoRoot"
-}
-
-$EnvFile = [System.IO.Path]::GetFullPath($EnvFile)
-$env:SIGNATUREE_ENV_FILE = $EnvFile
-Import-EnvFile -Path $EnvFile
-
-if (-not $env:BACKEND_HOST) { $env:BACKEND_HOST = "0.0.0.0" }
-if (-not $env:BACKEND_PORT) { $env:BACKEND_PORT = "3001" }
-if (-not $env:BACKEND_BASE_PATH) { $env:BACKEND_BASE_PATH = "/" }
-
-$serverPath = Join-Path $RepoRoot "backend\server.js"
-if (-not (Test-Path -LiteralPath $serverPath)) {
-    throw "Could not find backend/server.js at: $serverPath"
-}
-
-$nodeCmd = Get-Command node -ErrorAction Stop
-
-Write-Host "Starting Signaturee backend..."
-Write-Host "RepoRoot: $RepoRoot"
-Write-Host "Host/Port/BasePath: $($env:BACKEND_HOST):$($env:BACKEND_PORT)$($env:BACKEND_BASE_PATH)"
-
-Push-Location $RepoRoot
-try {
-    & $nodeCmd.Source $serverPath
-    exit $LASTEXITCODE
-}
-finally {
-    Pop-Location
-}
+if ($null -eq $exitCode) { exit 1 }
+exit [int]$exitCode
