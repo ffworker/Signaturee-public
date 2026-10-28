@@ -4280,6 +4280,7 @@ async function handleV2ProfileGet(_req, res) {
       source: CONFIG_MODE === 'env' ? 'environment (.env)' : 'profile_v2',
       automaticSignatures: CONFIG_MODE === 'env' &&
         parseBooleanFlag(process.env.SIGNATUREE_SIGNATURES_AUTO_DISCOVER || false),
+      automaticGroupPrefix: process.env.SIGNATUREE_AUTO_GROUP_PREFIX || 'Signature-',
     });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
