@@ -5613,7 +5613,10 @@ async function handleAuthLogin(req, res) {
     }
 
     if (!loginRole) {
-      const ldapServiceIssue = Boolean(ldapAttempt?.attempted && !ldapAttempt.invalidCredentials && ldapAttempt.stderr);
+      // An account missing from the configured AD container is a 401, not a
+      // directory outage (503). Detailed reasons remain admin-only.
+      const userNotFound = /DIRECTORY_USER_NOT_FOUND|AUTHENTICATED_USER_NOT_FOUND/i.test(String(ldapAttempt?.stderr || ''));
+      const ldapServiceIssue = Boolean(ldapAttempt?.attempted && !ldapAttempt.invalidCredentials && !userNotFound && ldapAttempt.stderr);
       if (ldapServiceIssue) {
         console.warn(`LDAP authentication failed: ${ldapAttempt.stderr}`);
         return sendJson(res, 503, { error: 'LDAP authentication unavailable.' });
