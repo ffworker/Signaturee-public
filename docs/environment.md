@@ -1,66 +1,69 @@
-# Environment — single source of truth
+# Signaturee v2 — environment reference
 
-Fresh Signaturee v2 installations use ONE ignored project-root .env file and SIGNATUREE_CONFIG_MODE=env. Runtime and business settings come from that file at process start. The Admin UI shows the effective business profile **read-only**; it cannot overwrite it, and changes require a backend restart.
+The project-root `.env` is the **only business configuration source** in v2 env mode (`SIGNATUREE_CONFIG_MODE=env`). Copy [.env.example](../.env.example) once and keep the real `.env` private and untracked. The Admin UI displays the effective values. See the [v2 README](../README.md) for a complete Quickstart, service commands, diagnostics and backup instructions.
 
-## Setup
+## Which setting is for which operation?
 
-~~~powershell
-Copy-Item .env.example .env
-notepad .env
-node backend/server.js --check
-~~~
+| Operation | Required settings | Windows identity |
+| --- | --- | --- |
+| Admin login | `AUTH_REQUIRED=true`, `AUTH_DB_LOGIN_ENABLED=true` | Local account database, not AD |
+| Employee LDAP login | `AUTH_LDAP_ENABLED`, `AUTH_LDAP_DOMAIN`; optional `AUTH_LDAP_SERVER`, `AUTH_LDAP_UPN_SUFFIX` and `AUTH_LDAP_CONTAINER` | User's own supplied AD credentials |
+| IT user search (`Get-ADUser`) | `AD_SERVER`, `OU_SEARCH_BASE` | Backend task identity (usually SYSTEM/computer account), or optional AD read-only account |
+| Production SMB output | `NETWORK_DEPLOYMENT_PATH` | **Windows backend Scheduled Task identity**, independent from LDAP/AD search credentials |
+| Local preview | `LOCAL_DEPLOYMENT_PATH` | Backend task identity; folder created on backend startup |
+| Templates / assets | `TEMPLATE_DIR` | Files on disk; default `config/templates` |
+| Signature assignment | `SIGNATUREE_SIGNATURES_JSON` | Maps AD group DNs to filenames |
 
-A valid env installation responds with source "environment (.env)" on GET /api/v2/profile. Attempting PUT /api/v2/profile returns HTTP 409.
+### AD user search
 
-## Business configuration in .env
+`OU_SEARCH_BASE` is the DN of an existing container, **not** an OU display name. Start broad, such as `DC=example,DC=local`. The normal AD `Users` container is generally `CN=Users`, not `OU=Users`.
 
-| Key | Purpose |
-| --- | --- |
-| SIGNATUREE_CONFIG_MODE=env | Authoritative business config |
-| SIGNATUREE_ORGANIZATION_NAME | Organization name |
-| AD_SERVER | Domain controller for directory queries and generator |
-| OU_SEARCH_BASE | AD search base |
-| LOCAL_DEPLOYMENT_PATH | Preview and self-service output |
-| NETWORK_DEPLOYMENT_PATH | Production UNC/SMB target |
-| TEMPLATE_DIR | Templates and resources; recommended config/templates (ignored by Git) |
-| SIGNATUREE_SIGNATURES_JSON | One-line JSON: signature keys, AD groups, template names and extra attributes |
-| SIGNATUREE_VARIABLES_JSON | One-line JSON: variables and ordering; optional built-in defaults |
-| SIGNATUREE_SECONDARY_TITLE_ATTRIBUTES | Comma-separated AD attributes |
-| SIGNATUREE_PROFILE_JSON | Optional full v2 JSON profile for bulk migrations |
-| AUTH_LDAP_ROLE_RULES_JSON | One-line JSON object with a rules array; no extra role rules file required |
+Most domain-joined backend machines can query AD using their task identity without a special account. When required, set **both** `AD_QUERY_USERNAME` and `AD_QUERY_PASSWORD` to a least-privilege AD reader, never Domain Administrator. This only changes `Get-ADUser` queries, not LDAP login or SMB permissions.
 
-Example:
+### LDAP login
+
+Start with domain only:
 
 ~~~dotenv
-SIGNATUREE_SIGNATURES_JSON={"company":{"label":"Company","adGroups":["CN=Signature-Company,OU=Groups,DC=example,DC=local"],"templateHtml":"company.htm","templateTxt":"company.txt","resourceFolder":"company_files"}}
-AUTH_LDAP_ROLE_RULES_JSON={"rules":[{"groupDn":"CN=Signaturee-IT,OU=Groups,DC=example,DC=local","role":"it"}]}
+AUTH_DB_LOGIN_ENABLED=true
+AUTH_LDAP_ENABLED=true
+AUTH_LDAP_DOMAIN=example.local
+# AUTH_LDAP_SERVER=dc01.example.local
+# AUTH_LDAP_UPN_SUFFIX=example.local
+# AUTH_LDAP_CONTAINER=OU=ActualUsers,DC=example,DC=local
 ~~~
 
-JSON values must be one line without trailing comments. See the full [.env.example](../.env.example).
+Leave `AUTH_LDAP_CONTAINER` disabled initially. It restricts lookup inside `PrincipalContext` and may exclude users outside the named OU. `AUTH_LDAP_UPN_SUFFIX` must match the users' actual UPN suffix if enabled; it is not an LDAP server path.
 
-## Runtime and login settings
+`AUTH_LDAP_ROLE_RULES_JSON` is optional for assigning IT rights; local Admin is never assigned by LDAP. No role rules are needed for self-service login. Avoid `AUTH_LDAP_ROLE_RULES_PATH` unless the referenced JSON file exists.
 
-The same .env file also holds BACKEND_HOST/PORT, FRONTEND_HOST/PORT, CORS_ORIGINS, AUTH_REQUIRED, AUTH_DB_LOGIN_ENABLED, AUTH_LDAP_ENABLED, AUTH_LDAP_DOMAIN/SERVER, AUTH_DB_PATH, DB_PATH and optional RUNNER_* values. Keep AUTH_REQUIRED=true for network-facing installations. Set AUTH_DB_LOGIN_ENABLED=true and AUTH_LDAP_ENABLED=true for simultaneous local and AD login.
+### Output and filesystem permissions
 
-### Precedence and compatibility
+Use `LOCAL_DEPLOYMENT_PATH=generatedsignatures` for preview. This resolves relative to the repository root and is created at backend startup when the task account has permission. Production output needs a real UNC `\\fileserver.example.local\Signatures` and suitable **share + NTFS + ACL modification permissions** for the backend execution identity; setting an AD-read password does not solve SMB access.
 
-A parent-process environment variable overrides the file. Otherwise an existing root .env wins over legacy config/runner.env; SIGNATUREE_ENV_FILE selects a particular env file. Windows Scheduled Tasks import their selected UTF-8 file and reject missing files. Do not maintain two different environment files concurrently.
+### Signatures and variables
 
-When SIGNATUREE_PROFILE_JSON is provided, individually specified fields above override its corresponding fields. Remove overlapping example entries or edit them to match. A fresh installation does not read an old profile_v2 from SQLite. Previous installs without root .env continue in database mode until deliberately migrated.
+`SIGNATUREE_SIGNATURES_JSON` is a one-line JSON map. Each key needs `label` (optional), `adGroups` (one or more DNs), `templateHtml` and `templateTxt`; `resourceFolder` and additional title attributes are optional. The built-in variable schema covers normal AD contact fields. Only set `SIGNATUREE_VARIABLES_JSON` to override that schema.
 
-### What cannot live in .env
+### Local files / restart
 
-Templates/images are binary files in TEMPLATE_DIR. Local Admin/IT password hashes are account records in AUTH_DB_PATH. DB_PATH still contains ancillary application and legacy data, but the old stored profile is ignored in env mode. Generated signatures and logs are output artifacts.
+- `.env`: business/runtime configuration and possibly read-only AD query credentials. Keep ACLs restrictive.
+- `config/templates/`: image, HTML, TXT and resource files; Git-ignored.
+- `config/signaturee_auth.db`: local accounts and password hashes; Git-ignored.
+- `config/signaturee.db`: runtime state. An old SQLite business profile does **not** override .env in env mode.
+- `generatedsignatures/`: local output; Git-ignored.
 
-The legacy write endpoints for domain, variable and restored configuration are blocked in env mode. Template imports and local-user account management remain available.
+Edit `.env` and execute `.\scripts\reload-config.ps1` (Admin PowerShell) to apply changes. Alternatively use `.\scripts\reload-config.ps1 -Watch` during installation. The Admin deployment screen supports drafting/copying the two path variables; it doesn't modify `.env` invisibly.
 
-## Starting services
+The Windows Scheduled Tasks and direct Node commands use the same env loader. Avoid defining the same keys in parent process environment; those may override file values for direct Node execution. The tasks import their explicitly selected `.env` when they start. For JSON values, use a single line without an inline comment. Both quoted and unquoted simple values are accepted.
 
-All Node entrypoints use the same env loader: npm start, npm run start:backend, npm run start:frontend, npm run auth:users and node backend/server.js --check.
+## Diagnostics
 
-~~~powershell
-.\scripts\install-backend-task.ps1  -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
-.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
-~~~
+In **Administration → Benutzer & Zugriff** there are two different diagnostics:
 
-For a new install do NOT copy config/secrets.env or config/runner.env. See [Migrate](../README.md#migrate) and [Network permissions](network-share-permissions.md).
+1. **AD-Suche testen** — calls `Get-ADUser` under the backend identity/optional read-only account; reports effective server/search base and sanitized error code.
+2. **LDAP-Login testen** — authenticates a test employee using their real AD password. Only use localhost/HTTPS; no session is created and the password is not saved.
+
+In **Administration → Ausgabe & Deployment**, **Pfad testen** creates/checks a local preview folder. **Netzwerkpfad testen** checks filesystem and ACL access under the backend identity. An `EPERM` failure requires file-server access troubleshooting, not LDAP credential changes.
+
+[Full README](../README.md) · [SMB permissions](network-share-permissions.md)
