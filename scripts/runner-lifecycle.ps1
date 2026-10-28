@@ -65,12 +65,14 @@ function Get-SignatureeRunnerConfig {
         Tasks = $tasks
         BackendEntry = (Join-Path $root 'backend\server.js')
         FrontendEntry = (Join-Path $root 'scripts\start-frontend.js')
+        FrontendWorker = (Join-Path $root 'node_modules\http-server\bin\http-server')
+        FrontendWorkerJs = (Join-Path $root 'node_modules\http-server\bin\http-server.js')
     }
 }
 
 function Get-SignatureeOwnedNodes {
     param($Config)
-    $entries = @($Config.BackendEntry, $Config.FrontendEntry)
+    $entries = @($Config.BackendEntry, $Config.FrontendEntry, $Config.FrontendWorker, $Config.FrontendWorkerJs)
     @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction Stop |
         Where-Object {
             $cmd = [string]$_.CommandLine
@@ -139,13 +141,19 @@ function Start-SignatureeRunner {
         $listeners = @(Get-SignatureePortListeners -Config $Config)
         $ready = $true
         foreach ($entry in @(
-            [pscustomobject]@{ Port = $Config.BackendPort; Script = $Config.BackendEntry },
-            [pscustomobject]@{ Port = $Config.FrontendPort; Script = $Config.FrontendEntry }
+            [pscustomobject]@{ Port = $Config.BackendPort; Scripts = @($Config.BackendEntry) },
+            [pscustomobject]@{ Port = $Config.FrontendPort; Scripts = @($Config.FrontendWorker, $Config.FrontendWorkerJs) }
         )) {
             $listener = @($listeners | Where-Object { $_.LocalPort -eq $entry.Port })
             $owner = @($nodes | Where-Object {
-                $_.CommandLine.IndexOf($entry.Script, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
-                @($listener.OwningProcess) -contains $_.ProcessId
+                $cmd = [string]$_.CommandLine
+                $isMatch = $false
+                foreach ($scriptPath in $entry.Scripts) {
+                    if ($cmd.IndexOf($scriptPath, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                        $isMatch = $true
+                    }
+                }
+                $isMatch -and (@($listener.OwningProcess) -contains $_.ProcessId)
             })
             if ($owner.Count -eq 0) { $ready = $false }
         }
