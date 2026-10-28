@@ -3,26 +3,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const ROOT_DIR = __dirname;
-const ENV_FILE = process.env.SIGNATUREE_ENV_FILE
-  ? path.resolve(process.env.SIGNATUREE_ENV_FILE)
-  : path.join(ROOT_DIR, 'config', 'runner.env');
-
-function loadEnvFile(filePath) {
-  if (!fs.existsSync(filePath)) return;
-  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const separator = line.indexOf('=');
-    if (separator < 1) continue;
-    const key = line.slice(0, separator).trim();
-    const value = line.slice(separator + 1).trim();
-    if (key && process.env[key] === undefined) process.env[key] = value;
-  }
-  process.stdout.write(`[runner] loaded ${path.relative(ROOT_DIR, filePath) || filePath}\n`);
-}
-
-loadEnvFile(ENV_FILE);
+require('./scripts/load-env').loadEnvironment();
 
 const FRONTEND_PORT = process.env.FRONTEND_PORT || process.env.PORT || '3000';
 const FRONTEND_HOST = process.env.FRONTEND_HOST || '0.0.0.0';
