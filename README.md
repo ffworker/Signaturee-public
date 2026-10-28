@@ -166,6 +166,19 @@ Get-ScheduledTask -TaskName Signaturee-Backend-Runner,Signaturee-Frontend-Runner
 
 Avoid running npm start at the same time as these Scheduled Tasks. The tasks use the specified .env and reject a missing file instead of silently starting with defaults.
 
+### Reload .env (during migration)
+
+After saving `C:\Signaturee-clean\.env`, run elevated PowerShell:
+
+~~~powershell
+cd C:\Signaturee-clean
+.\scripts\reload-config.ps1
+~~~
+
+This reload does not pull Git, reinstall dependencies or change `.env`. It validates the configuration before stopping tasks, restarts both Windows Tasks even if Task Scheduler reports `Ready`, and verifies actual Node listeners and ownership. It does not terminate unrelated processes; when old installations still own a port it stops with an error.
+
+Configuration changes require a process restart; scheduled tasks need not be reinstalled for every `.env` edit.
+
 ## Update
 
 After the first clean installation, updates are a single command in **elevated PowerShell**:
