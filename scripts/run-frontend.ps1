@@ -34,7 +34,7 @@ function Import-EnvFile {
 }
 
 if (-not $EnvFile) {
-    $EnvFile = Join-Path $RepoRoot "config\runner.env"
+    $EnvFile = Join-Path $RepoRoot ".env"
 }
 
 if (-not (Test-Path -LiteralPath $RepoRoot)) {
