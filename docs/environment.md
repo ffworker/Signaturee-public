@@ -1,86 +1,76 @@
-# Signaturee v2 — environment reference
+# Configuration reference — Signaturee v2
 
-The project-root `.env` is the **only business configuration source** in v2 env mode (`SIGNATUREE_CONFIG_MODE=env`). Copy [.env.example](../.env.example) once and keep the real `.env` private and untracked. The Admin UI displays the effective values. See the [v2 README](../README.md) for a complete Quickstart, service commands, diagnostics and backup instructions.
+The project-root `.env` is the **only source for v2 runtime and business settings** (`SIGNATUREE_CONFIG_MODE=env`). Copy [`.env.example`](../.env.example) to `.env` once, then edit the ignored local file. The Admin UI displays the effective settings; it does not maintain a second writable business profile.
 
-## Which setting is for which operation?
+Apply changes with `.\scripts\reload-config.ps1` from elevated PowerShell. During initial setup, `.\scripts\reload-config.ps1 -Watch` can monitor and reload valid saves.
 
-| Operation | Required settings | Windows identity |
-| --- | --- | --- |
-| Admin login | `AUTH_REQUIRED=true`, `AUTH_DB_LOGIN_ENABLED=true` | Local account database, not AD |
-| Employee LDAP login | `AUTH_LDAP_ENABLED`, `AUTH_LDAP_DOMAIN`; optional `AUTH_LDAP_SERVER`, `AUTH_LDAP_UPN_SUFFIX` and `AUTH_LDAP_CONTAINER` | User's own supplied AD credentials |
-| IT user search (`Get-ADUser`) | `AD_SERVER`, `OU_SEARCH_BASE` | Backend task identity (usually SYSTEM/computer account), or optional AD read-only account |
-| Production SMB output | `NETWORK_DEPLOYMENT_PATH` | **Windows backend Scheduled Task identity**, independent from LDAP/AD search credentials |
-| Local preview | `LOCAL_DEPLOYMENT_PATH` | Backend task identity; folder created on backend startup |
-| Templates / assets | `TEMPLATE_DIR` | Files on disk; default `config/templates` |
-| Signature assignment | `SIGNATUREE_SIGNATURES_JSON` | Maps AD group DNs to filenames |
+## Configuration keys
 
-### AD user search
+| Setting | Function |
+| --- | --- |
+| `BACKEND_HOST` / `BACKEND_PORT` | Node API listener, default port 3001 |
+| `FRONTEND_HOST` / `FRONTEND_PORT` | Web frontend, default port 3000 |
+| `CORS_ORIGINS` | Allowed browser origins, including your HTTPS proxy |
+| `AUTH_REQUIRED` / `AUTH_DB_LOGIN_ENABLED` | Authentication and local Admin/IT accounts |
+| `AUTH_DB_PATH` / `DB_PATH` | SQLite account/runtime stores |
+| `AD_SERVER` / `OU_SEARCH_BASE` | DC and search subtree used by `Get-ADUser` |
+| `AD_QUERY_USERNAME` / `AD_QUERY_PASSWORD` | Optional *read-only* AD lookup identity (both or neither) |
+| `AUTH_LDAP_ENABLED` / `AUTH_LDAP_DOMAIN` | Employee login with AD password |
+| `AUTH_LDAP_SERVER` / `AUTH_LDAP_UPN_SUFFIX` | Optional LDAP context overrides |
+| `AUTH_LDAP_CONTAINER` | Optional restriction to a verified AD OU |
+| `AUTH_LDAP_ROLE_RULES_JSON` | Optional Self-Service-to-IT login role rules, **not** signature assignment |
+| `SIGNATUREE_ORGANIZATION_NAME` | Organization display |
+| `LOCAL_DEPLOYMENT_PATH` | Local preview output |
+| `NETWORK_DEPLOYMENT_PATH` | Production SMB/UNC target |
+| `TEMPLATE_DIR` | Active HTML/TXT and resource directory, normally `config/templates` |
+| `SIGNATUREE_SIGNATURES_AUTO_DISCOVER` | Auto-recognize complete template pairs |
+| `SIGNATUREE_AUTO_GROUP_PREFIX` | AD group prefix, default `Signature-` |
+| `SIGNATUREE_SIGNATURES_JSON` | Optional manual mapping when auto-discovery is false |
+| `SIGNATUREE_VARIABLES_JSON` | Advanced variable schema override; normally unnecessary |
 
-`OU_SEARCH_BASE` is the DN of an existing container, **not** an OU display name. Start broad, such as `DC=example,DC=local`. The normal AD `Users` container is generally `CN=Users`, not `OU=Users`.
+## Templates and signature group membership
 
-Most domain-joined backend machines can query AD using their task identity without a special account. When required, set **both** `AD_QUERY_USERNAME` and `AD_QUERY_PASSWORD` to a least-privilege AD reader, never Domain Administrator. This only changes `Get-ADUser` queries, not LDAP login or SMB permissions.
+With `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`, the backend scans `config/templates/` on startup:
 
-### LDAP login
+- `AD_Template.htm` + `AD_Template.txt` → signatur `AD` → existing AD group `Signature-AD`
+- `FF_Template.htm` + `FF_Template.txt` → signature `FF` → `Signature-FF`
+- An optional `AD-Dateien/` folder supplies matching resources.
 
-Start with domain only:
+`.html` is also accepted, and extensions are matched case-insensitively. The shipped `example_template.*` pair is skipped. Both HTML and TXT must be present; incomplete pairs fail configuration validation. Restart after adding/renaming templates.
 
-~~~dotenv
-AUTH_DB_LOGIN_ENABLED=true
-AUTH_LDAP_ENABLED=true
-AUTH_LDAP_DOMAIN=example.local
-# AUTH_LDAP_SERVER=dc01.example.local
-# AUTH_LDAP_UPN_SUFFIX=example.local
-# AUTH_LDAP_CONTAINER=OU=ActualUsers,DC=example,DC=local
+**The group must already exist in AD and the user must belong to it.** The default mapping compares the AD group **CN**, while a manual full-DN mapping compares the **complete DN**. Direct membership is the reliable baseline; nested membership is not automatically expanded in every workflow.
+
+To use groups named `Signatur-XY`, configure `SIGNATUREE_AUTO_GROUP_PREFIX=Signatur-`. For special cases, disable discovery and write a one-line `SIGNATUREE_SIGNATURES_JSON`. When discovery is true, the JSON map is ignored.
+
+## Three different identities — do not mix them up
+
+1. **LDAP sign-in:** validates each employee's **own** AD password using `AUTH_LDAP_DOMAIN` and optional LDAP overrides. No LDAP role rules are required for Self-Service; they only affect authorization level (IT vs Self-Service), never which signature is assigned.
+2. **AD user lookup:** queries `Get-ADUser` using `AD_SERVER` and `OU_SEARCH_BASE`. By default this uses the backend Scheduled Task identity; optional `AD_QUERY_USERNAME` and `AD_QUERY_PASSWORD` provide a dedicated least-privilege **read-only** account. These credentials do not change the SMB identity.
+3. **SMB output:** uses the **Windows principal of the backend task**. When running as SYSTEM this is normally `DOMAIN\SERVER$` across a domain share. The identity needs share and NTFS rights, including the ability to modify folder ACLs.
+
+`OU_SEARCH_BASE` must be an existing **distinguished name** such as `DC=example,DC=local`. The built-in AD Users container is generally `CN=Users`, not `OU=Users`. Leave `AUTH_LDAP_CONTAINER` unset until the correct OU is known.
+
+## On-disk layout and reload
+
+| Path | Contents |
+| --- | --- |
+| `.env` | Settings and possibly secrets; do not commit |
+| `config/templates/` | Active templates, logos and resource folders |
+| `config/signaturee_auth.db` | Local password hashes/accounts |
+| `config/signaturee.db` | Runtime state |
+| `generatedsignatures/` | Local output (unless overridden) |
+| `Logs/` | Generator logs |
+
+A newly uploaded template is stored as a file; it does not add a second configuration entry. In the Admin deployment view you may draft path values and copy the corresponding `.env` lines. Applying the new values requires editing `.env` and restarting.
+
+The Node process reads `.env` at startup. An explicitly inherited parent-process environment value can override the file for direct Node runs. Use one-line JSON values, without inline comments.
+
+~~~powershell
+cd C:\Signaturee
+node .\backend\server.js --check
+.\scripts\reload-config.ps1
 ~~~
 
-Leave `AUTH_LDAP_CONTAINER` disabled initially. It restricts lookup inside `PrincipalContext` and may exclude users outside the named OU. `AUTH_LDAP_UPN_SUFFIX` must match the users' actual UPN suffix if enabled; it is not an LDAP server path.
+`--check` verifies configuration, **not** live AD login, AD searches or SMB access. Use the three separate in-app tests.
 
-`AUTH_LDAP_ROLE_RULES_JSON` is optional for assigning IT rights; local Admin is never assigned by LDAP. No role rules are needed for self-service login. Avoid `AUTH_LDAP_ROLE_RULES_PATH` unless the referenced JSON file exists.
-
-### Output and filesystem permissions
-
-Use `LOCAL_DEPLOYMENT_PATH=generatedsignatures` for preview. This resolves relative to the repository root and is created at backend startup when the task account has permission. Production output needs a real UNC `\\fileserver.example.local\Signatures` and suitable **share + NTFS + ACL modification permissions** for the backend execution identity; setting an AD-read password does not solve SMB access.
-
-### Signatures and variables
-
-With conventional files `XY_Template.htm` and `XY_Template.txt`, the recommended
-`SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` scans the active `TEMPLATE_DIR` and
-maps key `XY` to the existing AD security group `Signature-XY`. The optional
-resource directory `XY-Dateien` is included automatically. These mappings
-are regenerated at backend startup (restart after adding templates).
-Auto-discovery does **not** create AD groups or override employee group membership.
-`SIGNATUREE_AUTO_GROUP_PREFIX` can change the default `Signature-` prefix.
-
-Alternatively set `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=false` and provide
-`SIGNATUREE_SIGNATURES_JSON`. Full group DNs match exactly, whereas a simple
-`Signature-XY` key matches the group's CN. This is unrelated to
-`AUTH_LDAP_ROLE_RULES_JSON`, which determines the login role, not the signature.
-The default AD variable mapping remains active if you do not set
-`SIGNATUREE_VARIABLES_JSON`.
-
-
-
-`SIGNATUREE_SIGNATURES_JSON` is a one-line JSON map. Each key needs `label` (optional), `adGroups` (one or more DNs), `templateHtml` and `templateTxt`; `resourceFolder` and additional title attributes are optional. The built-in variable schema covers normal AD contact fields. Only set `SIGNATUREE_VARIABLES_JSON` to override that schema.
-
-### Local files / restart
-
-- `.env`: business/runtime configuration and possibly read-only AD query credentials. Keep ACLs restrictive.
-- `config/templates/`: image, HTML, TXT and resource files; Git-ignored.
-- `config/signaturee_auth.db`: local accounts and password hashes; Git-ignored.
-- `config/signaturee.db`: runtime state. An old SQLite business profile does **not** override .env in env mode.
-- `generatedsignatures/`: local output; Git-ignored.
-
-Edit `.env` and execute `.\scripts\reload-config.ps1` (Admin PowerShell) to apply changes. Alternatively use `.\scripts\reload-config.ps1 -Watch` during installation. The Admin deployment screen supports drafting/copying the two path variables; it doesn't modify `.env` invisibly.
-
-The Windows Scheduled Tasks and direct Node commands use the same env loader. Avoid defining the same keys in parent process environment; those may override file values for direct Node execution. The tasks import their explicitly selected `.env` when they start. For JSON values, use a single line without an inline comment. Both quoted and unquoted simple values are accepted.
-
-## Diagnostics
-
-In **Administration → Benutzer & Zugriff** there are two different diagnostics:
-
-1. **AD-Suche testen** — calls `Get-ADUser` under the backend identity/optional read-only account; reports effective server/search base and sanitized error code.
-2. **LDAP-Login testen** — authenticates a test employee using their real AD password. Only use localhost/HTTPS; no session is created and the password is not saved.
-
-In **Administration → Ausgabe & Deployment**, **Pfad testen** creates/checks a local preview folder. **Netzwerkpfad testen** checks filesystem and ACL access under the backend identity. An `EPERM` failure requires file-server access troubleshooting, not LDAP credential changes.
-
-[Full README](../README.md) · [SMB permissions](network-share-permissions.md)
+[Quickstart](../README.md#quickstart) · [Templates](templates.md) · [AD onboarding](ad-onboarding.md) · [SMB permissions](network-share-permissions.md)
