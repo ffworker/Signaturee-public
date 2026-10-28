@@ -205,8 +205,8 @@ Grant that identity the required **Share + NTFS** permissions on the dedicated p
 
 For production, Signaturee runs as **two Windows Scheduled Tasks**, not as a single Windows Service:
 
-- \`Signaturee-Backend-Runner\` (Node API, normally port 3001)
-- \`Signaturee-Frontend-Runner\` (static UI, normally port 3000)
+- `Signaturee-Backend-Runner` (Node API, normally port 3001)
+- `Signaturee-Frontend-Runner` (static UI, normally port 3000)
 
 Run the following **in an elevated PowerShell** from the repository directory:
 
@@ -223,7 +223,7 @@ Get-ScheduledTask -TaskName Signaturee-Backend-Runner,Signaturee-Frontend-Runner
 .\scripts\start-runner-tasks.ps1
 ~~~
 
-If you configured custom task names, pass \`-BackendTaskName\` and \`-FrontendTaskName\` to the scripts. Do not simultaneously run \`npm start\` and the Scheduled Tasks (port and SQLite conflicts). The Admin **System** view provides service/task status.
+If you configured custom task names, pass `-BackendTaskName` and `-FrontendTaskName` to the scripts. Do not simultaneously run `npm start` and the Scheduled Tasks (port and SQLite conflicts). The Admin **System** view provides service/task status.
 
 ## Update
 
@@ -235,9 +235,9 @@ cd C:\Signaturee
 .\scripts\update-signaturee.ps1
 ~~~
 
-The script stops both tasks, waits for TCP ports 3000/3001 (or the configured ports) to become free, runs \`git pull --ff-only\` for the **currently checked-out branch**, executes \`npm ci --omit=dev\`, restarts both tasks and checks their state/listening ports. It refuses a dirty tracked working tree, does not switch branches, and never overwrites ignored \`.env\`, SQLite DBs or templates intentionally. **It is not a backup or a rollback script.** On failure it does not silently restart the old processes; inspect the error and task state.
+The script stops both tasks, waits for TCP ports 3000/3001 (or the configured ports) to become free, runs `git pull --ff-only` for the **currently checked-out branch**, executes `npm ci --omit=dev`, restarts both tasks and checks their state/listening ports. It refuses a dirty tracked working tree, does not switch branches, and never overwrites ignored `.env`, SQLite DBs or templates intentionally. **It is not a backup or a rollback script.** On failure it does not silently restart the old processes; inspect the error and task state.
 
-**One-time upgrade from an older checkout without \`scripts/update-signaturee.ps1\`:**
+**One-time upgrade from an older checkout without `scripts/update-signaturee.ps1`:**
 
 ~~~powershell
 # Run elevated; make a configuration/template backup before upgrading.
@@ -256,24 +256,24 @@ npm ci --omit=dev
 .\scripts\start-runner-tasks.ps1
 ~~~
 
-If Git reports modified tracked files (particularly \`config/variables.json\`), preserve your local changes **before** pulling; never reset them blindly. Adjust the install directory, task names and port numbers if your installation differs from the defaults.
+If Git reports modified tracked files (particularly `config/variables.json`), preserve your local changes **before** pulling; never reset them blindly. Adjust the install directory, task names and port numbers if your installation differs from the defaults.
 
 **Smoke test after updating:** use a local Admin account and an AD account from the login-method selector, check **Administration → Ausgabe & Deployment → Netzwerkpfad testen**, run Preflight against a dedicated test AD user, then (only if safe) test one production signature. The Network preflight checks write and ACL access to the share; the backend must execute under the Windows identity authorized on the file server.
 
 ## Troubleshooting
 
-- **Login fails:** confirm both \`AUTH_DB_LOGIN_ENABLED=true\` and \`AUTH_LDAP_ENABLED=true\` when both providers are needed; choose the right login method. Check the actual \`config/runner.env\` used by the task. A local username also present in AD requires explicit provider selection.
-- **Backend/frontend is unreachable:** check \`Get-ScheduledTask\` and \`Get-NetTCPConnection\`, the configured ports, and the reverse-proxy \`/api/*\` and \`/health\` routes. A separately launched \`npm run start:backend\` does **not** automatically load \`runner.env\`; prefer the installed tasks for production diagnostics.
-- **SMB fails:** test the production UNC path in the Admin UI and verify both SMB share permissions and NTFS ACL/WRITE_DAC rights for the identity running the backend (often the computer account \`DOMAIN\SERVER$\` when running as SYSTEM). Do not rely on access from your interactive Windows user.
-- **Partial generation / missing signatures:** inspect the API error and \`Logs/\`. The generator now returns failure for unsuccessful user generation or ACL/resource errors instead of reporting an overall success.
+- **Login fails:** confirm both `AUTH_DB_LOGIN_ENABLED=true` and `AUTH_LDAP_ENABLED=true` when both providers are needed; choose the right login method. Check the actual `config/runner.env` used by the task. A local username also present in AD requires explicit provider selection.
+- **Backend/frontend is unreachable:** check `Get-ScheduledTask` and `Get-NetTCPConnection`, the configured ports, and the reverse-proxy `/api/*` and `/health` routes. A separately launched `npm run start:backend` does **not** automatically load `runner.env`; prefer the installed tasks for production diagnostics.
+- **SMB fails:** test the production UNC path in the Admin UI and verify both SMB share permissions and NTFS ACL/WRITE_DAC rights for the identity running the backend (often the computer account `DOMAIN\SERVER$` when running as SYSTEM). Do not rely on access from your interactive Windows user.
+- **Partial generation / missing signatures:** inspect the API error and `Logs/`. The generator now returns failure for unsuccessful user generation or ACL/resource errors instead of reporting an overall success.
 
 More detail: [Windows setup](docs/prepare-machine-dependencies.md), [Network share permissions](docs/network-share-permissions.md) and [Reverse proxy](docs/reverse-proxy.md).
 
 ## Backup
 
-**Before upgrading or migrating**, stop both Scheduled Tasks and create a consistent offline backup of the local installation. Preserve at least \`config/runner.env\`, \`config/signaturee.db\`, \`config/signaturee_auth.db\`, \`Templatefiles/\` (including images), plus any active \`config/secrets.env\`, \`config/config.json\`, \`config/variables.json\`, \`config/presets/\`, \`config/ldap-role-rules.json\`, \`Templatefiles_test/\` and \`frontend/runtime-config.js\`.
+**Before upgrading or migrating**, stop both Scheduled Tasks and create a consistent offline backup of the local installation. Preserve at least `config/runner.env`, `config/signaturee.db`, `config/signaturee_auth.db`, `Templatefiles/` (including images), plus any active `config/secrets.env`, `config/config.json`, `config/variables.json`, `config/presets/`, `config/ldap-role-rules.json`, `Templatefiles_test/` and `frontend/runtime-config.js`.
 
-The built-in \`GET /api/storage/backup\` exports **application settings**, not credentials, template/image files or the full installation. Do not use it alone as a disaster-recovery backup. Keep backup archives protected because they may contain credentials and personal data. A dedicated backup/restore tool and verified migration procedure are planned after the LDAP and SMB smoke tests.
+The built-in `GET /api/storage/backup` exports **application settings**, not credentials, template/image files or the full installation. Do not use it alone as a disaster-recovery backup. Keep backup archives protected because they may contain credentials and personal data. A dedicated backup/restore tool and verified migration procedure are planned after the LDAP and SMB smoke tests.
 
 ## CI / delivery
 
