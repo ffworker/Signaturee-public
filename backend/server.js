@@ -1323,6 +1323,7 @@ function authSystemSnapshot() {
       container: AUTH_LDAP_CONTAINER,
       defaultRole: resolveLdapDefaultRole(),
       roleRules: AUTH_LDAP_ROLE_RULES.length,
+      upnSuffix: AUTH_LDAP_UPN_SUFFIX,
       fallbackToLocal: AUTH_LDAP_FALLBACK_TO_DB,
     },
   };
@@ -4079,13 +4080,25 @@ async function handleV2ProfilePut(req, res) {
 // Probe from the backend's actual Windows identity (SYSTEM/computer account or service account).
 // The temporary directory is removed even on failure. Production requires WRITE_DAC as
 // well as share/NTFS write access because the generator sets per-user directory ACLs.
-async function probeV2TargetAccess(targetPath, { requireAcl = false } = {}) {
+async function probeV2TargetAccess(targetPath, { requireAcl = false, createIfMissing = false } = {}) {
   if (!targetPath) return { exists: false, directory: false, writable: false, aclWritable: false, error: 'No path configured.' };
   let stats;
+  let created = false;
   try {
     stats = await fs.promises.stat(targetPath);
   } catch (error) {
-    return { exists: false, directory: false, writable: false, aclWritable: false, error: error.message };
+    if (error.code !== 'ENOENT' || !createIfMissing) {
+      return { exists: false, directory: false, writable: false, aclWritable: false, stage: 'stat', error: error.message };
+    }
+    try {
+      // Only the LOCAL preview path may be created automatically, never the production UNC.
+      await fs.promises.mkdir(targetPath, { recursive: true });
+      stats = await fs.promises.stat(targetPath);
+      created = true;
+    } catch (mkdirError) {
+      return { exists: false, directory: false, writable: false, aclWritable: false, stage: 'mkdir',
+        error: mkdirError.message, hint: 'Der lokale Vorschaupfad konnte nicht angelegt werden. Dienstkonto und Laufwerksrechte prüfen.' };
+    }
   }
   if (!stats.isDirectory()) {
     return { exists: true, directory: false, writable: false, aclWritable: false, error: 'Configured path is not a directory.' };
@@ -4093,17 +4106,21 @@ async function probeV2TargetAccess(targetPath, { requireAcl = false } = {}) {
 
   const probeDir = path.join(targetPath,
     `.signaturee-access-test-${process.pid}-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`);
-  let created = false;
+  let probeCreated = false;
+  let stage = 'mkdir';
   try {
     await fs.promises.mkdir(probeDir);
-    created = true;
+    probeCreated = true;
+    stage = 'write';
     const probeFile = path.join(probeDir, 'write-test.tmp');
     await fs.promises.writeFile(probeFile, 'Signaturee write test\n', { flag: 'wx' });
     await fs.promises.readFile(probeFile, 'utf8');
 
     if (!requireAcl) {
-      return { exists: true, directory: true, writable: true, aclWritable: null, message: 'Path is reachable and writable.' };
+      return { exists: true, directory: true, writable: true, aclWritable: null, created,
+        message: created ? 'Vorschauordner angelegt; Pfad ist erreichbar und schreibbar.' : 'Path is reachable and writable.' };
     }
+    stage = 'acl';
     if (process.platform !== 'win32') {
       return { exists: true, directory: true, writable: true, aclWritable: false, error: 'ACL validation requires a Windows backend.' };
     }
@@ -4133,9 +4150,12 @@ async function probeV2TargetAccess(targetPath, { requireAcl = false } = {}) {
         : { error: `Cannot set folder ACLs: ${aclResult.error}` }),
     };
   } catch (error) {
-    return { exists: true, directory: true, writable: false, aclWritable: false, error: error.message };
+    return { exists: true, directory: true, writable: false, aclWritable: false, stage, error: error.message,
+      hint: stage === 'mkdir' || stage === 'write'
+        ? 'Schreibzugriff verweigert. Share- und NTFS-Berechtigungen des Backend-Dienstkontos prüfen (SYSTEM auf SMB = Domänen-Computerkonto).'
+        : 'Berechtigung zum Ändern von Ordner-ACLs fehlt. NTFS-Rechte des Backend-Dienstkontos prüfen.' };
   } finally {
-    if (created) {
+    if (probeCreated) {
       await fs.promises.rm(probeDir, { recursive: true, force: true }).catch(
         (error) => console.warn(`Cannot remove temporary deployment probe ${probeDir}: ${error.message}`));
     }
@@ -4156,8 +4176,11 @@ async function handleV2TargetCheck(req, res) {
     const profile = getV2Profile();
     const targetPath = targetKey === 'production'
       ? String(profile.targets?.production?.path || '').trim()
-      : String(profile.targets?.preview?.path || '').trim();
-    const result = await probeV2TargetAccess(targetPath, { requireAcl: targetKey === 'production' });
+      : resolvePath(String(profile.targets?.preview?.path || '').trim());
+    const result = await probeV2TargetAccess(targetPath, {
+      requireAcl: targetKey === 'production',
+      createIfMissing: targetKey === 'preview',
+    });
     return sendJson(res, targetPath ? 200 : 422, { target: targetKey, path: targetPath, ...result });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
@@ -4212,7 +4235,7 @@ function getV2Target(targetRaw, profileRaw) {
   return {
     key: 'Local',
     label: 'Server-Vorschau',
-    path: profile.targets.preview.path,
+    path: resolvePath(profile.targets.preview.path),
     skipAcls: true,
   };
 }
