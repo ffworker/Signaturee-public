@@ -21,7 +21,7 @@ const SECRETS_PATH = path.isAbsolute(process.env.SECRETS_PATH || '')
 
 // Legacy secrets.env is supported only for installations without a root .env.
 // A fresh .env installation never combines config from multiple local files.
-if (!fs.existsSync(path.join(ROOT_DIR, '.env')) && !process.env.SIGNATUREE_ENV_FILE) loadSecretsEnv(SECRETS_PATH);
+if (CONFIG_MODE === 'database' && !fs.existsSync(path.join(ROOT_DIR, '.env')) && !process.env.SIGNATUREE_ENV_FILE) loadSecretsEnv(SECRETS_PATH);
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || process.env.FRONTEND_URL || '';
 const CORS_ORIGINS_RAW = process.env.CORS_ORIGINS || FRONTEND_ORIGIN || '';
