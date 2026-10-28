@@ -173,11 +173,15 @@ After saving `C:\Signaturee-clean\.env`, run elevated PowerShell:
 ~~~powershell
 cd C:\Signaturee-clean
 .\scripts\reload-config.ps1
+
+# Optional during migration: automatically apply each valid .env save.
+# Keep the elevated PowerShell window open; Ctrl+C stops watching.
+.\scripts\reload-config.ps1 -Watch
 ~~~
 
 This reload does not pull Git, reinstall dependencies or change `.env`. It validates the configuration before stopping tasks, restarts both Windows Tasks even if Task Scheduler reports `Ready`, and verifies actual Node listeners and ownership. It does not terminate unrelated processes; when old installations still own a port it stops with an error.
 
-Configuration changes require a process restart; scheduled tasks need not be reinstalled for every `.env` edit.
+Configuration changes require a process restart; scheduled tasks need not be reinstalled for every `.env` edit. `-Watch` checks the .env file every three seconds, validates it and safely restarts both tasks after a change. Invalid edits are rejected; fix the file and save again. The watcher runs only in your foreground PowerShell session, not as an additional Windows service.
 
 ## Update
 
