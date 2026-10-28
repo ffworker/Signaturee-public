@@ -34,7 +34,7 @@
       <button class="admin-nav-item" data-admin-view="signatures">Signaturen</button>
       <button class="admin-nav-item" data-admin-view="variables">Variablen</button>
       <button class="admin-nav-item" data-admin-view="access">Benutzer & Zugriff</button>
-      <button class="admin-nav-item" data-admin-view="onboarding">Onboarding</button>
+      <button class="admin-nav-item" data-admin-view="onboarding">Onboarding / Check-Liste</button>
       <button class="admin-nav-item" data-admin-view="system">System</button>
     </aside>
 
@@ -307,7 +307,8 @@
           <div class="admin-section-head split">
             <div>
               
-              <h2>AD-Voraussetzungen für Signaturee</h2>
+              <h2>Onboarding / Check-Liste</h2>
+              <p>Alle notwendigen AD-Felder und Signaturgruppen auf einen Blick.</p>
 
             </div>
             <button id="copyOnboardingBtn" type="button" class="secondary">Checkliste kopieren</button>
@@ -315,16 +316,18 @@
           <div id="onboardingChecklist" class="onboarding-checklist"></div>
         </section>
 
-        <details class="compact-disclosure onboarding-flow">
-          <summary>Ablauf für neue AD-Benutzer</summary>
+        <section class="step-card onboarding-flow">
+          <div class="admin-section-head">
+            <h2>Ablauf für neue AD-Benutzer</h2>
+          </div>
           <ol>
             <li>Pflichtfelder im AD vollständig setzen.</li>
-            <li>Benutzer mindestens einer konfigurierten <code>Signatur-*</code>-Gruppe zuweisen.</li>
+            <li>Benutzer einer passenden Signaturgruppe gemäß der oben angezeigten Gruppenzuordnung zuweisen.</li>
             <li>Signatur-spezifische Extension Attributes setzen, falls für diese Signatur benötigt.</li>
             <li>In Signaturee als IT-Benutzer nach dem neuen Account suchen.</li>
             <li>Preflight durchführen – erst bei grünem Preflight ist das Onboarding für Signaturee abgeschlossen.</li>
           </ol>
-        </details>
+        </section>
       </section>
 
       <section class="admin-view" data-view="system">
