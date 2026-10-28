@@ -17,7 +17,7 @@
         
       </div>
       <h1>Administration</h1>
-      <p class="subtitle">Konfiguration, Zugriff und Onboarding an einem Ort.</p>
+      
     </div>
     <div class="top-actions">
       <span id="adminConnectionBadge" class="connection-badge">Backend wird gesucht ...</span>
@@ -55,20 +55,32 @@
         <span id="profileSourceBadge" class="count-badge"></span>
       </section>
 
+      <section class="template-overview" aria-label="Template-Status">
+        <div class="template-overview-primary">
+          <div class="template-overview-heading">
+            <strong>Templates</strong>
+            <span id="summaryTemplateState" class="template-overview-count" role="status" aria-live="polite">Prüfe …</span>
+          </div>
+          <div id="templateStripChips" class="template-chip-list" aria-label="Status pro Signatur"></div>
+        </div>
+        <details id="templateDetails" class="template-overview-details">
+          <summary>Details</summary>
+          <div id="templateStatus" class="template-status empty-state">Noch nicht geladen.</div>
+        </details>
+      </section>
+
       <section class="admin-view active" data-view="overview">
         <div class="admin-summary-grid">
           <article class="admin-summary-card"><small>Signaturen</small><strong id="summarySignatureCount">–</strong></article>
           <article class="admin-summary-card"><small>Variablen</small><strong id="summaryVariableCount">–</strong></article>
           <article class="admin-summary-card"><small>AD-Gruppen</small><strong id="summaryGroupCount">–</strong></article>
-          <article class="admin-summary-card"><small>Templates</small><strong id="summaryTemplateState">–</strong></article>
+
         </div>
 
         <section class="step-card">
           <div class="admin-section-head">
             <div>
-              <span class="eyebrow">Grundlagen</span>
-              <h2>Organisation & Verzeichnis</h2>
-              <p>Diese Werte gelten für Suche, Preflight und Generierung.</p>
+              <h2>Organisation & AD</h2>
             </div>
           </div>
           <div class="admin-grid two">
@@ -77,14 +89,18 @@
             </label>
             <label>Domain Controller / AD Server
               <input id="directoryServer" type="text" placeholder="dc01.example.local">
-              <small>Leer = Windows-Domainkontext verwenden.</small>
+
             </label>
-            <label class="wide">AD Search Base
+            <label class="wide">AD-Suchbasis
               <input id="directorySearchBase" type="text" placeholder="OU=Users,DC=example,DC=local">
             </label>
+          </div>
+          <details class="compact-disclosure config-advanced">
+            <summary>LDAP & weitere AD-Einstellungen <span class="disclosure-meta">Optional</span></summary>
+            <div class="admin-grid two">
             <label class="wide">Zusätzliche Titel-Attribute
               <input id="secondaryTitleAttributes" type="text" placeholder="extensionAttribute6, extensionAttribute7, extensionAttribute8">
-              <small>Kommagetrennt. Zentral für alle Signaturen.</small>
+
             </label>
             <label>LDAP-Domäne
               <input id="ldapDomainConfig" type="text" placeholder="example.local">
@@ -94,12 +110,13 @@
             </label>
             <label class="wide">LDAP-Suchcontainer (optional)
               <input id="ldapContainerConfig" type="text" placeholder="OU=Employees,DC=example,DC=local">
-              <small>Leer lassen, solange die tatsächliche OU nicht bekannt ist.</small>
+
             </label>
             <label class="wide">UPN-Suffix (optional)
               <input id="ldapUpnSuffixConfig" type="text" placeholder="example.local">
             </label>
-          </div>
+            </div>
+          </details>
         </section>
       </section>
 
@@ -155,30 +172,19 @@
             <div>
               <span class="eyebrow">Signaturen</span>
               <h2>Zuordnung & Templates</h2>
-              <p>AD-Gruppe, Template-Dateien und Spezialattribute gehören zusammen.</p>
+
             </div>
             <button id="addSignatureBtn" type="button" class="secondary">+ Signatur</button>
           </div>
-          <div id="signatureConventionSettings" class="deployment-note" hidden>
-            <strong>Automatische AD-Zuordnung</strong>
-            <p>Bei aktivierter Template-Erkennung wird die Signatur XY der bestehenden AD-Gruppe Signature-XY zugeordnet. Individuelle Zuordnungen bleiben als erweiterte .env-Konfiguration möglich.</p>
-            <label>Gruppenpräfix
+          <div id="signatureConventionSettings" class="signature-convention" hidden>
+            <label>AD-Gruppenpräfix <span class="field-hint" tabindex="0" role="note" title="AD_Template → Signature-AD" aria-label="AD_Template wird automatisch der bestehenden Gruppe Signature-AD zugeordnet.">?</span>
               <input id="signatureGroupPrefixConfig" type="text" placeholder="Signature-">
             </label>
           </div>
           <div id="signatureCards" class="signature-cards"></div>
         </section>
 
-        <section class="step-card">
-          <div class="admin-section-head">
-            <div>
-              <span class="eyebrow">Dateien</span>
-              <h2>Template-Status</h2>
-              <p>Kontrolle des produktiven Template-Verzeichnisses.</p>
-            </div>
-          </div>
-          <div id="templateStatus" class="template-status empty-state">Profil noch nicht geladen.</div>
-        </section>
+
       </section>
 
       <section class="admin-view" data-view="variables">
@@ -187,18 +193,15 @@
             <div>
               <span class="eyebrow">Datenmodell</span>
               <h2>Variablen</h2>
-              <p>Die eingebauten Standardvariablen bleiben erhalten. Du kannst ihre AD-Zuordnung anpassen oder neue Variablen und Template-Platzhalter hinzufügen. Gespeichert werden nur Abweichungen und Ergänzungen in .env.</p>
+
             </div>
             <button id="addVariableBtn" type="button" class="secondary">+ Variable</button>
           </div>
 
-          <div class="variable-explainer">
-            <div><small>Active Directory</small><strong>mail</strong></div>
-            <span>→</span>
-            <div><small>Signaturee</small><strong>E-Mail</strong></div>
-            <span>→</span>
-            <div><small>Template</small><strong>$mail</strong></div>
-          </div>
+          <details class="compact-disclosure variable-explainer-help">
+            <summary>Was ist ein Template-Platzhalter?</summary>
+            <p>Das AD-Feld <code>mail</code> wird in der Signatur als <code>$mail</code> eingesetzt. Standardvariablen bleiben erhalten.</p>
+          </details>
 
           <div class="variable-toolbar">
             <input id="variableSearch" type="search" placeholder="Variable suchen …">
@@ -382,9 +385,12 @@
           <strong class="signature-title">Signatur</strong>
           <small class="signature-health"></small>
         </div>
+        <span class="signature-mapping-preview" aria-label="AD-Gruppen"></span>
         <button type="button" class="danger remove-signature">Entfernen</button>
       </div>
-      <div class="admin-grid two compact">
+      <details class="signature-editor">
+        <summary>Zuordnung & Dateien</summary>
+        <div class="admin-grid two compact">
         <label>Schlüssel<input data-field="key" type="text" placeholder="ACME"></label>
         <label>Anzeigename<input data-field="label" type="text" placeholder="Acme Corp"></label>
         <label class="wide">AD-Gruppe(n)
@@ -403,7 +409,8 @@
           <input data-upload="templateFiles" type="file" accept=".htm,.html,.txt,text/html,text/plain" multiple>
         </label>
         <span class="asset-upload-status muted"></span>
-      </div>
+        </div>
+      </details>
     </article>
   </template>
 
