@@ -4299,7 +4299,7 @@ async function handleV2TargetCheck(req, res) {
       : resolvePath(String(profile.targets?.preview?.path || '').trim());
     const result = await probeV2TargetAccess(targetPath, {
       requireAcl: targetKey === 'production',
-      createIfMissing: targetKey === 'preview',
+      createIfMissing: targetKey === 'preview' && !targetPath.startsWith('\\\\'),
     });
     return sendJson(res, targetPath ? 200 : 422, { target: targetKey, path: targetPath, ...result });
   } catch (error) {
