@@ -88,6 +88,13 @@ const MERGED_USER_FILE_PATH = resolvePath(
 );
 const OU_SEARCH_BASE = process.env.OU_SEARCH_BASE || '';
 const AD_SERVER = process.env.AD_SERVER || '';
+// Optional least-privilege account used ONLY by Get-ADUser searches. LDAP login
+// still validates each end user's own credentials; SMB uses the task identity.
+const AD_QUERY_USERNAME = String(process.env.AD_QUERY_USERNAME || '').trim();
+const AD_QUERY_PASSWORD = String(process.env.AD_QUERY_PASSWORD || '');
+if (Boolean(AD_QUERY_USERNAME) !== Boolean(AD_QUERY_PASSWORD)) {
+  throw new Error('Set both AD_QUERY_USERNAME and AD_QUERY_PASSWORD, or leave both unset.');
+}
 const LOCAL_DEPLOYMENT_PATH = resolvePath(
   process.env.LOCAL_DEPLOYMENT_PATH || path.join(ROOT_DIR, 'generatedsignatures'),
 );
@@ -873,7 +880,8 @@ async function queryAdUsers({
     const key = String(prop || '').trim().toLowerCase();
     return key && !UNSUPPORTED_AD_PROPERTIES.has(key);
   });
-  const credential = normalizeAdCredentials(credentials);
+  const credential = normalizeAdCredentials(credentials) ||
+    normalizeAdCredentials({ username: AD_QUERY_USERNAME, password: AD_QUERY_PASSWORD });
   let remainingProps = filteredProps.slice();
   const skippedProperties = [];
 
@@ -5069,6 +5077,56 @@ async function handleV2RunGenerate(req, res) {
   }
 }
 
+function classifyAdQueryFailure(error) {
+  const text = String(error?.stderr || error?.message || '');
+  if (/Cannot find an object with identity|Directory object not found|directory object.*not found|ADIdentityNotFoundException/i.test(text)) {
+    return { code: 'AD_SEARCH_BASE_INVALID', message: 'AD-Suchbasis nicht gefunden.',
+      hint: 'OU_SEARCH_BASE muss ein existierender Distinguished Name sein. Standard-Users-Container ist CN=Users, nicht OU=Users.' };
+  }
+  if (/access is denied|insufficient access|unwilling to perform|unauthorized|Logon failure|user name or password is incorrect/i.test(text)) {
+    return { code: 'AD_QUERY_ACCESS_DENIED', message: 'AD-Abfrage nicht autorisiert.',
+      hint: 'SYSTEM nutzt beim Domänenbeitritt das Computerkonto. Optional AD_QUERY_USERNAME/AD_QUERY_PASSWORD eines reinen AD-Lesekontos in .env setzen (kein Domain Admin).' };
+  }
+  if (/ActiveDirectory module|specified module.*not loaded|cannot be loaded|module.*ActiveDirectory/i.test(text)) {
+    return { code: 'AD_MODULE_MISSING', message: 'PowerShell-Modul ActiveDirectory fehlt.',
+      hint: 'RSAT-AD-PowerShell auf dem Signaturee-Server installieren.' };
+  }
+  if (/not.*operational|cannot contact|server.*unavailable|cannot find.*server|0x8007203a/i.test(text)) {
+    return { code: 'AD_SERVER_UNAVAILABLE', message: 'Domänencontroller nicht erreichbar.',
+      hint: 'AD_SERVER, DNS, Netzwerk, Domain-Join und Kerberos prüfen.' };
+  }
+  return { code: 'AD_QUERY_FAILED', message: 'Get-ADUser konnte die konfigurierte Suchbasis nicht abfragen.',
+    hint: 'AD_SERVER und OU_SEARCH_BASE prüfen und Get-ADUser aus dem Backend-Dienstkontext testen.' };
+}
+
+async function handleV2AdSearchTest(_req, res) {
+  const profile = getV2Profile();
+  const server = profile.directory.server;
+  const searchBase = profile.directory.searchBase;
+  const authMode = AD_QUERY_USERNAME ? 'dedicated-read-account' : 'scheduled-task-identity';
+  try {
+    const result = await queryAdUsers({
+      limit: 1,
+      search: '',
+      searchBase,
+      server,
+      adProperties: [],
+      allowDefaultFallback: false,
+    });
+    return sendJson(res, 200, {
+      ok: true, code: 'AD_QUERY_OK',
+      message: result.users.length ? 'AD-Abfrage erfolgreich; aktiver Benutzer gefunden.' :
+        'AD-Abfrage erfolgreich; keine aktiven Benutzer in der Suchbasis gefunden.',
+      server, searchBase, authMode,
+      foundActiveUser: result.users.length > 0,
+    });
+  } catch (error) {
+    return sendJson(res, 200, {
+      ok: false, ...classifyAdQueryFailure(error), server, searchBase, authMode,
+    });
+  }
+}
+
 async function handleAdUserList(req, res) {
   try {
     const profile = getV2Profile();
@@ -5707,6 +5765,10 @@ function routeRequest(req, res) {
   if (relativePath === '/api/auth/login' && req.method === 'POST') return handleAuthLogin(req, res);
   if (relativePath === '/api/auth/me' && req.method === 'GET') return handleAuthMe(req, res);
   if (relativePath === '/api/auth/logout' && req.method === 'POST') return handleAuthLogout(req, res);
+  if (relativePath === '/api/v2/ad/test' && req.method === 'POST') {
+    if (!ensure('admin')) return;
+    return handleV2AdSearchTest(req, res);
+  }
   if (relativePath === '/api/v2/auth/ldap/test' && req.method === 'POST') {
     if (!ensure('admin')) return;
     return handleV2LdapTest(req, res);
