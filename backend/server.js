@@ -1,3 +1,4 @@
+require('../scripts/load-env').loadEnvironment();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -12,11 +13,15 @@ const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 3001);
 const BASE_PATH_RAW = process.env.BACKEND_BASE_PATH || '/';
 const USE_TEST_TEMPLATES = (process.env.USE_TEST_TEMPLATES || '').toLowerCase() === 'true';
 const ROOT_DIR = path.resolve(__dirname, '..');
+const CONFIG_MODE = String(process.env.SIGNATUREE_CONFIG_MODE || (fs.existsSync(path.join(ROOT_DIR, '.env')) ? 'env' : 'database')).toLowerCase();
+if (!['env', 'database'].includes(CONFIG_MODE)) throw new Error('SIGNATUREE_CONFIG_MODE must be env or database.');
 const SECRETS_PATH = path.isAbsolute(process.env.SECRETS_PATH || '')
   ? process.env.SECRETS_PATH
   : path.join(ROOT_DIR, process.env.SECRETS_PATH || 'config/secrets.env');
 
-loadSecretsEnv(SECRETS_PATH);
+// Legacy secrets.env is supported only for installations without a root .env.
+// A fresh .env installation never combines config from multiple local files.
+if (CONFIG_MODE === 'database' && !fs.existsSync(path.join(ROOT_DIR, '.env')) && !process.env.SIGNATUREE_ENV_FILE) loadSecretsEnv(SECRETS_PATH);
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || process.env.FRONTEND_URL || '';
 const CORS_ORIGINS_RAW = process.env.CORS_ORIGINS || FRONTEND_ORIGIN || '';
@@ -45,9 +50,11 @@ const AUTH_LDAP_CONTAINER = String(process.env.AUTH_LDAP_CONTAINER || '').trim()
 const AUTH_LDAP_UPN_SUFFIX = String(process.env.AUTH_LDAP_UPN_SUFFIX || '').trim();
 const AUTH_LDAP_ROLE_MAP = parseAuthRoleMap(process.env.AUTH_LDAP_ROLE_MAP || '');
 const AUTH_LDAP_ROLE_RULES_PATH = String(process.env.AUTH_LDAP_ROLE_RULES_PATH || '').trim();
-const AUTH_LDAP_ROLE_RULES = AUTH_LDAP_ROLE_RULES_PATH
-  ? parseLdapRoleRules(JSON.parse(fs.readFileSync(resolvePath(AUTH_LDAP_ROLE_RULES_PATH), 'utf8')))
-  : [];
+const AUTH_LDAP_ROLE_RULES = process.env.AUTH_LDAP_ROLE_RULES_JSON
+  ? parseLdapRoleRules(JSON.parse(process.env.AUTH_LDAP_ROLE_RULES_JSON))
+  : (AUTH_LDAP_ROLE_RULES_PATH
+    ? parseLdapRoleRules(JSON.parse(fs.readFileSync(resolvePath(AUTH_LDAP_ROLE_RULES_PATH), 'utf8')))
+    : []);
 const AUTH_LDAP_ROLE_ATTRIBUTES = [...new Set(AUTH_LDAP_ROLE_RULES.map((rule) => rule.attribute).filter(Boolean))];
 const AUTH_LDAP_FALLBACK_TO_DB = process.env.AUTH_LDAP_FALLBACK_TO_DB === undefined
   ? true
@@ -61,9 +68,11 @@ const authSessions = new Map();
 
 const BASE_PATH = normalizeBasePath(BASE_PATH_RAW);
 const TEMPLATE_DIRECTORY = resolvePath(
-  process.env.TEMPLATE_DIR || path.join(ROOT_DIR, USE_TEST_TEMPLATES ? 'Templatefiles_test' : 'Templatefiles'),
+  process.env.TEMPLATE_DIR || path.join(ROOT_DIR, CONFIG_MODE === 'env'
+    ? 'config/templates'
+    : (USE_TEST_TEMPLATES ? 'Templatefiles_test' : 'Templatefiles')),
 );
-const V2_TEMPLATE_DIRECTORY = path.join(ROOT_DIR, 'Templatefiles');
+const V2_TEMPLATE_DIRECTORY = TEMPLATE_DIRECTORY;
 const CONFIG_PATH = resolvePath(process.env.CONFIG_PATH || path.join(ROOT_DIR, 'config', 'config.json'));
 const VARIABLE_CONFIG_DIR = path.dirname(resolvePath(process.env.VARIABLES_PATH || path.join(ROOT_DIR, 'config', 'variables.json')));
 const LOG_DIR = resolvePath(process.env.LOG_DIR || path.join(ROOT_DIR, 'Logs'));
@@ -801,6 +810,7 @@ function buildUserFilePath(preferredExtension) {
 }
 
 function loadConfigJson() {
+  if (CONFIG_MODE === 'env') return profileToLegacyConfig(getV2Profile());
   try {
     const fromDb = dbGetJson(STORE_KEYS.config);
     if (fromDb && typeof fromDb === 'object') {
@@ -1791,6 +1801,7 @@ const DEFAULT_USER_FILE_CANDIDATES = [
 ];
 
 function loadVariableSchema() {
+  if (CONFIG_MODE === 'env') return getV2Profile().variables;
   try {
     const fromDb = dbGetJson(STORE_KEYS.variables);
     if (fromDb && Array.isArray(fromDb.variables)) {
@@ -2022,7 +2033,7 @@ function syncDbStorageToFiles() {
   }
 
   try {
-    const schema = dbGetJson(STORE_KEYS.variables);
+    const schema = CONFIG_MODE === 'env' ? null : dbGetJson(STORE_KEYS.variables);
     if (schema && Array.isArray(schema.variables)) {
       fs.mkdirSync(path.dirname(VARIABLES_JSON_PATH), { recursive: true });
       fs.writeFileSync(VARIABLES_JSON_PATH, `${JSON.stringify(normalizeVariableSchemaPayload(schema), null, 2)}\n`, 'utf8');
@@ -2069,8 +2080,12 @@ function initializeStorage() {
   if (storageInitialized) return;
   initStorageDb();
   initAuthDb();
-  migrateStorageToDb();
-  syncDbStorageToFiles();
+  if (CONFIG_MODE !== 'env') {
+    // Legacy migration/mirroring may modify tracked sample presets/variables.
+    // Env mode must never rewrite repository files during startup.
+    migrateStorageToDb();
+    syncDbStorageToFiles();
+  }
   storageInitialized = true;
 }
 
@@ -2653,7 +2668,7 @@ async function runGenerateScript(options = {}) {
   const { command: powershellCommand, attempted } = await resolvePowerShellCommand();
 
   return new Promise((resolve, reject) => {
-    const args = ['-File', GENERATE_SCRIPT_PATH];
+    const args = ['-File', GENERATE_SCRIPT_PATH, '-TemplateDirectory', TEMPLATE_DIRECTORY];
   // Explicitly set UseUserFile to bypass interactive prompt inside the script
   if (mode === 'userFile') {
     args.push('-UseUserFile');
@@ -2865,6 +2880,9 @@ async function handleTemplateExport(_req, res) {
 
 async function handleDomainImport(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     let data;
     if (contentType.includes('application/json')) {
@@ -2923,6 +2941,9 @@ function handleVariableCatalog(_req, res) {
 
 async function handleVariables(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     let data;
     if (contentType.includes('application/json')) {
@@ -3008,6 +3029,9 @@ async function handleVariablePresetLoad(_req, res, name) {
 
 async function handleVariablePresetSave(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
       return sendJson(res, 415, { error: 'application/json expected' });
@@ -3854,7 +3878,50 @@ function legacyStateToV2Profile() {
   });
 }
 
+// v2 business settings come from the single .env file, not a previously stored
+// Admin UI profile. JSON values are one-line JSON; individual keys can override
+// selected fields. No filesystem writeback to .env is performed by the API.
+function parseProfileEnvJson(key, fallback) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('expected JSON object');
+    }
+    return parsed;
+  } catch (error) {
+    throw new Error(`Invalid ${key}: ${error.message}`);
+  }
+}
+
+function envV2Profile() {
+  const full = parseProfileEnvJson('SIGNATUREE_PROFILE_JSON', {});
+  const signatures = parseProfileEnvJson('SIGNATUREE_SIGNATURES_JSON', full.signatures || {});
+  const variables = parseProfileEnvJson('SIGNATUREE_VARIABLES_JSON', full.variables || DEFAULT_VARIABLE_SCHEMA);
+  return normalizeV2Profile({
+    ...full,
+    organization: {
+      name: process.env.SIGNATUREE_ORGANIZATION_NAME ?? full.organization?.name ?? 'Example Organization',
+    },
+    directory: {
+      server: process.env.AD_SERVER ?? full.directory?.server ?? '',
+      searchBase: process.env.OU_SEARCH_BASE ?? full.directory?.searchBase ?? '',
+    },
+    targets: {
+      preview: { path: process.env.LOCAL_DEPLOYMENT_PATH ?? full.targets?.preview?.path ?? '' },
+      production: { path: process.env.NETWORK_DEPLOYMENT_PATH ?? full.targets?.production?.path ?? '' },
+    },
+    signatures,
+    secondaryTitleAttributes: process.env.SIGNATUREE_SECONDARY_TITLE_ATTRIBUTES !== undefined
+      ? normalizeStringList(process.env.SIGNATUREE_SECONDARY_TITLE_ATTRIBUTES)
+      : (full.secondaryTitleAttributes || []),
+    variables,
+  });
+}
+
 function getV2Profile() {
+  if (CONFIG_MODE === 'env') return envV2Profile();
   const stored = dbGetJson(STORE_KEYS.v2Profile);
   if (stored && typeof stored === 'object') {
     return normalizeV2Profile(stored);
@@ -3973,7 +4040,7 @@ async function handleV2ProfileGet(_req, res) {
     return sendJson(res, 200, {
       profile,
       status: buildV2ProfileStatus(profile),
-      source: 'profile_v2',
+      source: CONFIG_MODE === 'env' ? 'environment (.env)' : 'profile_v2',
     });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
@@ -3982,6 +4049,12 @@ async function handleV2ProfileGet(_req, res) {
 
 async function handleV2ProfilePut(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, {
+        error: 'Profile is managed by .env. Edit the environment and restart the backend; Admin UI cannot overwrite it.',
+        source: 'environment (.env)',
+      });
+    }
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
       return sendJson(res, 415, { error: 'Profile update expects application/json.' });
@@ -5065,6 +5138,9 @@ async function handleDomainPresetLoad(req, res, name) {
 
 async function handleDomainPresetSave(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
       return sendJson(res, 415, { error: 'application/json erwartet' });
@@ -5105,6 +5181,9 @@ async function handleStorageBackup(_req, res) {
 
 async function handleStorageRestore(req, res, requestUrl) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     let data;
     if (contentType.includes('application/json')) {
@@ -5663,6 +5742,12 @@ function startServer() {
     throw new Error('Authentication-disabled backend may bind only to a loopback host.');
   }
   initializeStorage();
+  if (CONFIG_MODE === 'env') {
+    const configured = validateV2Profile(getV2Profile());
+    if (configured.errors.length) {
+      throw new Error('Invalid .env business configuration: ' + configured.errors.join(' | '));
+    }
+  }
   const server = http.createServer(routeRequest);
   server.requestTimeout = REQUEST_TIMEOUT_MS;
   server.headersTimeout = REQUEST_TIMEOUT_MS + 5000;
@@ -5690,6 +5775,10 @@ function startServer() {
 
 function printCheck() {
   initializeStorage();
+  if (CONFIG_MODE === 'env') {
+    const checked = validateV2Profile(getV2Profile());
+    if (checked.errors.length) throw new Error('Invalid .env business configuration: ' + checked.errors.join(' | '));
+  }
   console.log(JSON.stringify({
     host: HOST,
     port: PORT,
@@ -5716,6 +5805,8 @@ function printCheck() {
     maxFormBodyBytes: MAX_FORM_BODY_BYTES,
     maxMultipartBodyBytes: MAX_MULTIPART_BODY_BYTES,
     templateDirectory: TEMPLATE_DIRECTORY,
+    configMode: CONFIG_MODE,
+    effectiveProfile: getV2Profile(),
     configPath: CONFIG_PATH,
     userFilePath: USER_FILE_PATH,
     variablesPath: VARIABLES_JSON_PATH,

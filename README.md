@@ -36,7 +36,7 @@ Frontend :3000
 Node.js backend :3001
   |
   +-- authentication / sessions
-  +-- v2 profile + SQLite storage
+  +-- env-backed v2 profile + SQLite runtime storage
   +-- live Active Directory queries
   +-- preflight / target validation
   +-- template management
@@ -56,7 +56,8 @@ Main parts of the repository:
 | `backend/` | API, authentication, AD integration, profile/storage and runner controls |
 | `GenerateSignatures.ps1` | Signature generation engine |
 | `Functions/` | PowerShell helper functions used by the generator |
-| `Templatefiles/` | Example / managed signature template assets |
+| `Templatefiles/` | Tracked example templates for onboarding |
+| `config/templates/` | Active untracked site templates and images in env mode |
 | `config/example/` | Safe configuration examples only |
 | `scripts/` | startup, account management, Scheduled Task install and quality-gate helpers |
 | `tests/` | PowerShell/Pester tests |
@@ -64,120 +65,65 @@ Main parts of the repository:
 
 ## Quickstart
 
-**Requirements:** Windows, Node.js 22.13+, Windows PowerShell 5.1+, RSAT / ActiveDirectory module. Microsoft Word is optional and only needed for RTF generation.
+Requirements: Windows with Node.js 22.13+, Windows PowerShell 5.1+, RSAT/ActiveDirectory module. Word is optional for RTF.
 
 ~~~powershell
-git clone https://github.com/ffworker/Signaturee-public.git C:\Signaturee
-cd C:\Signaturee
-
+git clone https://github.com/ffworker/Signaturee-public.git C:\Signaturee-clean
+cd C:\Signaturee-clean
 npm ci --omit=dev
-Copy-Item config\example\runner.example.env config\runner.env
 
-notepad config\runner.env
+# Your ONLY local configuration file:
+Copy-Item .env.example .env
+notepad .env
 
+# Create the ignored templates directory and copy the assets you actually use.
+New-Item -ItemType Directory -Force config\templates | Out-Null
+Copy-Item .\Templatefiles\* .\config\templates\ -Recurse -Force
+
+# Validate env JSON and inspect resolved settings before starting.
+node backend/server.js --check
+~~~
+
+**Edit .env before creating accounts or starting the server:** change AD_SERVER, OU_SEARCH_BASE, NETWORK_DEPLOYMENT_PATH, SIGNATUREE_SIGNATURES_JSON, and any optional SIGNATUREE_VARIABLES_JSON / LDAP settings. Each configured template name must exist in the chosen TEMPLATE_DIR. The example is NOT a usable company configuration.
+
+Create your new local Admin account without putting its password on the command line:
+
+~~~powershell
 $secure = Read-Host "Choose an Admin password" -AsSecureString
 $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
 try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) | npm run auth:users -- add --username admin --password-stdin --role admin }
 finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+
+# For initial local testing; use Scheduled Tasks in production:
 npm start
 ~~~
 
-Open **http://localhost:3000/**.
+Visit http://localhost:3000/. Local Admin and AD/LDAP login are separate selectable providers.
 
-`npm start` loads `config\runner.env` automatically and starts frontend + backend.
+## Configuration
 
-`--password-stdin` avoids placing the password in command-line arguments and shell history. The prompt requires at least eight characters.
+**Single source of truth: the root .env file.** Copy [.env.example](.env.example) and update the settings. The required SIGNATUREE_CONFIG_MODE=env makes the v2 profile (organization, directory, preview/SMB targets, signatures, AD group mapping and variables) derive entirely from environment values at startup.
 
-## Configuration: what actually needs changing?
+| Where | What belongs there |
+| --- | --- |
+| .env | Runtime ports, authentication/LDAP, AD, preview and SMB paths, signature/group JSON and variable JSON |
+| config/templates/ | Managed HTML/TXT templates, embedded images and resource folders; Git-ignored |
+| config/signaturee_auth.db | Local account password hashes and role records; Git-ignored |
+| config/signaturee.db | Runtime state/legacy data; **not** the v2 business configuration in env mode |
 
-For a normal v2 installation, **`config/runner.env` is the only env file you need to create**. You do not need a project-root `.env`.
+The Admin page is **read-only** for v2 business configuration in env mode. Local accounts, template imports, service status and target tests remain functional. Edit .env and restart the backend to apply changes. This deliberately eliminates the disagreement between saved Admin settings and old secrets/runner files.
 
-Start from:
+Simple business settings (edit individually): SIGNATUREE_ORGANIZATION_NAME, AD_SERVER, OU_SEARCH_BASE, LOCAL_DEPLOYMENT_PATH, NETWORK_DEPLOYMENT_PATH and TEMPLATE_DIR. Complex values are one-line JSON (SIGNATUREE_SIGNATURES_JSON and optionally SIGNATUREE_VARIABLES_JSON). Inline LDAP IT-role rules use AUTH_LDAP_ROLE_RULES_JSON. You may also use SIGNATUREE_PROFILE_JSON for a full export, but individual keys override the corresponding JSON fields. See [Environment reference](docs/environment.md) for examples and precedence rules.
 
-~~~powershell
-Copy-Item config\example\runner.example.env config\runner.env
-~~~
-
-The file is git-ignored and should remain local to the installation.
-
-### Runtime settings
-
-| Setting | Example / default | What to do |
-| --- | --- | --- |
-| `BACKEND_HOST` | `0.0.0.0` | **Usually keep.** Allows the service to listen on the host interfaces. |
-| `BACKEND_PORT` | `3001` | **Usually keep.** Change only if the port conflicts with another service. |
-| `BACKEND_BASE_PATH` | `/` | **Keep** unless you deliberately host the API below another base path. |
-| `CORS_ORIGINS` | localhost frontend URLs | **Review for non-local access.** Add the exact browser origin, for example `https://signature.example.com`, for a reverse proxy or separate frontend. Avoid `*` for normal production use. |
-| `AUTH_REQUIRED` | `true` by default | **Keep `true`.** Authentication remains on if the env file is missing or the value is unrecognized; only an explicit false value disables it. |
-| `AUTH_DB_LOGIN_ENABLED` | `true` | **Recommended.** Keeps local Admin/IT accounts available. |
-| `AUTH_DB_PATH` | `config/signaturee_auth.db` | **Usually keep.** Change only if you intentionally relocate runtime data. |
-| `DB_PATH` | `config/signaturee.db` | **Usually keep.** Main v2 configuration/storage database. |
-| `FRONTEND_HOST` | `0.0.0.0` when unset | Optional override. Normally no need to add it. |
-| `FRONTEND_PORT` | `3000` when unset | Optional override. Normally no need to add it. |
-
-### LDAP / AD employee login
-
-LDAP login is **optional**. Leave it disabled if only local Admin/IT accounts are required.
-
-To enable employee self-service, add/uncomment the LDAP settings in `config/runner.env`:
-
-~~~dotenv
-AUTH_LDAP_ENABLED=true
-
-# Set the domain and/or an explicit domain controller for your environment.
-AUTH_LDAP_DOMAIN=contoso.local
-AUTH_LDAP_SERVER=dc01.contoso.local
-
-# Optional restrictions / identity formatting.
-AUTH_LDAP_CONTAINER=OU=Users,DC=contoso,DC=local
-AUTH_LDAP_UPN_SUFFIX=contoso.local
-
-# Local and LDAP accounts coexist. Select the provider in the browser login form.
-# Legacy API clients without a source keep the original local-first behavior.
-
-# Optional role rules; copy config/example/ldap-role-rules.example.json first.
-AUTH_LDAP_ROLE_RULES_PATH=config/ldap-role-rules.json
-~~~
-
-Rules can match an AD attribute (for example `department`, `sn` or `extensionAttribute5`) or an exact, direct `memberOf` group DN. Multiple rules are allowed; a match currently grants `it`, otherwise the user stays `selfservice`. LDAP can never grant `admin`; full Admin accounts are local. Invalid rule files stop backend startup rather than silently granting a role. `AUTH_LDAP_ROLE_MAP` remains compatible for canonical `username:it` entries only; `admin` entries and `AUTH_LDAP_DEFAULT_ROLE` no longer grant elevated LDAP access. AD identity and role data require a successful post-bind directory lookup.
-
-You do **not** have to set both `AUTH_LDAP_DOMAIN` and `AUTH_LDAP_SERVER`; Signaturee can use the Windows machine's domain context when appropriate. An explicit server/domain is recommended when you want predictable production behavior.
-
-**LDAP and local login at the same time:** set `AUTH_DB_LOGIN_ENABLED=true` and `AUTH_LDAP_ENABLED=true`. On the login page select **Firmenkonto (Active Directory)** or **Lokales Signaturee-Konto**. This is important if the same username exists in both providers: local passwords cannot sign in to LDAP, and LDAP passwords do not authenticate local Admin accounts. API consumers can send `source: "ldap"` or `source: "local"` to `POST /api/auth/login`; clients without `source` keep the legacy local-first behavior. `AUTH_LDAP_FALLBACK_TO_DB` is a legacy setting and is **not** a substitute for selecting the provider.
-
-### Settings you should normally leave alone
-
-The following values only need changing for non-standard deployments:
-
-- `RUNNER_BACKEND_TASK_NAME`, `RUNNER_FRONTEND_TASK_NAME`, `RUNNER_FRONTEND_STATUS_URL` — only when you use different Scheduled Task names or status endpoints.
-- `RUNNER_STATUS_TIMEOUT_MS` — only when health checks need a different timeout.
-- `frontend/runtime-config.js` — only when the browser cannot discover/reach the backend through the normal same-origin setup. For a reverse proxy with `/api/*` routed to the backend, do not create it.
-- `config/example/config.example.json` — **legacy/direct PowerShell example only.** Normal v2 installations should not use this as their main configuration.
-
-### Business configuration is not an env-file job
-
-After first login, finish the installation in **Administration**. That UI is the source of truth for:
-
-- organization name
-- AD server and search base
-- local preview path
-- productive UNC / SMB path
-- signature definitions
-- AD group → signature mappings
-- HTML / TXT templates and resources
-- variables, placeholders and required AD fields
-- local Admin / IT users
-- deployment-path checks and system status
-
-In other words: **runtime/service behavior lives in `runner.env`; signature/business behavior lives in the Admin UI.**
+A fresh deployment **does not need config/runner.env, config/secrets.env or config/config.json**. Never copy those files into the clean clone. Historical installations without .env can still use database mode while you migrate them deliberately. Files with binary templates and the hashed local-auth database are intentionally not stored inside .env.
 
 ## Production
 
 Install frontend and backend as Windows Scheduled Tasks:
 
 ~~~powershell
-.\scripts\install-backend-task.ps1  -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\config\runner.env -StartNow
-.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\config\runner.env -StartNow
+.\scripts\install-backend-task.ps1  -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
+.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
 ~~~
 
 Recommended production access:
@@ -201,79 +147,125 @@ DOMAIN\SIGNATUREE-SERVER$
 
 Grant that identity the required **Share + NTFS** permissions on the dedicated production signature target.
 
-## Services (Windows Scheduled Tasks)
+## Services
 
-For production, Signaturee runs as **two Windows Scheduled Tasks**, not as a single Windows Service:
-
-- `Signaturee-Backend-Runner` (Node API, normally port 3001)
-- `Signaturee-Frontend-Runner` (static UI, normally port 3000)
-
-Run the following **in an elevated PowerShell** from the repository directory:
+Production uses two Windows Scheduled Tasks (default names: Signaturee-Backend-Runner and Signaturee-Frontend-Runner). Install them from an **elevated PowerShell**:
 
 ~~~powershell
-cd C:\Signaturee
-# Current state
+cd C:\Signaturee-clean
+.\scripts\install-backend-task.ps1 -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
+.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
+
 Get-ScheduledTask -TaskName Signaturee-Backend-Runner,Signaturee-Frontend-Runner |
     Select-Object TaskName,State
 
-# Stop both
+# Maintenance
 .\scripts\stop-runner-tasks.ps1
-
-# Start both
 .\scripts\start-runner-tasks.ps1
 ~~~
 
-If you configured custom task names, pass `-BackendTaskName` and `-FrontendTaskName` to the scripts. Do not simultaneously run `npm start` and the Scheduled Tasks (port and SQLite conflicts). The Admin **System** view provides service/task status.
+Avoid running npm start at the same time as these Scheduled Tasks. The tasks use the specified .env and reject a missing file instead of silently starting with defaults.
 
 ## Update
 
-**Existing production installation — recommended command after the updater is already present:**
+After the first clean installation, updates are a single command in **elevated PowerShell**:
 
 ~~~powershell
-# Run PowerShell as Administrator, from the installed repository.
-cd C:\Signaturee
+cd C:\Signaturee-clean
 .\scripts\update-signaturee.ps1
 ~~~
 
-The script stops both tasks, waits for TCP ports 3000/3001 (or the configured ports) to become free, runs `git pull --ff-only` for the **currently checked-out branch**, executes `npm ci --omit=dev`, restarts both tasks and checks their state/listening ports. It refuses a dirty tracked working tree, does not switch branches, and never overwrites ignored `.env`, SQLite DBs or templates intentionally. **It is not a backup or a rollback script.** On failure it does not silently restart the old processes; inspect the error and task state.
+The updater stops both tasks, waits for the old listener processes to release their ports, fast-forwards the currently selected Git branch, runs npm ci --omit=dev, restarts both tasks and checks the ports. It refuses tracked local changes instead of overwriting them. It will not migrate databases or create backups, and cannot automatically roll back a failed upgrade. Keep your ignored .env and templates on a backup volume.
 
-**One-time upgrade from an older checkout without `scripts/update-signaturee.ps1`:**
+## Migrate
+
+**Recommended when you have several old installations: create ONE completely fresh working tree and leave all existing folders intact.** Do not merge three historical SQLite databases or copy old configuration trees into the new clone.
+
+**1. Inventory and preserve:** Record the old three installation paths and the two existing Scheduled Task configurations. Back up each old installation's config, template directory, SQLite files and any local passwords/secrets to protected storage, and identify which directory contains the latest desired templates. Do not delete the old copies.
 
 ~~~powershell
-# Run elevated; make a configuration/template backup before upgrading.
-cd C:\Signaturee
-git status --short
-.\scripts\stop-runner-tasks.ps1
-
-# Confirm old services are gone before changing code.
+# Run in elevated PowerShell on the Windows host.
 Get-ScheduledTask -TaskName Signaturee-Backend-Runner,Signaturee-Frontend-Runner |
-    Select-Object TaskName,State
-Get-NetTCPConnection -State Listen -LocalPort 3000,3001 -ErrorAction SilentlyContinue
+    Select-Object TaskName,State,Actions
 
-# Continue ONLY if both tasks are stopped and ports are free.
-git pull --ff-only
-npm ci --omit=dev
-.\scripts\start-runner-tasks.ps1
+# Stop old tasks before redirecting them to the new code.
+Stop-ScheduledTask -TaskName Signaturee-Backend-Runner
+Stop-ScheduledTask -TaskName Signaturee-Frontend-Runner
+
+# Check for leftover listeners. Investigate them before starting a new instance.
+Get-NetTCPConnection -State Listen -LocalPort 3000,3001 -ErrorAction SilentlyContinue
 ~~~
 
-If Git reports modified tracked files (particularly `config/variables.json`), preserve your local changes **before** pulling; never reset them blindly. Adjust the install directory, task names and port numbers if your installation differs from the defaults.
+**2. Clone fresh** into a new folder (example path; adjust to your environment):
 
-**Smoke test after updating:** use a local Admin account and an AD account from the login-method selector, check **Administration → Ausgabe & Deployment → Netzwerkpfad testen**, run Preflight against a dedicated test AD user, then (only if safe) test one production signature. The Network preflight checks write and ACL access to the share; the backend must execute under the Windows identity authorized on the file server.
+~~~powershell
+git clone https://github.com/ffworker/Signaturee-public.git C:\Signaturee-clean
+cd C:\Signaturee-clean
+npm ci --omit=dev
+Copy-Item .env.example .env
+New-Item -ItemType Directory -Force .\config\templates | Out-Null
+~~~
+
+**3. Optional: export settings from each old version without modifying it.** The exporter detects a v2 profile in SQLite, or falls back to a v1 config/config.json. It exports business configuration only, **not credentials**. Compare the three results manually and paste the chosen values into the new .env, replacing the example assignments.
+
+~~~powershell
+node .\scripts\export-profile-env.js --root "C:\Signaturee-old-v1" > C:\sig-v1-settings.txt
+node .\scripts\export-profile-env.js --root "C:\Signaturee-old-v2" > C:\sig-v2-settings.txt
+node .\scripts\export-profile-env.js --root "C:\Signaturee-old-v3" > C:\sig-v3-settings.txt
+
+notepad .env
+~~~
+
+The importer is intentionally **not** an automatic overwrite/merge. Check AD groups, directory paths, preview/production paths and variable ordering; fill in AUTH_LDAP_ENABLED, credentials, URL/CORS and other runtime keys yourself. The profile exporter does not export user hashes or secrets.
+
+**4. Import templates and assets:** copy the full contents of the chosen old Templatefiles folder into the new ignored config/templates directory. Images and subdirectories must be preserved. If older versions differ, review files before replacing similarly named assets.
+
+~~~powershell
+Copy-Item "C:\Signaturee-old-v3\Templatefiles\*" "C:\Signaturee-clean\config\templates\" -Recurse -Force
+~~~
+
+Check that HTML/TXT filenames, resourceFolder names and AD group mapping in .env match the imported files. In env mode the same TEMPLATE_DIR is used for Admin checks, preview and production PowerShell generation.
+
+**5. Validate and create new local accounts** (do NOT copy old auth databases unless a deliberate account-retention migration is needed):
+
+~~~powershell
+cd C:\Signaturee-clean
+node backend/server.js --check
+$secure = Read-Host "New Admin password" -AsSecureString
+$ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) | npm run auth:users -- add --username admin --password-stdin --role admin }
+finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+~~~
+
+**6. Redirect the Scheduled Tasks to the new folder** (this re-registers tasks with their default names; verify first if your old task names differ). Run in elevated PowerShell, only after confirming ports are free:
+
+~~~powershell
+cd C:\Signaturee-clean
+.\scripts\install-backend-task.ps1 -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
+.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
+~~~
+
+**7. Smoke test:** local login, AD/LDAP login, colliding usernames, Admin profile source = environment (.env), template checks, SMB target test and a single safe test signature. Confirm no local Git changes:
+
+~~~powershell
+git status --short
+git check-ignore -v .env config\templates
+~~~
+
+If any test fails, stop the new tasks, leave all old folders unchanged and restore the old task actions from your inventory. Delete old installations only after you have a verified backup and production sign-off.
 
 ## Troubleshooting
 
-- **Login fails:** confirm both `AUTH_DB_LOGIN_ENABLED=true` and `AUTH_LDAP_ENABLED=true` when both providers are needed; choose the right login method. Check the actual `config/runner.env` used by the task. A local username also present in AD requires explicit provider selection.
-- **Backend/frontend is unreachable:** check `Get-ScheduledTask` and `Get-NetTCPConnection`, the configured ports, and the reverse-proxy `/api/*` and `/health` routes. A separately launched `npm run start:backend` does **not** automatically load `runner.env`; prefer the installed tasks for production diagnostics.
-- **SMB fails:** test the production UNC path in the Admin UI and verify both SMB share permissions and NTFS ACL/WRITE_DAC rights for the identity running the backend (often the computer account `DOMAIN\SERVER$` when running as SYSTEM). Do not rely on access from your interactive Windows user.
-- **Partial generation / missing signatures:** inspect the API error and `Logs/`. The generator now returns failure for unsuccessful user generation or ACL/resource errors instead of reporting an overall success.
-
-More detail: [Windows setup](docs/prepare-machine-dependencies.md), [Network share permissions](docs/network-share-permissions.md) and [Reverse proxy](docs/reverse-proxy.md).
+- **Wrong values in Admin:** the v2 profile is read-only in env mode. Check the root .env; ensure SIGNATUREE_CONFIG_MODE=env and that explicit environment variables or overlapping SIGNATUREE_PROFILE_JSON keys are not overriding values. Restart backend.
+- **LDAP fails:** enable AUTH_LDAP_ENABLED=true, configure AUTH_LDAP_DOMAIN/SERVER if needed, select the Firmenkonto login option; local Admin needs AUTH_DB_LOGIN_ENABLED=true.
+- **Signatures/templates missing:** check TEMPLATE_DIR and every referenced HTML/TXT resource, including images. A template filename alone is not the file.
+- **SMB fails:** verify share and NTFS permissions for the Scheduled Task identity (under SYSTEM this is often DOMAIN\HOST$), and confirm ACL modification rights. Use the Admin production-target check and a test user.
+- **Update refuses to pull:** git status --short shows tracked changes; preserve them manually. .env and config/templates are ignored, but tracked files from an old checkout may still be tracked and require deliberate migration.
+- **Tasks don't start:** run node backend/server.js --check and Get-ScheduledTask; make sure the task was reinstalled pointing to the new root and selected .env. Check port ownership before restarting.
 
 ## Backup
 
-**Before upgrading or migrating**, stop both Scheduled Tasks and create a consistent offline backup of the local installation. Preserve at least `config/runner.env`, `config/signaturee.db`, `config/signaturee_auth.db`, `Templatefiles/` (including images), plus any active `config/secrets.env`, `config/config.json`, `config/variables.json`, `config/presets/`, `config/ldap-role-rules.json`, `Templatefiles_test/` and `frontend/runtime-config.js`.
-
-The built-in `GET /api/storage/backup` exports **application settings**, not credentials, template/image files or the full installation. Do not use it alone as a disaster-recovery backup. Keep backup archives protected because they may contain credentials and personal data. A dedicated backup/restore tool and verified migration procedure are planned after the LDAP and SMB smoke tests.
+Back up your ignored .env, full config/templates tree, config/signaturee_auth.db, config/signaturee.db, and any other selected runtime paths, plus logs when relevant. Stop both tasks before copying live SQLite databases (or use a SQLite-consistent backup). Protect backups, because .env may include secrets and the databases contain user data. The app's settings-only JSON backup is **not** a full backup. Keep the three originals until the new installation is verified.
 
 ## CI / delivery
 

@@ -10,12 +10,11 @@ function Import-EnvFile {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     if (-not (Test-Path -LiteralPath $Path)) {
-        Write-Host "Runner env file not found at '$Path'. Using existing process env only."
-        return
+        throw "Signaturee .env file not found at '$Path'. Create it from .env.example."
     }
 
     Write-Host "Loading runner env from '$Path'..."
-    foreach ($line in Get-Content -LiteralPath $Path) {
+    foreach ($line in Get-Content -LiteralPath $Path -Encoding UTF8) {
         $trimmed = [string]$line
         if (-not $trimmed) { continue }
         $trimmed = $trimmed.Trim()
@@ -34,13 +33,15 @@ function Import-EnvFile {
 }
 
 if (-not $EnvFile) {
-    $EnvFile = Join-Path $RepoRoot "config\runner.env"
+    $EnvFile = Join-Path $RepoRoot ".env"
 }
 
 if (-not (Test-Path -LiteralPath $RepoRoot)) {
     throw "RepoRoot does not exist: $RepoRoot"
 }
 
+$EnvFile = [System.IO.Path]::GetFullPath($EnvFile)
+$env:SIGNATUREE_ENV_FILE = $EnvFile
 Import-EnvFile -Path $EnvFile
 
 if (-not $env:BACKEND_HOST) { $env:BACKEND_HOST = "0.0.0.0" }

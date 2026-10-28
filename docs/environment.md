@@ -1,82 +1,66 @@
-# Environment
+# Environment — single source of truth
 
-Signaturee separates runtime settings from business configuration.
+Fresh Signaturee v2 installations use ONE ignored project-root .env file and SIGNATUREE_CONFIG_MODE=env. Runtime and business settings come from that file at process start. The Admin UI shows the effective business profile **read-only**; it cannot overwrite it, and changes require a backend restart.
 
-## Runtime
+## Setup
 
-Copy:
+~~~powershell
+Copy-Item .env.example .env
+notepad .env
+node backend/server.js --check
+~~~
 
-```powershell
-Copy-Item config\example\runner.example.env config\runner.env
-```
+A valid env installation responds with source "environment (.env)" on GET /api/v2/profile. Attempting PUT /api/v2/profile returns HTTP 409.
 
-Common settings:
+## Business configuration in .env
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `BACKEND_HOST` | `0.0.0.0` | backend bind address |
-| `BACKEND_PORT` | `3001` | backend port |
-| `BACKEND_BASE_PATH` | `/` | backend base path |
-| `FRONTEND_HOST` | `0.0.0.0` | frontend bind address |
-| `FRONTEND_PORT` | `3000` | frontend port |
-| `CORS_ORIGINS` | localhost frontend | allowed browser origins |
-| `AUTH_REQUIRED` | `true` | require authentication; an explicit false value only starts when `BACKEND_HOST` is loopback (`127.0.0.1`, `::1`, `localhost`) |
-| `AUTH_TOKENS` | unset | optional service tokens; maximum IT privileges, never full Admin |
-| `AUTH_DB_PATH` | `config/signaturee_auth.db` | local Admin/IT accounts |
-| `AUTH_DB_LOGIN_ENABLED` | `true` | local Admin/IT login |
-| `AUTH_LDAP_ENABLED` | `false` | employee AD login |
-| `AUTH_LDAP_DOMAIN` | empty | AD domain |
-| `AUTH_LDAP_SERVER` | empty | optional domain controller |
-| `AUTH_LDAP_CONTAINER` | empty | optional LDAP container |
-| `AUTH_LDAP_DEFAULT_ROLE` | fixed `selfservice` | legacy setting ignored; LDAP users cannot become Admin by default |
-| `AUTH_LDAP_ROLE_RULES_PATH` | unset | local JSON file with exact AD attribute/group-DN rules for IT assignment |
-| `AUTH_LDAP_ROLE_MAP` | unset | legacy canonical username-to-IT mapping only; Admin entries are ignored |
-| `DB_PATH` | `config/signaturee.db` | main v2 database |
-| `SELF_SERVICE_ARTIFACT_PATH` | generated output | self-service ZIP staging |
+| Key | Purpose |
+| --- | --- |
+| SIGNATUREE_CONFIG_MODE=env | Authoritative business config |
+| SIGNATUREE_ORGANIZATION_NAME | Organization name |
+| AD_SERVER | Domain controller for directory queries and generator |
+| OU_SEARCH_BASE | AD search base |
+| LOCAL_DEPLOYMENT_PATH | Preview and self-service output |
+| NETWORK_DEPLOYMENT_PATH | Production UNC/SMB target |
+| TEMPLATE_DIR | Templates and resources; recommended config/templates (ignored by Git) |
+| SIGNATUREE_SIGNATURES_JSON | One-line JSON: signature keys, AD groups, template names and extra attributes |
+| SIGNATUREE_VARIABLES_JSON | One-line JSON: variables and ordering; optional built-in defaults |
+| SIGNATUREE_SECONDARY_TITLE_ATTRIBUTES | Comma-separated AD attributes |
+| SIGNATUREE_PROFILE_JSON | Optional full v2 JSON profile for bulk migrations |
+| AUTH_LDAP_ROLE_RULES_JSON | One-line JSON object with a rules array; no extra role rules file required |
 
-See `config/example/runner.example.env` for the full reference.
+Example:
 
-### LDAP role rules
+~~~dotenv
+SIGNATUREE_SIGNATURES_JSON={"company":{"label":"Company","adGroups":["CN=Signature-Company,OU=Groups,DC=example,DC=local"],"templateHtml":"company.htm","templateTxt":"company.txt","resourceFolder":"company_files"}}
+AUTH_LDAP_ROLE_RULES_JSON={"rules":[{"groupDn":"CN=Signaturee-IT,OU=Groups,DC=example,DC=local","role":"it"}]}
+~~~
 
-For attribute- or group-based IT access, copy `config/example/ldap-role-rules.example.json` to the ignored `config/ldap-role-rules.json`, review the example rules, then set `AUTH_LDAP_ROLE_RULES_PATH=config/ldap-role-rules.json` in `runner.env`. Rules match exact values case-insensitively; group rules match the full direct `memberOf` DN, not substrings or nested groups. Any matching rule grants `it`; otherwise the account remains `selfservice`. LDAP cannot grant `admin` (including through legacy settings). `sn` is normally the surname in AD, so prefer `department`, a dedicated extension attribute, or an IT security group for organizational role assignment. A malformed or missing configured file fails backend startup. This is an environment-local file for now, not a setting in the Admin UI.
+JSON values must be one line without trailing comments. See the full [.env.example](../.env.example).
 
-## Business configuration
+## Runtime and login settings
 
-Do not maintain AD search settings, signatures or deployment paths in environment files for v2.
+The same .env file also holds BACKEND_HOST/PORT, FRONTEND_HOST/PORT, CORS_ORIGINS, AUTH_REQUIRED, AUTH_DB_LOGIN_ENABLED, AUTH_LDAP_ENABLED, AUTH_LDAP_DOMAIN/SERVER, AUTH_DB_PATH, DB_PATH and optional RUNNER_* values. Keep AUTH_REQUIRED=true for network-facing installations. Set AUTH_DB_LOGIN_ENABLED=true and AUTH_LDAP_ENABLED=true for simultaneous local and AD login.
 
-The source of truth is `profile_v2`, managed in **Administration**:
+### Precedence and compatibility
 
-- organization
-- AD server + search base
-- preview path
-- productive UNC path
-- signature definitions
-- AD group mappings
-- templates
-- variables / required fields
+A parent-process environment variable overrides the file. Otherwise an existing root .env wins over legacy config/runner.env; SIGNATUREE_ENV_FILE selects a particular env file. Windows Scheduled Tasks import their selected UTF-8 file and reject missing files. Do not maintain two different environment files concurrently.
 
-## Deployment paths
+When SIGNATUREE_PROFILE_JSON is provided, individually specified fields above override its corresponding fields. Remove overlapping example entries or edit them to match. A fresh installation does not read an old profile_v2 from SQLite. Previous installs without root .env continue in database mode until deliberately migrated.
 
-Configure under **Administration → Ausgabe & Deployment**.
+### What cannot live in .env
 
-For UNC/SMB targets, the backend execution identity needs both Share and NTFS permissions. When the backend Scheduled Task runs as `SYSTEM`, remote access normally uses:
+Templates/images are binary files in TEMPLATE_DIR. Local Admin/IT password hashes are account records in AUTH_DB_PATH. DB_PATH still contains ancillary application and legacy data, but the old stored profile is ignored in env mode. Generated signatures and logs are output artifacts.
 
-```text
-DOMAIN\SIGNATUREE-SERVER$
-```
+The legacy write endpoints for domain, variable and restored configuration are blocked in env mode. Template imports and local-user account management remain available.
 
-See [Network share permissions](network-share-permissions.md).
+## Starting services
 
-## Browser runtime override
+All Node entrypoints use the same env loader: npm start, npm run start:backend, npm run start:frontend, npm run auth:users and node backend/server.js --check.
 
-Only needed when the browser cannot discover the backend automatically:
+~~~powershell
+.\scripts\install-backend-task.ps1  -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
+.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
+~~~
 
-```js
-window.__SIGNATUREE_RUNTIME__ = {
-  apiBase: "https://signature.example.com"
-};
-```
-
-Save as `frontend/runtime-config.js`.
-
-For same-origin reverse-proxy deployments, leave it unset.
+For a new install do NOT copy config/secrets.env or config/runner.env. See [Migrate](../README.md#migrate) and [Network permissions](network-share-permissions.md).

@@ -57,6 +57,9 @@ param(
     [Parameter(Mandatory=$false, HelpMessage="Optional runtime variable schema path. Used by Signaturee v2.")]
     [string]$VariablesFilePath,
 
+    [Parameter(Mandatory=$false, HelpMessage="Absolute or relative template directory. Shared with the v2 backend.")]
+    [string]$TemplateDirectory,
+
     [Parameter(Mandatory=$false, HelpMessage="Optional local deployment path override. Used by Signaturee v2.")]
     [string]$LocalDeploymentPath,
 
@@ -871,7 +874,16 @@ function Export-SignatureUsersToCsv {
 # Load secrets
 # =========================
 $secretsPath = Join-Path -Path $scriptDir -ChildPath "config\secrets.env"
-$secrets = Get-DotEnv -Path $secretsPath
+# In env mode the Node runner has already loaded the single .env file.
+# Never merge stale secrets.env settings into the effective generation config.
+$secrets = @{}
+if ($env:SIGNATUREE_CONFIG_MODE -ne "env") {
+    $secrets = Get-DotEnv -Path $secretsPath
+}
+foreach ($key in @("AD_SERVER", "OU_SEARCH_BASE", "LOCAL_DEPLOYMENT_PATH", "NETWORK_DEPLOYMENT_PATH")) {
+    $value = [Environment]::GetEnvironmentVariable($key, "Process")
+    if ($null -ne $value -and $value -ne "") { $secrets[$key] = $value }
+}
 
 if (-not $usingUserFile) {
     if (-not $Server -and $secrets.ContainsKey("AD_SERVER")) {
@@ -1011,12 +1023,13 @@ if (-not $variableMappings -or $variableMappings.Count -eq 0) {
 # Template folder selection
 # =========================
 $templateFolder = "Templatefiles"
-if ($UseTestTemplates) {
-    $templateFolder = "Templatefiles_test"
-    Write-Log "Using test templates from '$templateFolder'"
+if ($UseTestTemplates) { $templateFolder = "Templatefiles_test" }
+if ($TemplateDirectory) {
+    $templateRootPath = [System.IO.Path]::GetFullPath($(if ([System.IO.Path]::IsPathRooted($TemplateDirectory)) { $TemplateDirectory } else { Join-Path $scriptDir $TemplateDirectory }))
 } else {
-    Write-Log "Using production templates from '$templateFolder'"
+    $templateRootPath = Join-Path $scriptDir $templateFolder
 }
+Write-Log "Using templates from '$templateRootPath'"
 
 # =========================
 # Build domain structures from config
@@ -1051,7 +1064,7 @@ foreach ($domainKey in $config.domains.Keys) {
     $htmlRel = $domCfg.templateHtml
     $resRel  = $domCfg.resourceFolder
 
-    $allDomains[$domainKey] = Join-Path -Path $scriptDir -ChildPath (Join-Path $templateFolder $htmlRel)
+    $allDomains[$domainKey] = Join-Path -Path $templateRootPath -ChildPath $htmlRel
 
     if ($domCfg.faxFallback) {
         $domainFaxFallbacks[$domainKey] = $domCfg.faxFallback
@@ -1060,7 +1073,7 @@ foreach ($domainKey in $config.domains.Keys) {
     }
 
     if ($resRel) {
-        $domainResourceFolders[$domainKey] = Join-Path -Path $scriptDir -ChildPath (Join-Path $templateFolder $resRel)
+        $domainResourceFolders[$domainKey] = Join-Path -Path $templateRootPath -ChildPath $resRel
     }
 
     if ($domCfg.customTitleAttr) {
@@ -1166,7 +1179,7 @@ function Test-SignatureConfiguration {
     return $validationPassed
 }
 
-$templateRootPath = Join-Path -Path $scriptDir -ChildPath $templateFolder
+# $templateRootPath was resolved above and is shared with the v2 backend.
 
 if ($ValidateOnly) {
     $allowPartialTemplates = [bool]$UseTestTemplates
@@ -1461,7 +1474,7 @@ function New-OutlookSignatures {
             Write-Log "TXT template not configured for domain $Domain" -Level "ERROR"
             throw "Missing TXT template configuration for domain $Domain"
         }
-        $txtTemplatePath = Join-Path -Path $scriptDir -ChildPath (Join-Path $templateFolder $domainCfg.templateTxt)
+        $txtTemplatePath = Join-Path -Path $templateRootPath -ChildPath $domainCfg.templateTxt
         if (-not (Test-Path -LiteralPath $txtTemplatePath)) {
             Write-Log "TXT template not found for $Username - $Domain at $txtTemplatePath" -Level "ERROR"
             throw "Missing TXT template: $txtTemplatePath"

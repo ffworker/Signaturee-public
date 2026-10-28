@@ -20,7 +20,7 @@ function Assert-Admin {
 Assert-Admin
 
 if (-not $EnvFile) {
-    $EnvFile = Join-Path $RepoRoot "config\runner.env"
+    $EnvFile = Join-Path $RepoRoot ".env"
 }
 
 $runScript = Join-Path $PSScriptRoot "run-frontend.ps1"

@@ -7,28 +7,10 @@ const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 
 const repoRoot = path.resolve(__dirname, '..');
-const envFile = process.env.SIGNATUREE_ENV_FILE
-  ? path.resolve(process.env.SIGNATUREE_ENV_FILE)
-  : path.join(repoRoot, 'config', 'runner.env');
+require('./load-env').loadEnvironment();
 const args = process.argv.slice(2);
 const command = (args[0] || '').trim().toLowerCase();
 const validRoles = new Set(['admin', 'it', 'operator', 'user', 'viewer', 'selfservice']);
-
-function loadEnvFile(filePath) {
-  if (!fs.existsSync(filePath)) return;
-  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const separator = line.indexOf('=');
-    if (separator < 1) continue;
-    const key = line.slice(0, separator).trim();
-    const value = line.slice(separator + 1).trim();
-    if (key && process.env[key] === undefined) process.env[key] = value;
-  }
-}
-
-loadEnvFile(envFile);
 
 function getArg(flag, shortFlag = '') {
   const idx = args.findIndex((entry) => entry === flag || (shortFlag && entry === shortFlag));
