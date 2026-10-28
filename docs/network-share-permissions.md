@@ -116,7 +116,7 @@ rather than:
 \\192.0.2.10\Signatures\Users
 ```
 
-Name-based SMB access works better with normal domain authentication/Kerberos and is easier to migrate later.
+Name-based SMB access works better with normal domain authentication/Kerberos and keeps the UNC name stable when hardware changes.
 
 ## Verify from Signaturee
 
