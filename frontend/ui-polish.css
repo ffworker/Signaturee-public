@@ -1,0 +1,433 @@
+/*
+ * Signaturee surface system — an intentionally small final visual layer.
+ * Night Sky is the default; light mode keeps the same hierarchy.
+ * Do NOT style inside the shadow root of the generated HTML signature preview.
+ */
+:root {
+  --ui-surface: #fff;
+  --ui-surface-raised: #fff;
+  --ui-subtle: #f4f7fb;
+  --ui-line: #dce4ed;
+  --ui-line-strong: #c4d1e0;
+  --ui-fg: #19283d;
+  --ui-muted: #51657d;
+  --ui-accent: #246bd1;
+  --ui-accent-soft: #eaf2ff;
+  --ui-good: #176044;
+  --ui-good-bg: #e7f7ee;
+  --ui-warn: #875300;
+  --ui-warn-bg: #fff5df;
+  --ui-error: #a12c36;
+  --ui-error-bg: #ffeced;
+  --ui-shadow: 0 8px 30px rgba(30,57,98,.055);
+}
+html[data-theme="dark"] {
+  --ui-surface: #15243b;
+  --ui-surface-raised: #1d304c;
+  --ui-subtle: #1b2d46;
+  --ui-line: #304762;
+  --ui-line-strong: #4a6483;
+  --ui-fg: #f0f6ff;
+  --ui-muted: #b9cbe2;
+  --ui-accent: #8bbcff;
+  --ui-accent-soft: #203e63;
+  --ui-good: #a5efd0;
+  --ui-good-bg: #1c413d;
+  --ui-warn: #ffdb9b;
+  --ui-warn-bg: #443626;
+  --ui-error: #ffc0bd;
+  --ui-error-bg: #492c38;
+  --ui-shadow: 0 12px 36px rgba(0,6,18,.23);
+}
+
+/* One calm, layered surface instead of several competing outlined boxes. */
+.step-card, .admin-nav, .login-card, .admin-summary-card,
+.template-overview, .self-action-card {
+  border-radius: 15px;
+  box-shadow: var(--ui-shadow);
+}
+html[data-theme="dark"] :is(.step-card,.admin-nav,.login-card,.admin-summary-card,
+.template-overview,.self-action-card) {
+  background: linear-gradient(148deg,rgba(85,128,186,.075),transparent 57%),var(--ui-surface)!important;
+  border: 1px solid var(--ui-line)!important;
+  color: var(--ui-fg)!important;
+  box-shadow: var(--ui-shadow)!important;
+}
+html[data-theme="dark"] :is(.signature-card,.variable-card,.auth-user-row,
+.onboarding-group,.service-card,.person-row,.selected-person-row,
+.deployment-target-card,.self-signature-option,.identity-field,.role-grid article) {
+  background: var(--ui-surface)!important;
+  border: 1px solid var(--ui-line)!important;
+  border-radius: 11px;
+  color: var(--ui-fg)!important;
+  box-shadow: none!important;
+}
+html[data-theme="dark"] :is(.signature-card:hover,.variable-card:focus-within,
+.auth-user-row:focus-within,.self-signature-option:focus-within) {
+  border-color: var(--ui-line-strong)!important;
+}
+html[data-theme="dark"] :is(.compact-disclosure,.signature-editor,.bulk-add,
+.compact-details,.preview-text-details,.onboarding-flow,.signature-howto) {
+  border-color: var(--ui-line)!important;
+  color: var(--ui-fg)!important;
+}
+html[data-theme="dark"] :is(.compact-disclosure>summary,.signature-editor>summary,
+.bulk-add>summary,.signature-howto>summary) {
+  color: var(--ui-muted)!important;
+}
+html[data-theme="dark"] :is(.compact-disclosure[open]>summary,
+.signature-editor[open]>summary,.signature-howto[open]>summary) {
+  color: var(--ui-fg)!important;
+}
+html[data-theme="dark"] :is(.admin-summary-card small,.admin-section-head p,
+.preview-data p,.step-heading p,.person-meta) {
+  color: var(--ui-muted)!important;
+}
+html[data-theme="dark"] :is(.admin-grid label,.signature-create-fields label,
+.preview-toolbar label,.login-card label) {
+  color: var(--ui-fg)!important;
+}
+
+/* Modern inputs are embedded surfaces, with a consistent visible focus. */
+html[data-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]),
+select,textarea) {
+  background: #101e32!important;
+  color: var(--ui-fg)!important;
+  border: 1px solid #445d7a!important;
+  border-radius: 9px;
+}
+html[data-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]),
+select,textarea):focus-visible {
+  border-color: #87baff!important;
+  box-shadow: 0 0 0 3px rgba(95,160,245,.16)!important;
+  outline: none!important;
+}
+html[data-theme="dark"] input[type="file"]::file-selector-button {
+  color: #fff;
+  background: #305e9d;
+  border: 0;
+  border-radius: 7px;
+}
+html[data-theme="dark"] :is(button,.button):not(.danger):not(:disabled) {
+  transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+html[data-theme="dark"] :is(button,.button):focus-visible {
+  outline: 2px solid #9acaff!important;
+  outline-offset: 2px;
+}
+
+/* Generator: concise statuses, not a stack of pale/contradictory tiles. */
+.preflight-panel.compact-preflight {
+  color: var(--ui-fg);
+}
+.preflight-summary-line {
+  padding: .15rem .05rem .5rem;
+  gap: .55rem;
+}
+.preflight-summary-line>span:not(.preflight-overall) { gap:.3rem }
+.preflight-panel .preflight-overall,
+.preflight-panel .preflight-chip {
+  border-radius: 7px;
+  border: 1px solid transparent;
+  font-weight: 750;
+}
+.preflight-panel .preflight-overall.ok,
+.preflight-panel .preflight-chip.ok {
+  background: var(--ui-good-bg);
+  color: var(--ui-good);
+  border-color: color-mix(in srgb,var(--ui-good) 24%,transparent);
+}
+.preflight-panel .preflight-overall.bad,
+.preflight-panel .preflight-chip.bad {
+  background: var(--ui-error-bg);
+  color: var(--ui-error);
+  border-color: color-mix(in srgb,var(--ui-error) 25%,transparent);
+}
+.preflight-panel .preflight-chip.warn {
+  background: var(--ui-warn-bg);
+  color: var(--ui-warn);
+  border-color: color-mix(in srgb,var(--ui-warn) 25%,transparent);
+}
+html[data-theme="dark"] .preflight-panel :is(.preflight-overall.ok,.preflight-chip.ok) {
+  background: var(--ui-good-bg)!important;
+  color: var(--ui-good)!important;
+  border-color: #35695b!important;
+}
+html[data-theme="dark"] .preflight-panel :is(.preflight-overall.bad,.preflight-chip.bad) {
+  background: var(--ui-error-bg)!important;
+  color: var(--ui-error)!important;
+  border-color: #704551!important;
+}
+html[data-theme="dark"] .preflight-panel .preflight-chip.warn {
+  background: var(--ui-warn-bg)!important;
+  color: var(--ui-warn)!important;
+  border-color: #75603d!important;
+}
+html[data-theme="dark"] .preflight-summary-line,
+html[data-theme="dark"] .preflight-chip-row {
+  background: transparent!important;
+  border: 0!important;
+  color: var(--ui-fg)!important;
+}
+html[data-theme="dark"] .preflight-summary-line :is(b,strong) { color:var(--ui-fg)!important }
+.preflight-user-list {gap:0}
+.preflight-user-row {
+  border-radius: 0;
+  border-bottom: 1px solid var(--ui-line);
+}
+.preflight-user-row:first-child {border-radius:9px 9px 0 0}
+.preflight-user-row:last-child {border-radius:0 0 9px 9px;border-bottom:0}
+.preflight-user-row:only-child{border-radius:9px}
+html[data-theme="dark"] .preflight-user-row {
+  background: var(--ui-subtle)!important;
+  color: var(--ui-fg)!important;
+  border-color: var(--ui-line)!important;
+}
+html[data-theme="dark"] .preflight-user-row span {
+  color: var(--ui-muted)!important;
+}
+.preflight-panel .check-list {margin-top:.55rem;gap:.3rem}
+.preflight-panel .check {border-radius:8px;padding:.5rem .65rem;border-left:3px solid}
+html[data-theme="dark"] .preflight-panel .check.warning {
+  background:var(--ui-warn-bg)!important;
+  color:var(--ui-warn)!important;
+  border-left-color:#d9ad62!important;
+}
+html[data-theme="dark"] .preflight-panel .check.error {
+  background:var(--ui-error-bg)!important;
+  color:var(--ui-error)!important;
+  border-left-color:#f293a2!important;
+}
+.preflight-details {margin-top:.65rem}
+.preflight-details>summary {padding:.35rem .15rem;overflow-wrap:anywhere}
+html[data-theme="dark"] .preflight-details {
+  background:transparent!important;
+  border-color:var(--ui-line)!important;
+  color:var(--ui-fg)!important;
+}
+html[data-theme="dark"] .preflight-details>summary {
+  color:var(--ui-muted)!important;
+}
+.preflight-tech-list {gap:.22rem}
+html[data-theme="dark"] .preflight-tech-row {
+  background:var(--ui-subtle)!important;
+  color:var(--ui-fg)!important;
+  border-radius:7px;
+}
+html[data-theme="dark"] .preflight-tech-row.ok {color:var(--ui-good)!important}
+html[data-theme="dark"] .preflight-tech-row.warning {color:var(--ui-warn)!important}
+html[data-theme="dark"] .preflight-tech-row.error {color:var(--ui-error)!important}
+
+/* Optional preview is an app panel. Only the real rendered HTML stays white. */
+.optional-preview>summary {
+  min-height:49px;
+  border-radius:14px;
+}
+html[data-theme="dark"] .optional-preview {
+  background:var(--ui-surface)!important;
+  color:var(--ui-fg)!important;
+  border-color:var(--ui-line)!important;
+}
+html[data-theme="dark"] .optional-preview>summary {
+  background:transparent!important;
+  color:var(--ui-fg)!important;
+}
+html[data-theme="dark"] .optional-preview>summary small,
+html[data-theme="dark"] #previewSubtitle {
+  color:var(--ui-muted)!important;
+}
+html[data-theme="dark"] .optional-preview-body,
+html[data-theme="dark"] .preview-result {
+  border-color:var(--ui-line)!important;
+  color:var(--ui-fg)!important;
+}
+.preview-result {padding-top:.75rem;margin-top:.65rem}
+.preview-layout {gap:.7rem}
+.preview-canvas {
+  border-radius:12px;
+  border:1px solid #cbd5e1;
+  box-shadow:0 8px 22px rgba(0,10,28,.14);
+  background:#fff;
+}
+html[data-theme="dark"] .preview-canvas,
+html[data-theme="dark"] .signature-preview-surface {
+  background:#fff!important;
+  color:#111!important;
+  border-color:#526988!important;
+}
+html[data-theme="dark"] .preview-data {
+  background:var(--ui-subtle)!important;
+  color:var(--ui-fg)!important;
+  border:1px solid var(--ui-line)!important;
+  border-radius:12px;
+}
+html[data-theme="dark"] .preview-data h3,
+html[data-theme="dark"] .preview-variable-head strong,
+html[data-theme="dark"] .preview-variable-value {
+  color:var(--ui-fg)!important;
+}
+.preview-variable-list {gap:0}
+.preview-variable {border-radius:0;border:0;border-bottom:1px solid var(--ui-line)}
+.preview-variable:first-child {border-radius:9px 9px 0 0}
+.preview-variable:last-child {border-bottom:0;border-radius:0 0 9px 9px}
+.preview-variable:only-child {border-radius:9px}
+html[data-theme="dark"] .preview-variable {
+  background:var(--ui-surface)!important;
+  border-color:var(--ui-line)!important;
+  color:var(--ui-fg)!important;
+}
+html[data-theme="dark"] .preview-variable-head code {
+  background:var(--ui-accent-soft)!important;
+  color:#b7d9ff!important;
+  border:1px solid #35577c!important;
+  border-radius:6px;
+}
+html[data-theme="dark"] .preview-variable-source,
+html[data-theme="dark"] .preview-variable.empty .preview-variable-value {
+  color:var(--ui-muted)!important;
+}
+html[data-theme="dark"] .preview-safe-badge {
+  background:var(--ui-good-bg)!important;
+  color:var(--ui-good)!important;
+  border:1px solid #35695b!important;
+}
+html[data-theme="dark"] .preview-unresolved {
+  background:var(--ui-warn-bg)!important;
+  color:var(--ui-warn)!important;
+  border-left:3px solid #d9ad62!important;
+}
+html[data-theme="dark"] .preview-text-details {
+  background:var(--ui-subtle)!important;
+  border:1px solid var(--ui-line)!important;
+  color:var(--ui-fg)!important;
+}
+html[data-theme="dark"] .preview-text-details summary {
+  color:var(--ui-muted)!important;
+}
+html[data-theme="dark"] .preview-text-details pre {
+  background:#0e1c30!important;
+  color:#e9f2ff!important;
+  border-color:var(--ui-line)!important;
+}
+html[data-theme="dark"] :is(#preflightHint,#previewStatus).success {
+  color:var(--ui-good)!important;
+}
+html[data-theme="dark"] :is(#preflightHint,#previewStatus).error {
+  color:var(--ui-error)!important;
+}
+html[data-theme="dark"] :is(#preflightHint,#previewStatus).loading {
+  color:#a7ceff!important;
+}
+
+/* The preview is a document rendered in a ShadowRoot. Deliberately do not
+   select its descendants or inject app-theme styles into that ShadowRoot. */
+
+/* App-wide modern sub-panels: reduce heavy borders and nested boxes. */
+html[data-theme="dark"] :is(.template-chip,.variable-card-head,.signature-editor,
+.signature-create-panel,.signature-create-group,.signature-example-grid pre,
+.preview-text-details,.onboarding-group h3,.task-row,.result-path,
+.identity-field,.self-signature-option,.service-card) {
+  border-color:var(--ui-line)!important;
+}
+html[data-theme="dark"] .signature-create-panel {
+  background:linear-gradient(138deg,rgba(78,132,202,.095),transparent 65%),var(--ui-surface)!important;
+  border-radius:13px!important;
+  box-shadow:var(--ui-shadow)!important;
+}
+html[data-theme="dark"] .signature-create-group {
+  background:var(--ui-subtle)!important;
+  border-radius:9px;
+}
+html[data-theme="dark"] .signature-example-grid pre {
+  background:#0f1f34!important;
+  color:#dceaff!important;
+}
+html[data-theme="dark"] .template-chip-list .template-chip {
+  background:var(--ui-subtle)!important;
+  color:var(--ui-fg)!important;
+  border:1px solid var(--ui-line)!important;
+  border-radius:7px;
+}
+html[data-theme="dark"] .template-chip-list .template-chip.bad {
+  background:var(--ui-error-bg)!important;
+  color:var(--ui-error)!important;
+  border-color:#704551!important;
+}
+html[data-theme="dark"] .admin-summary-card {
+  background:var(--ui-surface)!important;
+  border:1px solid var(--ui-line)!important;
+}
+html[data-theme="dark"] .onboarding-group h3 {
+  background:var(--ui-subtle)!important;
+}
+html[data-theme="dark"] .target-card:has(input:checked),
+html[data-theme="dark"] .signature-choice:has(input:checked) {
+  border-color:#80b5f6!important;
+  background:#234269!important;
+}
+
+/* The white canvas is intentional; give it a clearly separate app frame. */
+.preview-canvas::before {
+  content:"HTML-VORSCHAU";
+  display:block;
+  font-size:.66rem;
+  letter-spacing:.085em;
+  font-weight:750;
+  padding:.48rem .75rem;
+  border-bottom:1px solid var(--ui-line);
+  background:var(--ui-subtle);
+  color:var(--ui-muted);
+}
+html[data-theme="dark"] .preview-canvas::before {
+  background:#1c2d46;
+  color:#c4d9f2;
+  border-bottom-color:#4a6483;
+}
+html[data-theme="dark"] .compact-run-bar {
+  background:linear-gradient(130deg,rgba(77,134,204,.11),transparent 72%),var(--ui-surface)!important;
+  border:1px solid var(--ui-line)!important;
+  color:var(--ui-fg)!important;
+}
+html[data-theme="dark"] .compact-run-bar strong {
+  color:var(--ui-fg)!important;
+}
+html[data-theme="dark"] .compact-run-bar span,
+html[data-theme="dark"] .signature-selector-heading,
+html[data-theme="dark"] .preview-variable-source {
+  color:var(--ui-muted)!important;
+}
+html[data-theme="dark"] .summary-box {
+  background:var(--ui-subtle)!important;
+  color:var(--ui-fg)!important;
+  border:1px solid var(--ui-line)!important;
+}
+html[data-theme="dark"] .summary-box strong {
+  color:var(--ui-fg)!important;
+}
+/* Light appearance uses the same quiet cards and good status contrast. */
+html[data-theme="light"] :is(.step-card,.admin-nav,.admin-summary-card,
+.template-overview,.login-card,.self-action-card) {
+  border:1px solid var(--ui-line);
+  box-shadow:var(--ui-shadow);
+}
+html[data-theme="light"] :is(.preview-data,.preflight-user-row,.preview-variable,
+.signature-create-panel) {
+  background:var(--ui-subtle);
+  border-color:var(--ui-line);
+}
+html[data-theme="light"] .preflight-user-row span,
+html[data-theme="light"] .preview-variable-source {
+  color:var(--ui-muted);
+}
+@media(max-width:900px){
+  .preview-layout{grid-template-columns:1fr}
+}
+@media(max-width:670px){
+  .preflight-summary-line{gap:.4rem}
+  .preflight-user-row{flex-direction:column;align-items:flex-start}
+  .preflight-user-row span{text-align:left}
+  .preview-heading{flex-wrap:wrap}
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-theme="dark"] :is(button,.button){transition:none!important}
+}
