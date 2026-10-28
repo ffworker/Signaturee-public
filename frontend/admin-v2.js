@@ -13,7 +13,7 @@ const testPreviewPathBtn=byId('testPreviewPathBtn'),testProductionPathBtn=byId('
 const ldapDomainConfig=byId('ldapDomainConfig'),ldapServerConfig=byId('ldapServerConfig'),ldapContainerConfig=byId('ldapContainerConfig'),ldapUpnSuffixConfig=byId('ldapUpnSuffixConfig'),signatureGroupPrefixConfig=byId('signatureGroupPrefixConfig'),signatureConventionSettings=byId('signatureConventionSettings'),applyEnvConfigBtn=byId('applyEnvConfigBtn');
 const envPathEditor=byId('envPathEditor'),copyDeploymentEnvBtn=byId('copyDeploymentEnvBtn'),copyDeploymentEnvStatus=byId('copyDeploymentEnvStatus'),adSearchTestBtn=byId('adSearchTestBtn'),adSearchTestResult=byId('adSearchTestResult');
 
-let apiBase='',currentStatus={},currentProfile=null,dirty=false,envManaged=false,envRevision='',baseVariableIds=new Set(),envEditable=false;
+let apiBase='',currentStatus={},currentProfile=null,dirty=false,envManaged=false,envRevision='',baseVariableIds=new Set(),envEditable=false,envPendingRestart=false;
 
 function safeGet(k){try{return localStorage.getItem(k)}catch{return null}}
 function safeSet(k,v){try{localStorage.setItem(k,v)}catch{}}
@@ -218,6 +218,7 @@ async function loadAdminEnvSettings(){
   }
   envEditable=true;
   envRevision=body.revision;
+  envPendingRestart=Boolean(body.requiresRestart);
   baseVariableIds=new Set((body.baseVariables||[]).map(v=>String(v.id).toLowerCase()));
   // Populate the on-disk values, rather than an in-memory profile that may
   // still reflect an older generation of the backend before restart.
@@ -245,7 +246,8 @@ async function loadAdminEnvSettings(){
     }
   });
   addVariableBtn.disabled=false;
-  markClean('Direkte .env-Bearbeitung bereit. Änderungen müssen nach dem Speichern aktiviert werden.');
+  markClean(envPendingRestart?'Die gespeicherte .env enthält noch nicht aktivierte Änderungen.':'Direkte .env-Bearbeitung bereit.');
+  applyEnvConfigBtn.hidden=!envPendingRestart;
 }
 function collectEnvValues(){
   return{
@@ -276,6 +278,7 @@ async function saveEnvSettings(){
     },28000));
     if(!ok)throw new Error(body.error||`HTTP ${status}`);
     envRevision=body.revision;
+    envPendingRestart=true;
     markClean('.env gespeichert und Backup angelegt. Bitte Backend neu starten, um die Einstellungen zu aktivieren.');
     applyEnvConfigBtn.hidden=false;
   }catch(error){
@@ -310,7 +313,7 @@ async function applySavedEnv(){
     applyEnvConfigBtn.disabled=false;
   }
 }
-async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'profile_v2';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Einstellungen hier sind schreibgeschützt; Änderungen an .env erfordern einen Backend-Neustart.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
+async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'profile_v2';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Freigegebene Einstellungen kannst du hier mit Backup und Validierung bearbeiten. Änderungen werden nach Backend-Neustart aktiv.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
 async function saveProfile(){if(envManaged){return saveEnvSettings()}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert. V2 verwendet ab jetzt genau diesen Stand.'}
 
 function renderService(name,service){const ok=Boolean(service?.healthy);const detail=service?.statusCode?`HTTP ${service.statusCode} · ${service.responseMs??0} ms`:(service?.error||'nicht erreichbar');return `<div class="service-card"><span class="health-dot ${ok?'ok':'bad'}"></span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div></div>`}
