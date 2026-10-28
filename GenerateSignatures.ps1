@@ -874,7 +874,16 @@ function Export-SignatureUsersToCsv {
 # Load secrets
 # =========================
 $secretsPath = Join-Path -Path $scriptDir -ChildPath "config\secrets.env"
-$secrets = Get-DotEnv -Path $secretsPath
+# In env mode the Node runner has already loaded the single .env file.
+# Never merge stale secrets.env settings into the effective generation config.
+$secrets = @{}
+if ($env:SIGNATUREE_CONFIG_MODE -ne "env") {
+    $secrets = Get-DotEnv -Path $secretsPath
+}
+foreach ($key in @("AD_SERVER", "OU_SEARCH_BASE", "LOCAL_DEPLOYMENT_PATH", "NETWORK_DEPLOYMENT_PATH")) {
+    $value = [Environment]::GetEnvironmentVariable($key, "Process")
+    if ($null -ne $value -and $value -ne "") { $secrets[$key] = $value }
+}
 
 if (-not $usingUserFile) {
     if (-not $Server -and $secrets.ContainsKey("AD_SERVER")) {
