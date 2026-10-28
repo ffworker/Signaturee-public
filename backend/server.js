@@ -5326,8 +5326,21 @@ async function handleAuthLogin(req, res) {
     const body = await parseJsonBody(req);
     const username = String(body?.username || '').trim();
     const password = String(body?.password || '');
+    // Explicit provider selection resolves collisions between local accounts and AD users.
+    // Unspecified source preserves the previous local-first behavior for API clients.
+    const requestedSource = String(body?.source || 'auto').trim().toLowerCase();
+    const selectedSource = requestedSource === 'local' ? 'db' : requestedSource;
+    if (!['auto', 'db', 'ldap'].includes(selectedSource)) {
+      return sendJson(res, 400, { error: 'Invalid login source. Choose auto, local or ldap.' });
+    }
     if (!username || !password) {
       return sendJson(res, 400, { error: 'Username and password are required.' });
+    }
+    if (selectedSource === 'ldap' && !AUTH_LDAP_ENABLED) {
+      return sendJson(res, 503, { error: 'LDAP login is disabled. Select local login or contact IT.' });
+    }
+    if (selectedSource === 'db' && !AUTH_DB_LOGIN_ENABLED) {
+      return sendJson(res, 503, { error: 'Local login is disabled.' });
     }
 
     let loginSource = '';
@@ -5335,9 +5348,9 @@ async function handleAuthLogin(req, res) {
     let loginUsername = '';
     let ldapAttempt = null;
 
-    // Local Signaturee accounts own their username. This keeps Admin/IT identities
-    // deterministic even when the same username also exists in Active Directory.
-    const localAuthUser = AUTH_DB_LOGIN_ENABLED && authDb
+    // Local admin usernames retain priority for legacy/auto clients. An explicit
+    // LDAP choice never authenticates against the local DB, even for a collision.
+    const localAuthUser = selectedSource !== 'ldap' && AUTH_DB_LOGIN_ENABLED && authDb
       ? getAuthUserByUsername(username)
       : null;
 
@@ -5348,14 +5361,14 @@ async function handleAuthLogin(req, res) {
       loginSource = 'db';
       loginRole = localAuthUser.role;
       loginUsername = localAuthUser.username;
+    } else if (selectedSource === 'db') {
+      return sendJson(res, 401, { error: 'Invalid username or password.' });
     } else if (AUTH_LDAP_ENABLED) {
       try {
         ldapAttempt = await authenticateLdapUser({ username, password });
       } catch (error) {
-        if (!AUTH_DB_LOGIN_ENABLED || !AUTH_LDAP_FALLBACK_TO_DB) {
-          const status = getErrorStatus(error, 503);
-          return sendJson(res, status, { error: error.message || 'LDAP authentication unavailable.' });
-        }
+        console.warn(`LDAP authentication unavailable: ${error.message}`);
+        return sendJson(res, getErrorStatus(error, 503), { error: 'LDAP authentication unavailable.' });
       }
       if (ldapAttempt?.authenticated) {
         loginSource = 'ldap';
@@ -5366,7 +5379,8 @@ async function handleAuthLogin(req, res) {
 
     if (!loginRole) {
       const ldapServiceIssue = Boolean(ldapAttempt?.attempted && !ldapAttempt.invalidCredentials && ldapAttempt.stderr);
-      if (ldapServiceIssue && !AUTH_DB_LOGIN_ENABLED) {
+      if (ldapServiceIssue) {
+        console.warn(`LDAP authentication failed: ${ldapAttempt.stderr}`);
         return sendJson(res, 503, { error: 'LDAP authentication unavailable.' });
       }
       return sendJson(res, 401, { error: 'Invalid username or password.' });
