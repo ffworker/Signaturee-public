@@ -56,7 +56,8 @@ Main parts of the repository:
 | `backend/` | API, authentication, AD integration, profile/storage and runner controls |
 | `GenerateSignatures.ps1` | Signature generation engine |
 | `Functions/` | PowerShell helper functions used by the generator |
-| `Templatefiles/` | Example / managed signature template assets |
+| `Templatefiles/` | Tracked example templates for onboarding |
+| `config/templates/` | Active untracked site templates and images in env mode |
 | `config/example/` | Safe configuration examples only |
 | `scripts/` | startup, account management, Scheduled Task install and quality-gate helpers |
 | `tests/` | PowerShell/Pester tests |
@@ -121,8 +122,8 @@ A fresh deployment **does not need config/runner.env, config/secrets.env or conf
 Install frontend and backend as Windows Scheduled Tasks:
 
 ~~~powershell
-.\scripts\install-backend-task.ps1  -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\config\runner.env -StartNow
-.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\config\runner.env -StartNow
+.\scripts\install-backend-task.ps1  -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
+.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee-clean -EnvFile C:\Signaturee-clean\.env -StartNow
 ~~~
 
 Recommended production access:
