@@ -4397,14 +4397,40 @@ async function handleV2TargetCheck(req, res) {
       return sendJson(res, 400, { error: 'Target must be preview or production.' });
     }
     const profile = getV2Profile();
-    const targetPath = targetKey === 'production'
+    const trial = Object.prototype.hasOwnProperty.call(body || {}, 'path');
+    const activePath = targetKey === 'production'
       ? String(profile.targets?.production?.path || '').trim()
       : resolvePath(String(profile.targets?.preview?.path || '').trim());
+    let targetPath = activePath;
+    if (trial) {
+      if (typeof body.path !== 'string' || body.path.length < 3 ||
+          body.path.length > 1024 || /[\0\r\n]/.test(body.path)) {
+        return sendJson(res, 400, { error:'Ungültiger Testpfad.' });
+      }
+      const candidate = body.path.trim();
+      if (targetKey === 'production') {
+        // Only a UNC share, never a local disk or a URL. Nothing is saved.
+        if (!/^\\\\[^\\\/]+\\[^\\\/]+(?:\\[^\r\n]*)?$/.test(candidate) ||
+            candidate.includes('..') || /[<>|?*"]/u.test(candidate)) {
+          return sendJson(res, 400, { error:'Für Produktion ist ein gültiger UNC-Pfad erforderlich.' });
+        }
+        targetPath = candidate;
+      } else {
+        if (candidate.startsWith('\\\\') || candidate.split(/[\\/]/).includes('..')) {
+          return sendJson(res,400,{error:'Der Vorschau-Test akzeptiert keine UNC- oder übergeordneten Pfade.'});
+        }
+        targetPath = resolvePath(candidate);
+      }
+    }
     const result = await probeV2TargetAccess(targetPath, {
       requireAcl: targetKey === 'production',
-      createIfMissing: targetKey === 'preview' && !targetPath.startsWith('\\\\'),
+      // An arbitrary trial path is never created; only explicitly configured
+      // local preview output may be initialized automatically.
+      createIfMissing: !trial && targetKey === 'preview' && !targetPath.startsWith('\\\\'),
     });
-    return sendJson(res, targetPath ? 200 : 422, { target: targetKey, path: targetPath, ...result });
+    return sendJson(res, targetPath ? 200 : 422, {
+      target: targetKey, path: targetPath, temporaryTest: trial, ...result
+    });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
   }
