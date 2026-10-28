@@ -10,9 +10,10 @@ const authUserList=byId('authUserList'),refreshAuthUsersBtn=byId('refreshAuthUse
 const onboardingChecklist=byId('onboardingChecklist'),copyOnboardingBtn=byId('copyOnboardingBtn'),profileSaveBar=byId('profileSaveBar');
 const serviceGrid=byId('serviceGrid'),taskList=byId('taskList'),refreshSystemBtn=byId('refreshSystemBtn'),restartBackendBtn=byId('restartBackendBtn'),restartFrontendBtn=byId('restartFrontendBtn'),systemActionStatus=byId('systemActionStatus');
 const testPreviewPathBtn=byId('testPreviewPathBtn'),testProductionPathBtn=byId('testProductionPathBtn'),previewPathStatus=byId('previewPathStatus'),productionPathStatus=byId('productionPathStatus');
+const ldapDomainConfig=byId('ldapDomainConfig'),ldapServerConfig=byId('ldapServerConfig'),ldapContainerConfig=byId('ldapContainerConfig'),ldapUpnSuffixConfig=byId('ldapUpnSuffixConfig'),signatureGroupPrefixConfig=byId('signatureGroupPrefixConfig'),signatureConventionSettings=byId('signatureConventionSettings'),applyEnvConfigBtn=byId('applyEnvConfigBtn');
 const envPathEditor=byId('envPathEditor'),copyDeploymentEnvBtn=byId('copyDeploymentEnvBtn'),copyDeploymentEnvStatus=byId('copyDeploymentEnvStatus'),adSearchTestBtn=byId('adSearchTestBtn'),adSearchTestResult=byId('adSearchTestResult');
 
-let apiBase='',currentStatus={},currentProfile=null,dirty=false,envManaged=false;
+let apiBase='',currentStatus={},currentProfile=null,dirty=false,envManaged=false,envRevision='',baseVariableIds=new Set(),envEditable=false;
 
 function safeGet(k){try{return localStorage.getItem(k)}catch{return null}}
 function safeSet(k,v){try{localStorage.setItem(k,v)}catch{}}
@@ -25,8 +26,8 @@ function escapeHtml(v){return String(v??'').replaceAll('&','&amp;').replaceAll('
 async function connect(){for(const base of candidateBases()){try{const r=await fetchTimeout(`${base}/health`);if(!r.ok)continue;apiBase=base;safeSet(API_BASE_STORAGE_KEY,base);connectionBadge.textContent='Backend verbunden';connectionPanel.hidden=true;return true}catch{}}apiBase='';connectionBadge.textContent='Backend nicht erreichbar';connectionPanel.hidden=false;connectionMessage.textContent='Signaturee Backend auf Port 3001 konnte nicht erreicht werden.';connectionApiBase.textContent=candidateBases().join(' · ');return false}
 async function ensureAdminSession(){if(!apiBase&&!(await connect()))return false;const{ok,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/auth/me`));if(!ok)return false;if(body.authRequired&&!body.authenticated){const u=new URL('login.html',location.href);u.searchParams.set('next','admin.html');location.replace(u.href);return false}const role=String(body.role||'').toLowerCase();if(body.authRequired&&role!=='admin'){location.replace(role==='selfservice'?'self-service.html':'index.html');return false}connectionBadge.textContent=body.username?`${body.username} · Admin`:'Admin';return true}
 function splitList(v){return String(v||'').split(/[;,\n]/).map(x=>x.trim()).filter(Boolean)}
-function updateSaveBarVisibility(){const active=document.querySelector('.admin-nav-item.active')?.dataset.adminView||'overview';const profileView=['overview','deployment','signatures','variables'].includes(active);profileSaveBar.hidden=envManaged||(!profileView&&!dirty)}
-function markDirty(){if(envManaged)return;dirty=true;saveProfileBtn.disabled=false;saveStatus.textContent='Ungespeicherte Änderungen.';updateSaveBarVisibility()}
+function updateSaveBarVisibility(){const active=document.querySelector('.admin-nav-item.active')?.dataset.adminView||'overview';const profileView=['overview','deployment','signatures','variables'].includes(active);profileSaveBar.hidden=!profileView&&!dirty}
+function markDirty(){if(envManaged&&!envEditable)return;dirty=true;applyEnvConfigBtn.hidden=true;saveProfileBtn.disabled=false;saveStatus.textContent='Ungespeicherte Änderungen.';updateSaveBarVisibility()}
 function markClean(message='Gespeichert.'){dirty=false;saveProfileBtn.disabled=true;saveStatus.textContent=message;updateSaveBarVisibility()}
 function field(card,name){return card.querySelector(`[data-field="${name}"]`)}
 
@@ -179,24 +180,138 @@ function renderProfile(profile,status={}){currentProfile=profile;organizationNam
   // Local accounts and template uploads remain operational; all v2 profile
   // settings are read-only so the UI cannot diverge from the .env source.
   const readonlyInputs=[organizationName,directoryServer,directorySearchBase,secondaryTitleAttributes];
-  readonlyInputs.forEach(el=>{el.disabled=envManaged});
+  readonlyInputs.forEach(el=>{el.disabled=envManaged&&!envEditable});
   // Paths may be drafted in the UI, but the only persistent source is .env.
   // No hidden database write and no automatic restart.
-  previewPath.disabled=false;productionPath.disabled=false;
+  previewPath.disabled=envManaged&&!envEditable;productionPath.disabled=envManaged&&!envEditable;
   envPathEditor.hidden=!envManaged;
   copyDeploymentEnvStatus.textContent='';
 
   signatureCards.querySelectorAll('input:not([type="file"]), select').forEach(el=>{el.disabled=envManaged});
-  variableCards.querySelectorAll('input, select').forEach(el=>{el.disabled=envManaged});
+  variableCards.querySelectorAll('input, select').forEach(el=>{el.disabled=envManaged&&!envEditable});
   signatureCards.querySelectorAll('.remove-signature').forEach(el=>{el.disabled=envManaged});
-  variableCards.querySelectorAll('.remove-variable').forEach(el=>{el.disabled=envManaged});
+  variableCards.querySelectorAll('.remove-variable').forEach(el=>{
+    const card=el.closest('.variable-card');
+    const id=variableField(card,'id').value.trim().toLowerCase();
+    const builtin=envManaged&&baseVariableIds.has(id);
+    el.disabled=envManaged&&(!envEditable||builtin);
+    if(builtin) {
+      el.title='Standardvariable kann nicht entfernt werden.';
+      variableField(card,'id').readOnly=true;
+    }
+  });
   addSignatureBtn.disabled=envManaged;
-  addVariableBtn.disabled=envManaged;
-  saveProfileBtn.disabled=envManaged;
+  addVariableBtn.disabled=envManaged&&!envEditable;
+  saveProfileBtn.disabled=true;
+  signatureConventionSettings.hidden=!envManaged;
   renderOnboarding()}
 function collectProfile(){const signatures={},seen=new Set(),dupes=new Set();signatureCards.querySelectorAll('.signature-card').forEach(card=>{const key=field(card,'key').value.trim();if(!key)return;const low=key.toLowerCase();if(seen.has(low))dupes.add(key);seen.add(low);signatures[key]={label:field(card,'label').value.trim()||key,adGroups:splitList(field(card,'adGroups').value),templateHtml:field(card,'templateHtml').value.trim(),templateTxt:field(card,'templateTxt').value.trim(),resourceFolder:field(card,'resourceFolder').value.trim(),customTitleAttr:field(card,'customTitleAttr').value.trim(),faxFallback:field(card,'faxFallback').value.trim()}});if(dupes.size)throw new Error(`Doppelte Signatur-Schlüssel: ${[...dupes].join(', ')}`);const variables=[];variableCards.querySelectorAll('.variable-card').forEach(card=>{const id=variableField(card,'id').value.trim();if(!id)return;const original=card.__variableOriginal&&typeof card.__variableOriginal==='object'?card.__variableOriginal:{};const item={...original,id,displayName:variableField(card,'displayName').value.trim()||id,required:variableField(card,'required').checked,adProperties:splitList(variableField(card,'adProperties').value),placeholders:splitList(variableField(card,'placeholders').value)};const csv=variableField(card,'csvHeader').value.trim();if(csv)item.csvHeader=csv;else delete item.csvHeader;const description=variableField(card,'description').value.trim();if(description)item.description=description;else delete item.description;variables.push(item)});return{version:2,organization:{name:organizationName.value.trim()},directory:{server:directoryServer.value.trim(),searchBase:directorySearchBase.value.trim()},targets:{preview:{path:previewPath.value.trim()},production:{path:productionPath.value.trim()}},signatures,secondaryTitleAttributes:splitList(secondaryTitleAttributes.value),variables:{variables,ordering:variables.map(v=>v.id)}}}
+
+async function loadAdminEnvSettings(){
+  if(!envManaged)return;
+  const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/admin/env`,{},12000));
+  if(!ok){
+    envEditable=false;
+    saveStatus.textContent=body.error||`Admin .env editor nicht verfügbar (HTTP ${status}).`;
+    renderProfile(currentProfile,currentStatus);
+    return;
+  }
+  envEditable=true;
+  envRevision=body.revision;
+  baseVariableIds=new Set((body.baseVariables||[]).map(v=>String(v.id).toLowerCase()));
+  // Populate the on-disk values, rather than an in-memory profile that may
+  // still reflect an older generation of the backend before restart.
+  const val=body.values||{};
+  for(const [el,key] of [
+    [organizationName,'SIGNATUREE_ORGANIZATION_NAME'],
+    [directoryServer,'AD_SERVER'],[directorySearchBase,'OU_SEARCH_BASE'],
+    [secondaryTitleAttributes,'SIGNATUREE_SECONDARY_TITLE_ATTRIBUTES'],
+    [previewPath,'LOCAL_DEPLOYMENT_PATH'],[productionPath,'NETWORK_DEPLOYMENT_PATH'],
+    [ldapDomainConfig,'AUTH_LDAP_DOMAIN'],[ldapServerConfig,'AUTH_LDAP_SERVER'],
+    [ldapContainerConfig,'AUTH_LDAP_CONTAINER'],[ldapUpnSuffixConfig,'AUTH_LDAP_UPN_SUFFIX'],
+    [signatureGroupPrefixConfig,'SIGNATUREE_AUTO_GROUP_PREFIX'],
+  ]){el.value=val[key]||'';el.disabled=false}
+  signatureGroupPrefixConfig.value=val.SIGNATUREE_AUTO_GROUP_PREFIX||'Signature-';
+  signatureConventionSettings.hidden=false;
+  variableCards.innerHTML='';
+  for(const variable of body.variables||[])addVariableCard(variable);
+  variableCards.querySelectorAll('.variable-card').forEach(card=>{
+    const builtin=baseVariableIds.has(variableField(card,'id').value.trim().toLowerCase());
+    if(builtin){
+      variableField(card,'id').readOnly=true;
+      const remove=card.querySelector('.remove-variable');
+      remove.disabled=true;
+      remove.title='Standardvariable kann nicht entfernt werden.';
+    }
+  });
+  addVariableBtn.disabled=false;
+  markClean('Direkte .env-Bearbeitung bereit. Änderungen müssen nach dem Speichern aktiviert werden.');
+}
+function collectEnvValues(){
+  return{
+    SIGNATUREE_ORGANIZATION_NAME:organizationName.value.trim(),
+    AD_SERVER:directoryServer.value.trim(),
+    OU_SEARCH_BASE:directorySearchBase.value.trim(),
+    SIGNATUREE_SECONDARY_TITLE_ATTRIBUTES:secondaryTitleAttributes.value.trim(),
+    LOCAL_DEPLOYMENT_PATH:previewPath.value.trim(),
+    NETWORK_DEPLOYMENT_PATH:productionPath.value.trim(),
+    AUTH_LDAP_DOMAIN:ldapDomainConfig.value.trim(),
+    AUTH_LDAP_SERVER:ldapServerConfig.value.trim(),
+    AUTH_LDAP_CONTAINER:ldapContainerConfig.value.trim(),
+    AUTH_LDAP_UPN_SUFFIX:ldapUpnSuffixConfig.value.trim(),
+    SIGNATUREE_AUTO_GROUP_PREFIX:signatureGroupPrefixConfig.value.trim(),
+  };
+}
+async function saveEnvSettings(){
+  if(!envEditable){saveStatus.textContent='Admin .env-Bearbeitung nicht verfügbar.';return}
+  let variables;
+  try{variables=collectProfile().variables.variables}
+  catch(error){saveStatus.textContent=error.message;return}
+  saveProfileBtn.disabled=true;
+  saveStatus.textContent='Validiere und sichere .env ...';
+  try{
+    const {ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/admin/env`,{
+      method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({revision:envRevision,values:collectEnvValues(),variables})
+    },28000));
+    if(!ok)throw new Error(body.error||`HTTP ${status}`);
+    envRevision=body.revision;
+    markClean('.env gespeichert und Backup angelegt. Bitte Backend neu starten, um die Einstellungen zu aktivieren.');
+    applyEnvConfigBtn.hidden=false;
+  }catch(error){
+    saveStatus.textContent='Speichern fehlgeschlagen: '+error.message;
+    saveProfileBtn.disabled=false;
+  }
+}
+async function applySavedEnv(){
+  if(!confirm('Gespeicherte .env aktivieren? Der Backend-Dienst wird neu gestartet und bestehende Sitzungen können unterbrochen werden.'))return;
+  applyEnvConfigBtn.disabled=true;
+  saveStatus.textContent='Backend-Neustart wird ausgelöst ...';
+  try{
+    await fetchTimeout(`${apiBase}/api/runner/control`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'restart',scope:'backend'})
+    },8000);
+  }catch{} // The restarting backend may close the active HTTP connection.
+  await new Promise(resolve=>setTimeout(resolve,2500));
+  apiBase='';
+  let recovered=false;
+  for(let i=0;i<12;i++){
+    if(await connect()){recovered=true;break}
+    await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+  if(recovered){
+    await loadProfile();
+    await loadAdminEnvSettings();
+    applyEnvConfigBtn.hidden=true;
+    saveStatus.textContent='Backend wieder verbunden. Änderungen wurden zum Neustart eingelesen.';
+  }else{
+    saveStatus.textContent='Neustart nicht bestätigt. Bitte auf dem Server scripts/reload-config.ps1 ausführen.';
+    applyEnvConfigBtn.disabled=false;
+  }
+}
 async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'profile_v2';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Einstellungen hier sind schreibgeschützt; Änderungen an .env erfordern einen Backend-Neustart.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
-async function saveProfile(){if(envManaged){saveStatus.textContent='Profil ist in .env verwaltet. Dort bearbeiten und Backend neu starten.';return}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert. V2 verwendet ab jetzt genau diesen Stand.'}
+async function saveProfile(){if(envManaged){return saveEnvSettings()}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert. V2 verwendet ab jetzt genau diesen Stand.'}
 
 function renderService(name,service){const ok=Boolean(service?.healthy);const detail=service?.statusCode?`HTTP ${service.statusCode} · ${service.responseMs??0} ms`:(service?.error||'nicht erreichbar');return `<div class="service-card"><span class="health-dot ${ok?'ok':'bad'}"></span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div></div>`}
 function renderSystem(snapshot={}){const services=snapshot.services||{};serviceGrid.innerHTML=[renderService('Backend',services.backend),renderService('Frontend',services.frontend)].join('');const tasks=Array.isArray(snapshot?.tasks?.tasks)?snapshot.tasks.tasks:[];if(!tasks.length){taskList.className='task-list empty-state';taskList.textContent=snapshot?.tasks?.reason||'Keine Task-Daten verfügbar.'}else{taskList.className='task-list';taskList.innerHTML=tasks.map(task=>`<div class="task-row"><span><strong>${escapeHtml(task.taskName)}</strong><br><small>Last result: ${escapeHtml(task.lastTaskResult??'--')}</small></span><span>${escapeHtml(task.state||'Unknown')}</span></div>`).join('')}}
@@ -373,9 +488,11 @@ adminLogoutBtn?.addEventListener('click',logoutAdmin);
 [organizationName,directoryServer,directorySearchBase,previewPath,productionPath,secondaryTitleAttributes].forEach(input=>input.addEventListener('input',()=>{markDirty();renderOnboarding();if(input===previewPath){previewPathStatus.textContent='Noch nicht geprüft.';previewPathStatus.className='path-status muted'}if(input===productionPath){productionPathStatus.textContent='Noch nicht geprüft.';productionPathStatus.className='path-status muted'}}));
 addSignatureBtn.addEventListener('click',()=>{addSignatureCard();markDirty();renderOnboarding()});
 addVariableBtn.addEventListener('click',()=>{const card=addVariableCard({required:false});markDirty();renderOnboarding();card.scrollIntoView({behavior:'smooth',block:'center'});variableField(card,'displayName').focus()});
-reloadProfileBtn.addEventListener('click',()=>{if(dirty&&!confirm('Ungespeicherte Änderungen verwerfen?'))return;loadProfile()});
+reloadProfileBtn.addEventListener('click',async()=>{if(dirty&&!confirm('Ungespeicherte Änderungen verwerfen?'))return;await loadProfile();await loadAdminEnvSettings()});
 saveProfileBtn.addEventListener('click',saveProfile);
-retryBtn.addEventListener('click',async()=>{if(await connect()){await loadProfile();await loadAuthUsers()}});
+applyEnvConfigBtn.addEventListener('click',applySavedEnv);
+[ldapDomainConfig,ldapServerConfig,ldapContainerConfig,ldapUpnSuffixConfig,signatureGroupPrefixConfig].forEach(el=>el.addEventListener('input',markDirty));
+retryBtn.addEventListener('click',async()=>{if(await connect()){await loadProfile();await loadAdminEnvSettings();await loadAuthUsers()}});
 refreshAuthUsersBtn.addEventListener('click',loadAuthUsers);
 createAuthUserForm.addEventListener('submit',async(event)=>{event.preventDefault();createAuthUserStatus.textContent='Wird angelegt ...';const payload={username:newAuthUsername.value.trim(),displayName:newAuthDisplayName.value.trim(),role:newAuthRole.value,password:newAuthPassword.value,enabled:true};const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/auth/users`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},10000));if(!ok){createAuthUserStatus.textContent=body.error||`HTTP ${status}`;return}createAuthUserForm.reset();newAuthRole.value='it';createAuthUserStatus.textContent='Benutzer angelegt.';await loadAuthUsers()});
 refreshSystemBtn.addEventListener('click',loadSystemStatus);
@@ -387,4 +504,4 @@ variableSearch?.addEventListener('input',applyVariableFilters);
 requiredVariablesOnly?.addEventListener('change',applyVariableFilters);
 window.addEventListener('beforeunload',event=>{if(!dirty)return;event.preventDefault();event.returnValue=''});
 
-(async function bootstrap(){const hash=location.hash.replace('#','');if(['overview','deployment','signatures','variables','access','onboarding','system'].includes(hash))switchView(hash);if(await connect()&&await ensureAdminSession()){await loadProfile();await loadAuthUsers();await loadSystemStatus()}})();
+(async function bootstrap(){const hash=location.hash.replace('#','');if(['overview','deployment','signatures','variables','access','onboarding','system'].includes(hash))switchView(hash);if(await connect()&&await ensureAdminSession()){await loadProfile();await loadAdminEnvSettings();await loadAuthUsers();await loadSystemStatus()}})();
