@@ -43,6 +43,23 @@ Use `LOCAL_DEPLOYMENT_PATH=generatedsignatures` for preview. This resolves relat
 
 ### Signatures and variables
 
+With conventional files `XY_Template.htm` and `XY_Template.txt`, the recommended
+`SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` scans the active `TEMPLATE_DIR` and
+maps key `XY` to the existing AD security group `Signature-XY`. The optional
+resource directory `XY-Dateien` is included automatically. These mappings
+are regenerated at backend startup (restart after adding templates).
+Auto-discovery does **not** create AD groups or override employee group membership.
+`SIGNATUREE_AUTO_GROUP_PREFIX` can change the default `Signature-` prefix.
+
+Alternatively set `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=false` and provide
+`SIGNATUREE_SIGNATURES_JSON`. Full group DNs match exactly, whereas a simple
+`Signature-XY` key matches the group's CN. This is unrelated to
+`AUTH_LDAP_ROLE_RULES_JSON`, which determines the login role, not the signature.
+The default AD variable mapping remains active if you do not set
+`SIGNATUREE_VARIABLES_JSON`.
+
+
+
 `SIGNATUREE_SIGNATURES_JSON` is a one-line JSON map. Each key needs `label` (optional), `adGroups` (one or more DNs), `templateHtml` and `templateTxt`; `resourceFolder` and additional title attributes are optional. The built-in variable schema covers normal AD contact fields. Only set `SIGNATUREE_VARIABLES_JSON` to override that schema.
 
 ### Local files / restart
