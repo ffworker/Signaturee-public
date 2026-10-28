@@ -145,95 +145,11 @@ function mergeVariables(baseSchema,extra){
   }
   const placeholders=new Map();
   for(const variable of result){
-    const names=variable.placeholders?.length?variable.placeholders:['
-}
-function publicSnapshot(root,baseSchema){
-  const current=readRoot(root);
-  const values={};
-  for(const field of FIELDS)values[field]=current.keys.get(field)?.value??'';
-  const extrasRaw=current.keys.get(VARIABLES_KEY)?.value||'[]';
-  let extras;
-  try{extras=JSON.parse(extrasRaw);}catch{throw failure('Existing variable additions JSON is invalid.');}
-  return {
-    revision:current.revision,values,baseVariables:baseSchema.variables,
-    variables:mergeVariables(baseSchema,extras).variables,
-    // Never return the raw .env: it may contain AD read credentials.
-  };
-}
-function editEnvSource(current,values,overrides){
-  const change=new Map();
-  for(const field of FIELDS){
-    if(!Object.prototype.hasOwnProperty.call(values,field))
-      throw failure('Missing editable field: '+field);
-    change.set(field,validateValue(field,values[field]));
-  }
-  change.set(VARIABLES_KEY,JSON.stringify(overrides));
-  const lines=[...current.lines];
-  // Appending only missing fields keeps all unrelated values, comments and secrets untouched.
-  for(const [key,value]of change){
-    const encoded=value;
-    const entry=key+'='+encoded;
-    const match=current.keys.get(key);
-    if(match)lines[match.index]=entry;
-    else lines.push(entry);
-  }
-  const sep=current.source.includes('\r\n')?'\r\n':'\n';
-  return lines.join(sep).replace(/\n*$/,'')+sep;
-}
-function validateCandidate(root,file,content,keys){
-  const tmp=path.join(root,'.env.validate-'+crypto.randomBytes(8).toString('hex'));
-  fs.writeFileSync(tmp,content,{flag:'wx',mode:0o600});
-  try{
-    const env={...process.env,SIGNATUREE_ENV_FILE:tmp};
-    for(const key of keys)delete env[key];
-    for(const key of FIELDS)delete env[key];
-    delete env[VARIABLES_KEY];
-    // Use real config checker, including template discovery, with edited env.
-    const result=spawnSync(process.execPath,[path.join(root,'backend','server.js'),'--check'],
-      {env,timeout:15000,encoding:'utf8',maxBuffer:1024*1024});
-    if(result.error||result.status!==0){
-      // Do not echo stdout/stderr: .env can contain sensitive fields.
-      throw failure('Candidate .env failed backend configuration validation; file unchanged.',422,'ENV_CHECK_FAILED');
-    }
-  }finally{fs.rmSync(tmp,{force:true});}
-}
-function persist(root,revision,values,variables,baseSchema){
-  const current=readRoot(root);
-  if(typeof revision!=='string'||revision!==current.revision)
-    throw failure('.env was changed by another editor. Reload this page before saving.',409,'ENV_CONFLICT');
-  if(!values||typeof values!=='object'||Array.isArray(values)||
-     Object.keys(values).some(k=>!FIELDS.includes(k)))
-    throw failure('Only approved settings can be changed via Admin.');
-  if(current.keys.has('SIGNATUREE_VARIABLES_JSON')||current.keys.has('SIGNATUREE_PROFILE_JSON'))
-    throw failure('Advanced full-profile JSON is active. Remove those overrides manually before using the variable editor.',409,'FULL_PROFILE_ACTIVE');
-  const overrides=computeOverrides(baseSchema.variables,variables);
-  const content=editEnvSource(current,values,overrides);
-  if(Buffer.byteLength(content)>256*1024)throw failure('Resulting .env is too large.');
-  const keys=new Set(current.keys.keys());
-  validateCandidate(root,current.file,content,keys);
-  // Lock out writes from a second API call and direct edits as far as possible.
-  if(readRoot(root).revision!==current.revision)
-    throw failure('.env changed during validation. Reload and retry.',409,'ENV_CONFLICT');
-  const stamp=new Date().toISOString().replace(/[:.]/g,'-');
-  const backup=current.file+'.bak-'+stamp+'-'+crypto.randomBytes(3).toString('hex');
-  const temp=current.file+'.new-'+crypto.randomBytes(6).toString('hex');
-  // Backups stay alongside .env, are ignored by Git and inherit the same ACL
-  // model; mode 0600 for platforms supporting Unix permissions.
-  fs.copyFileSync(current.file,backup,fs.constants.COPYFILE_EXCL);
-  fs.chmodSync(backup,0o600);
-  try{
-    fs.writeFileSync(temp,content,{flag:'wx',mode:0o600});
-    fs.renameSync(temp,current.file);
-  }finally{fs.rmSync(temp,{force:true});}
-  return {revision:sha(content),restartRequired:true,backupCreated:true,updatedKeys:[...FIELDS,VARIABLES_KEY]};
-}
-module.exports={FIELDS,VARIABLES_KEY,publicSnapshot,persist,mergeVariables,computeOverrides,validateValue};
-+variable.id];
+    const names=variable.placeholders?.length?variable.placeholders:['$'+variable.id];
     for(const name of names){
       const key=name.toLowerCase();
-      if(placeholders.has(key)&&placeholders.get(key)!==variable.id){
+      if(placeholders.has(key)&&placeholders.get(key)!==variable.id)
         throw failure('Template placeholder '+name+' is assigned to multiple variables.');
-      }
       placeholders.set(key,variable.id);
     }
   }
@@ -270,7 +186,7 @@ function editEnvSource(current,values,overrides){
     else lines.push(entry);
   }
   const sep=current.source.includes('\r\n')?'\r\n':'\n';
-  return lines.join(sep).replace(/\n*$/,'')+sep;
+  return lines.join(sep).replace(/[\r\n]+$/,'')+sep;
 }
 function validateCandidate(root,file,content,keys){
   const tmp=path.join(root,'.env.validate-'+crypto.randomBytes(8).toString('hex'));
