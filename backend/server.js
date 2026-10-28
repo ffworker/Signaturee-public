@@ -5670,6 +5670,9 @@ function handleHealth(_req, res) {
     service: 'signaturee-backend',
     apiVersion: 2,
     authRequired: AUTH_REQUIRED,
+    // Random, non-secret instance nonce: allows the UI to confirm that an
+    // actual new backend process started after Scheduled Task restart.
+    instanceId: BACKEND_INSTANCE_ID,
   }));
 }
 
