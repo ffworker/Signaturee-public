@@ -366,6 +366,44 @@ html[data-theme="dark"] .signature-choice:has(input:checked) {
   background:#234269!important;
 }
 
+/* The white canvas is intentional; give it a clearly separate app frame. */
+.preview-canvas::before {
+  content:"HTML-VORSCHAU";
+  display:block;
+  font-size:.66rem;
+  letter-spacing:.085em;
+  font-weight:750;
+  padding:.48rem .75rem;
+  border-bottom:1px solid var(--ui-line);
+  background:var(--ui-subtle);
+  color:var(--ui-muted);
+}
+html[data-theme="dark"] .preview-canvas::before {
+  background:#1c2d46;
+  color:#c4d9f2;
+  border-bottom-color:#4a6483;
+}
+html[data-theme="dark"] .compact-run-bar {
+  background:linear-gradient(130deg,rgba(77,134,204,.11),transparent 72%),var(--ui-surface)!important;
+  border:1px solid var(--ui-line)!important;
+  color:var(--ui-fg)!important;
+}
+html[data-theme="dark"] .compact-run-bar strong {
+  color:var(--ui-fg)!important;
+}
+html[data-theme="dark"] .compact-run-bar span,
+html[data-theme="dark"] .signature-selector-heading,
+html[data-theme="dark"] .preview-variable-source {
+  color:var(--ui-muted)!important;
+}
+html[data-theme="dark"] .summary-box {
+  background:var(--ui-subtle)!important;
+  color:var(--ui-fg)!important;
+  border:1px solid var(--ui-line)!important;
+}
+html[data-theme="dark"] .summary-box strong {
+  color:var(--ui-fg)!important;
+}
 /* Light appearance uses the same quiet cards and good status contrast. */
 html[data-theme="light"] :is(.step-card,.admin-nav,.admin-summary-card,
 .template-overview,.login-card,.self-action-card) {
