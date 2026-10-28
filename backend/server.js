@@ -6171,6 +6171,7 @@ module.exports = {
   buildAdSearchFilter,
   isSafeUsernameSegment,
   resolveDomainsFromMemberOf,
+  describeV2TargetFailure,
   findExactAdUserIndex,
   resolveLdapDefaultRole,
   resolveLdapRole,
