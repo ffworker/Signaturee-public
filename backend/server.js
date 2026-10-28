@@ -639,8 +639,6 @@ async function authenticateLdapUser({ username, password, timeoutMs = 0 }) {
     '}',
     `$bindIdentity = '${escapePowerShellString(bindIdentity)}'`,
     '$plainPassword = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([Console]::In.ReadLine()))',
-    '$ok = $ctx.ValidateCredentials($bindIdentity, $plainPassword)',
-    'if (-not $ok) { throw "INVALID_CREDENTIALS" }',
     `$samCandidate = '${escapePowerShellString(samCandidate)}'`,
     `$attributeNames = @(${AUTH_LDAP_ROLE_ATTRIBUTES.map((name) => `'${name}'`).join(',')})`,
     '$user = $null',
@@ -649,8 +647,12 @@ async function authenticateLdapUser({ username, password, timeoutMs = 0 }) {
     '} elseif ($samCandidate) {',
     '  $user = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($ctx, [System.DirectoryServices.AccountManagement.IdentityType]::SamAccountName, $samCandidate)',
     '}',
-    'if (-not $user) { throw "AUTHENTICATED_USER_NOT_FOUND" }',
+    'if (-not $user) { throw "DIRECTORY_USER_NOT_FOUND" }',
+    // ValidateCredentials explicitly requires a simple SAM username, not a UPN
+    // or DOMAIN\username. Resolve the identity first to prevent wrong-user binds.
     '$sam = [string]$user.SamAccountName',
+    '$ok = $ctx.ValidateCredentials($sam, $plainPassword)',
+    'if (-not $ok) { throw "INVALID_CREDENTIALS" }',
     '$display = [string]$user.DisplayName',
     '$upn = [string]$user.UserPrincipalName',
     '$entry = $user.GetUnderlyingObject()',
@@ -1357,10 +1359,10 @@ function classifyLdapDiagnosticFailure(result) {
       hint: 'Benutzername/UPN, Passwort und Kontostatus prüfen. Gegebenenfalls AUTH_LDAP_UPN_SUFFIX prüfen.',
     };
   }
-  if (/AUTHENTICATED_USER_NOT_FOUND/i.test(detail)) {
+  if (/DIRECTORY_USER_NOT_FOUND|AUTHENTICATED_USER_NOT_FOUND/i.test(detail)) {
     return {
       code: 'USER_LOOKUP_FAILED',
-      message: 'AD hat die Zugangsdaten akzeptiert, aber der Benutzer konnte anschließend nicht gefunden werden.',
+      message: 'Der AD-Benutzer konnte anhand des angegebenen Namens oder UPN nicht gefunden werden (vor der Passwortprüfung).',
       hint: 'AUTH_LDAP_CONTAINER testweise weglassen und kontrollieren, ob die Benutzer-OU den Account enthält.',
     };
   }
