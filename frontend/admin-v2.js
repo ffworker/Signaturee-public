@@ -558,25 +558,26 @@ function currentProfileForChecklist(){try{return collectProfile()}catch{return c
 function onboardingText(profile){const signatures=profile.signatures||{},vars=profile.variables?.variables||[];const required=vars.filter(v=>v.required);const groups=[];Object.entries(signatures).forEach(([key,sig])=>(sig.adGroups||[]).forEach(g=>groups.push(`${g} → ${key}`)));const custom=Object.entries(signatures).filter(([,sig])=>sig.customTitleAttr).map(([key,sig])=>`${key}: ${sig.customTitleAttr}`);return[`Signaturee Onboarding – ${profile.organization?.name||''}`,'','Pflicht im AD:','- Benutzerkonto aktiviert','- sAMAccountName gesetzt',...required.map(v=>`- ${v.displayName||v.id}: ${(v.adProperties||[v.id]).join(' / ')}`),'','Signatur-Zuordnung:','- Mitgliedschaft in mindestens einer passenden Signaturgruppe',...groups.map(g=>`- ${g}`),...(custom.length?['','Signatur-spezifische Attribute:',...custom.map(x=>`- ${x}`)]:[]),'','Abschluss:','- Benutzer in Signaturee suchen','- Preflight muss grün sein'].join('\n')}
 function renderOnboarding(){
   if(!onboardingChecklist)return;
-  const wasOpen=new Set([...onboardingChecklist.querySelectorAll('details[open]')].map(d=>d.dataset.section));
   const profile=currentProfileForChecklist();
   const vars=profile.variables?.variables||[];
   const required=vars.filter(v=>v.required);
   const signatures=profile.signatures||{};
-  const groups=Object.entries(signatures).flatMap(([key,sig])=>(sig.adGroups||[]).map(group=>({group,key})));
+  const groups=Object.entries(signatures).flatMap(([key,sig])=>
+    (sig.adGroups||[]).map(group=>({group,key})));
   const custom=Object.entries(signatures).filter(([,sig])=>sig.customTitleAttr);
-  const section=(id,label,body)=>`<details class="onboarding-group" data-section="${id}" ${wasOpen.has(id)?'open':''}>
-    <summary>${label}</summary><ul>${body}</ul></details>`;
+  const section=(heading,body)=>`<section class="onboarding-group">
+    <h3>${heading}</h3><ul>${body}</ul></section>`;
   const fields='<li>AD-Benutzer aktiviert, <code>sAMAccountName</code> gesetzt</li>'+
     required.map(v=>`<li><strong>${escapeHtml(v.displayName||v.id)}</strong>: ${escapeHtml((v.adProperties?.length?v.adProperties:[v.id]).join(' / '))}</li>`).join('');
   const groupRows='<li>Mindestens eine passende AD-Signaturgruppe</li>'+
     groups.map(x=>`<li><code>${escapeHtml(x.group)}</code> → ${escapeHtml(x.key)}</li>`).join('');
   const customRows=custom.map(([key,sig])=>`<li><strong>${escapeHtml(key)}</strong>: <code>${escapeHtml(sig.customTitleAttr)}</code></li>`).join('');
   onboardingChecklist.innerHTML=[
-    section('fields',`Pflichtfelder <span class="disclosure-meta">${required.length} Attribute</span>`,fields),
-    section('groups',`Signaturgruppen <span class="disclosure-meta">${groups.length} Zuordnungen</span>`,groupRows),
-    ...(custom.length?[section('custom',`Zusatzattribute <span class="disclosure-meta">${custom.length}</span>`,customRows)]:[]),
-    section('finish','Abschlusskontrolle','<li>Benutzer im Admin/Generate suchen</li><li>Preflight ohne blockierende Fehler durchführen</li>')
+    section('1. Pflichtfelder im AD',fields),
+    section('2. Signaturgruppen',groupRows),
+    ...(custom.length?[section('3. Zusatzattribute',customRows)]:[]),
+    section(custom.length?'4. Abschlusskontrolle':'3. Abschlusskontrolle',
+      '<li>Benutzer in Signaturee suchen</li><li>Preflight ohne blockierende Fehler durchführen</li>')
   ].join('');
 }
 
