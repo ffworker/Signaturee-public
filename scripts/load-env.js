@@ -14,6 +14,10 @@ function loadEnvironment() {
       ? path.join(ROOT, '.env')
       : path.join(ROOT, 'config', 'runner.env'));
   const explicit = Boolean(process.env.SIGNATUREE_ENV_FILE);
+  if (!explicit && selected === path.join(ROOT, '.env') &&
+      fs.existsSync(path.join(ROOT, 'config', 'runner.env'))) {
+    process.stderr.write('[config] Using root .env; ignoring old config/runner.env. Do not maintain both.\n');
+  }
   if (!fs.existsSync(selected)) {
     if (explicit) throw new Error('SIGNATUREE_ENV_FILE not found: ' + selected);
     return { path: null, legacy: false };
