@@ -116,9 +116,26 @@ The project-root `.env` is the authoritative source for v2 configuration. It is 
 
 For initial LDAP testing, leave `AUTH_LDAP_CONTAINER` commented out until you have confirmed the correct OU. An AD `Users` container is commonly `CN=Users`, not `OU=Users`. No Domain Administrator account is required for Signaturee user searches; if your task identity cannot query AD, use an appropriate least-privilege AD read account.
 
-The Admin interface displays the effective configuration. In env mode it deliberately **does not save a second business profile**. In **Ausgabe & Deployment**, you can draft paths and copy their `.env` assignments, then paste them into the file and reload the backend. Local user management, template uploads and diagnostics remain available.
+The Admin interface edits approved business settings directly in the single `.env`, with validation and backup. All other settings remain file-managed; no second business configuration database is created.
 
 See the [Environment reference](docs/environment.md) for every setting and its scope.
+
+## Manage configuration in the Admin UI
+
+Sign in with a **local Admin** account and open **Administration**. In v2 env mode, approved business settings can be edited directly and saved back to the **existing project-root .env**:
+
+- Organization, AD server/search base, LDAP domain/server/container/UPN suffix.
+- Local preview and productive UNC output paths.
+- The automatic `Signature-XY` group prefix.
+- Existing standard variable mappings plus extra AD attributes and template placeholders.
+
+The Admin editor **does not edit passwords, tokens, ports, Windows task identities, authentication policy or the full manual signature JSON**. These remain under file/deployment control.
+
+Click **Konfiguration speichern** to validate the candidate, confirm the .env has not changed since it was opened, and save an atomic replacement with a `.env.bak-...` backup beside it. Click **Gespeicherte .env aktivieren** to initiate a controlled backend restart. The UI verifies that the restarted backend actually loaded the new file; if it cannot restart, run `.\scripts\reload-config.ps1` from elevated PowerShell. A saved file is not an active configuration until restart.
+
+Under **Variablen**, built-in fields cannot be deleted, but their AD source/placeholder mapping can be adjusted. Added variables such as `$standort` → `extensionAttribute10` are saved as `SIGNATUREE_VARIABLES_EXTRA_JSON` **without replacing the standard schema**. `SIGNATUREE_VARIABLES_JSON` is a full replacement and must be removed manually before using the Admin variable editor.
+
+The Windows backend task identity must have permission to replace the project-root .env and create protected backups; it should not be given broad write access to unrelated files. Local admin sessions should use HTTPS, or localhost while setting up.
 
 ## Services
 
@@ -182,7 +199,7 @@ A correct template catalog is **not proof** that AD lookup, group membership or 
 | Local Admin login fails | Choose **Lokales Signaturee-Konto**; check `AUTH_DB_LOGIN_ENABLED` and `node scripts/manage-auth-users.js list` |
 | Local preview directory missing | Verify `LOCAL_DEPLOYMENT_PATH` and local write rights; start/reload backend or click **Pfad testen** |
 | SMB returns `EPERM` | Check both share and NTFS permissions, including the backend identity's ability to set folder ACLs; prefer DNS/FQDN UNC paths |
-| Admin edits do not persist | Copy the path assignments into `.env` and run `reload-config.ps1`; v2 intentionally has no duplicate writable business configuration |
+| Admin save fails | Check local Admin privileges, .env file access, revision conflict and the validation error; secrets and runtime ports cannot be edited through the UI |
 | Scheduled Tasks show `Ready` but site is down | Run `reload-config.ps1` and inspect its port/process errors; verify the registered installation and env-file paths |
 
 For detailed diagnostics and permission examples see [AD onboarding](docs/ad-onboarding.md), [SMB permissions](docs/network-share-permissions.md) and [Reverse proxy](docs/reverse-proxy.md).
