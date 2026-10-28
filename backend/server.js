@@ -4401,6 +4401,7 @@ async function probeV2TargetAccess(targetPath, { requireAcl = false, createIfMis
 
 async function handleV2TargetCheck(req, res) {
   try {
+    if (!AUTH_REQUIRED) return sendJson(res,403,{error:'Path probes require authentication to be enabled.'});
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
       return sendJson(res, 415, { error: 'Target check expects application/json.' });
