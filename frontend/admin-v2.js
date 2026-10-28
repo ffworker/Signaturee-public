@@ -286,45 +286,50 @@ async function saveEnvSettings(){
   }
 }
 async function restartBackendVerified(statusEl){
-  const beforeResponse=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/admin/env`,{},12000));
-  if(!beforeResponse.ok)throw new Error(beforeResponse.body.error||'Backend-Instanz konnte nicht ermittelt werden.');
-  const previousInstance=beforeResponse.body.instanceId;
+  const before=await jsonResponse(await fetchTimeout(`${apiBase}/health`,{},10000));
+  if(!before.ok||!before.body.instanceId)
+    throw new Error('Die aktuelle Backend-Instanz konnte nicht identifiziert werden.');
+  const previousInstance=before.body.instanceId;
   const response=await jsonResponse(await fetchTimeout(`${apiBase}/api/runner/control`,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'restart',scope:'backend'})
   },22000));
   if(!response.ok||!response.body.execution?.queued)
-    throw new Error(response.body.error||'Der Windows-Neustartauftrag wurde nicht angenommen.');
-  statusEl.textContent='Windows-Neustartauftrag gestartet. Neue Backend-Instanz wird geprüft ...';
-  // The old API instance may disappear temporarily. Reconnect but accept only
-  // a NEW instanceId; a mere HTTP 200 from the old instance is not success.
-  for(let attempt=0;attempt<35;attempt++){
+    throw new Error(response.body.error||'Windows-Neustartauftrag konnte nicht angelegt werden.');
+  statusEl.textContent='Neustart beauftragt. Warte auf neuen Backend-Prozess ...';
+  // User sessions live in process memory and vanish after restart. /health
+  // stays unauthenticated, so new instance detection works without old tokens.
+  const base=apiBase;
+  for(let attempt=0;attempt<43;attempt++){
     await new Promise(resolve=>setTimeout(resolve,1000));
     try{
-      if(!apiBase&&!(await connect()))continue;
-      const check=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/admin/env`,{},3500));
+      const check=await jsonResponse(await fetchTimeout(`${base}/health`,{},2500));
       if(check.ok&&check.body.instanceId&&check.body.instanceId!==previousInstance){
-        return {configActive:!check.body.requiresRestart};
+        apiBase=base;
+        return true;
       }
-    }catch{apiBase=''}
+    }catch{}
   }
-  throw new Error('Kein neuer Backend-Prozess bestätigt. Auf dem Server Logs/backend-restart.log prüfen oder reload-config.ps1 ausführen.');
+  throw new Error('Keine neue Backend-Instanz bestätigt. Logs/backend-restart.log auf dem Server prüfen.');
+}
+function finishBackendRestart(){
+  // Old bearer tokens are in-memory and are deliberately invalid after restart.
+  // Avoid using them for another Admin request; let the operator sign in again.
+  try{localStorage.removeItem(API_TOKEN_STORAGE_KEY)}catch{}
+  setTimeout(()=>{location.assign('login.html')},1400);
 }
 async function applySavedEnv(){
-  if(!confirm('Gespeicherte Konfiguration aktivieren? Der Backend-Dienst wird neu gestartet.'))return;
+  if(!confirm('Gespeicherte Konfiguration aktivieren? Das Backend startet neu; du meldest dich danach erneut an.'))return;
   applyEnvConfigBtn.disabled=true;
   saveStatus.textContent='Backend-Neustart wird vorbereitet ...';
   try{
-    const result=await restartBackendVerified(saveStatus);
-    if(!result.configActive)throw new Error('Backend neu gestartet, aber die gespeicherte .env ist noch nicht aktiv.');
-    await loadProfile();
-    await loadAdminEnvSettings();
-    envPendingRestart=false;
-    applyEnvConfigBtn.hidden=true;
-    saveStatus.textContent='Gespeicherte Einstellungen sind aktiv.';
+    await restartBackendVerified(saveStatus);
+    saveStatus.textContent='✓ Backend neu gestartet. Bitte erneut anmelden.';
+    finishBackendRestart();
   }catch(e){
     saveStatus.textContent='Neustart fehlgeschlagen: '+e.message;
-  }finally{applyEnvConfigBtn.disabled=false}
+    applyEnvConfigBtn.disabled=false;
+  }
 }
 async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'Konfiguration';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Freigegebene Einstellungen kannst du hier mit Backup und Validierung bearbeiten. Änderungen werden nach Backend-Neustart aktiv.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
 async function saveProfile(){if(envManaged){return saveEnvSettings()}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert. V2 verwendet ab jetzt genau diesen Stand.'}
@@ -341,9 +346,8 @@ async function runnerAction(scope){
   try{
     if(scope==='backend'){
       await restartBackendVerified(systemActionStatus);
-      systemActionStatus.textContent='✓ Backend neu gestartet und neue Instanz bestätigt.';
-      await loadProfile();
-      await loadAdminEnvSettings();
+      systemActionStatus.textContent='✓ Backend neu gestartet. Erneute Anmeldung erforderlich.';
+      finishBackendRestart();
     }else{
       const {ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/runner/control`,{
         method:'POST',headers:{'Content-Type':'application/json'},
