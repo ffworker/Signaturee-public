@@ -5,7 +5,7 @@ const byId=(id)=>document.getElementById(id);
 const connectionBadge=byId('adminConnectionBadge'),connectionPanel=byId('adminConnectionPanel'),connectionMessage=byId('adminConnectionMessage'),connectionApiBase=byId('adminConnectionApiBase'),retryBtn=byId('adminRetryBtn'),adminLogoutBtn=byId('adminLogoutBtn');
 const organizationName=byId('organizationName'),directoryServer=byId('directoryServer'),directorySearchBase=byId('directorySearchBase'),previewPath=byId('previewPath'),productionPath=byId('productionPath'),secondaryTitleAttributes=byId('secondaryTitleAttributes');
 const signatureCards=byId('signatureCards'),variableCards=byId('variableCards'),variableSearch=byId('variableSearch'),requiredVariablesOnly=byId('requiredVariablesOnly'),variableFilterSummary=byId('variableFilterSummary'),templateStatus=byId('templateStatus'),addSignatureBtn=byId('addSignatureBtn'),addVariableBtn=byId('addVariableBtn'),reloadProfileBtn=byId('reloadProfileBtn'),saveProfileBtn=byId('saveProfileBtn'),saveSummary=byId('saveSummary'),saveStatus=byId('saveStatus'),profileSourceBadge=byId('profileSourceBadge'),profileSourceText=byId('profileSourceText'),signatureTemplate=byId('signatureCardTemplate');
-const summarySignatureCount=byId('summarySignatureCount'),summaryVariableCount=byId('summaryVariableCount'),summaryGroupCount=byId('summaryGroupCount'),summaryTemplateState=byId('summaryTemplateState');
+const summarySignatureCount=byId('summarySignatureCount'),summaryVariableCount=byId('summaryVariableCount'),summaryGroupCount=byId('summaryGroupCount'),summaryTemplateState=byId('summaryTemplateState'),templateStripChips=byId('templateStripChips'),templateDetails=byId('templateDetails');
 const authUserList=byId('authUserList'),refreshAuthUsersBtn=byId('refreshAuthUsersBtn'),createAuthUserForm=byId('createAuthUserForm'),newAuthUsername=byId('newAuthUsername'),newAuthDisplayName=byId('newAuthDisplayName'),newAuthRole=byId('newAuthRole'),newAuthPassword=byId('newAuthPassword'),createAuthUserStatus=byId('createAuthUserStatus'),ldapStatus=byId('ldapStatus'),ldapTestForm=byId('ldapTestForm'),ldapTestUsername=byId('ldapTestUsername'),ldapTestPassword=byId('ldapTestPassword'),ldapCredentialTestBtn=byId('ldapCredentialTestBtn'),ldapConfigTestBtn=byId('ldapConfigTestBtn'),ldapTestResult=byId('ldapTestResult');
 const onboardingChecklist=byId('onboardingChecklist'),copyOnboardingBtn=byId('copyOnboardingBtn'),profileSaveBar=byId('profileSaveBar');
 const serviceGrid=byId('serviceGrid'),taskList=byId('taskList'),refreshSystemBtn=byId('refreshSystemBtn'),restartBackendBtn=byId('restartBackendBtn'),restartFrontendBtn=byId('restartFrontendBtn'),systemActionStatus=byId('systemActionStatus');
@@ -26,7 +26,7 @@ function escapeHtml(v){return String(v??'').replaceAll('&','&amp;').replaceAll('
 async function connect(){for(const base of candidateBases()){try{const r=await fetchTimeout(`${base}/health`);if(!r.ok)continue;apiBase=base;safeSet(API_BASE_STORAGE_KEY,base);connectionBadge.textContent='Backend verbunden';connectionPanel.hidden=true;return true}catch{}}apiBase='';connectionBadge.textContent='Backend nicht erreichbar';connectionPanel.hidden=false;connectionMessage.textContent='Signaturee Backend auf Port 3001 konnte nicht erreicht werden.';connectionApiBase.textContent=candidateBases().join(' · ');return false}
 async function ensureAdminSession(){if(!apiBase&&!(await connect()))return false;const{ok,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/auth/me`));if(!ok)return false;if(body.authRequired&&!body.authenticated){const u=new URL('login.html',location.href);u.searchParams.set('next','admin.html');location.replace(u.href);return false}const role=String(body.role||'').toLowerCase();if(body.authRequired&&role!=='admin'){location.replace(role==='selfservice'?'self-service.html':'index.html');return false}connectionBadge.textContent=body.username?`${body.username} · Admin`:'Admin';return true}
 function splitList(v){return String(v||'').split(/[;,\n]/).map(x=>x.trim()).filter(Boolean)}
-function updateSaveBarVisibility(){const active=document.querySelector('.admin-nav-item.active')?.dataset.adminView||'overview';const profileView=['overview','deployment','signatures','variables'].includes(active);profileSaveBar.hidden=!profileView&&!dirty}
+function updateSaveBarVisibility(){profileSaveBar.hidden=!dirty&&!envPendingRestart}
 function markDirty(){if(envManaged&&!envEditable)return;dirty=true;applyEnvConfigBtn.hidden=true;saveProfileBtn.disabled=false;saveStatus.textContent='Ungespeicherte Änderungen.';updateSaveBarVisibility()}
 function markClean(message='Gespeichert.'){dirty=false;saveProfileBtn.disabled=true;saveStatus.textContent=message;updateSaveBarVisibility()}
 function field(card,name){return card.querySelector(`[data-field="${name}"]`)}
@@ -34,7 +34,7 @@ function field(card,name){return card.querySelector(`[data-field="${name}"]`)}
 function switchView(name){document.querySelectorAll('.admin-nav-item').forEach(b=>b.classList.toggle('active',b.dataset.adminView===name));document.querySelectorAll('.admin-view').forEach(v=>v.classList.toggle('active',v.dataset.view===name));location.hash=name;profileSourceBanner.hidden=true;updateSaveBarVisibility()}
 document.querySelectorAll('.admin-nav-item').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.adminView)));
 
-function addSignatureCard(key='',value={}){const card=signatureTemplate.content.firstElementChild.cloneNode(true);field(card,'key').value=key;field(card,'label').value=value.label||key;field(card,'adGroups').value=(value.adGroups||[]).join(', ');field(card,'templateHtml').value=value.templateHtml||'';field(card,'templateTxt').value=value.templateTxt||'';field(card,'resourceFolder').value=value.resourceFolder||'';field(card,'customTitleAttr').value=value.customTitleAttr||'';field(card,'faxFallback').value=value.faxFallback||'';card.querySelectorAll('input').forEach(input=>input.addEventListener('input',()=>{card.querySelector('.signature-title').textContent=field(card,'key').value.trim()||'Neue Signatur';markDirty();renderOnboarding()}));card.querySelector('.remove-signature').addEventListener('click',()=>{card.remove();markDirty();renderOnboarding()});const upload=card.querySelector('[data-upload="templateFiles"]');upload.addEventListener('change',async()=>{const files=[...(upload.files||[])];if(!files.length)return;const status=card.querySelector('.asset-upload-status');status.textContent='Upload läuft ...';try{if(!(await ensureAdminSession()))return;const form=new FormData();files.forEach(file=>form.append('templates',file,file.name));const parsed=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/templates/import`,{method:'POST',body:form},30000));if(!parsed.ok)throw new Error(parsed.body.error||`HTTP ${parsed.status}`);if(!envManaged){files.forEach(file=>{const lower=file.name.toLowerCase();if(lower.endsWith('.txt'))field(card,'templateTxt').value=file.name;if(lower.endsWith('.htm')||lower.endsWith('.html'))field(card,'templateHtml').value=file.name});markDirty()}status.textContent=envManaged?`${files.length} Datei(en) hochgeladen. Dateinamen in .env prüfen.`:`${files.length} Datei(en) hochgeladen. Profil noch speichern.`}catch(error){status.textContent=`Upload fehlgeschlagen: ${error.message}`}finally{upload.value=''}});signatureCards.appendChild(card);return card}
+function addSignatureCard(key='',value={}){const card=signatureTemplate.content.firstElementChild.cloneNode(true);field(card,'key').value=key;field(card,'label').value=value.label||key;field(card,'adGroups').value=(value.adGroups||[]).join(', ');field(card,'templateHtml').value=value.templateHtml||'';field(card,'templateTxt').value=value.templateTxt||'';field(card,'resourceFolder').value=value.resourceFolder||'';field(card,'customTitleAttr').value=value.customTitleAttr||'';field(card,'faxFallback').value=value.faxFallback||'';const updateMapping=()=>{const groups=splitList(field(card,'adGroups').value);const label=card.querySelector('.signature-mapping-preview');if(label){label.textContent=groups.join(', ')||'Keine Gruppe';label.title=groups.length?groups.join('\n'):'Keine AD-Gruppe konfiguriert';}};updateMapping();card.querySelectorAll('input').forEach(input=>input.addEventListener('input',()=>{card.querySelector('.signature-title').textContent=field(card,'key').value.trim()||'Neue Signatur';updateMapping();markDirty();renderOnboarding()}));card.querySelector('.remove-signature').addEventListener('click',()=>{card.remove();markDirty();renderOnboarding()});const upload=card.querySelector('[data-upload="templateFiles"]');upload.addEventListener('change',async()=>{const files=[...(upload.files||[])];if(!files.length)return;const status=card.querySelector('.asset-upload-status');status.textContent='Upload läuft ...';try{if(!(await ensureAdminSession()))return;const form=new FormData();files.forEach(file=>form.append('templates',file,file.name));const parsed=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/templates/import`,{method:'POST',body:form},30000));if(!parsed.ok)throw new Error(parsed.body.error||`HTTP ${parsed.status}`);if(!envManaged){files.forEach(file=>{const lower=file.name.toLowerCase();if(lower.endsWith('.txt'))field(card,'templateTxt').value=file.name;if(lower.endsWith('.htm')||lower.endsWith('.html'))field(card,'templateHtml').value=file.name});markDirty()}status.textContent=envManaged?`${files.length} Datei(en) hochgeladen. Dateinamen in .env prüfen.`:`${files.length} Datei(en) hochgeladen. Profil noch speichern.`}catch(error){status.textContent=`Upload fehlgeschlagen: ${error.message}`}finally{upload.value=''}});signatureCards.appendChild(card);return card}
 function variableField(card,name){return card.querySelector(`[data-variable-field="${name}"]`)}
 function variablePlaceholderPreview(card){
   const placeholders=splitList(variableField(card,'placeholders')?.value||'');
@@ -174,7 +174,58 @@ function addVariableCard(value={}){
 }
 
 
-function renderStatus(status={}){currentStatus=status;const map=new Map((status.signatureStatus||[]).map(item=>[String(item.key).toLowerCase(),item]));let okCount=0;signatureCards.querySelectorAll('.signature-card').forEach(card=>{const key=field(card,'key').value.trim();const state=map.get(key.toLowerCase());const health=card.querySelector('.signature-health');if(!state){health.textContent='Noch nicht geprüft';health.className='signature-health';return}const ok=state.html?.exists&&state.txt?.exists&&(!state.resources||state.resources.exists);if(ok)okCount++;health.textContent=ok?'Templates vollständig':'Template-Dateien prüfen';health.className=`signature-health ${ok?'ok':'bad'}`});const list=status.signatureStatus||[];if(!list.length){templateStatus.className='template-status empty-state';templateStatus.textContent='Keine Signaturen konfiguriert.'}else{templateStatus.className='template-status';templateStatus.innerHTML=list.map(item=>{const asset=(label,state)=>!state?`<span class="asset-state"><span class="health-dot unknown"></span>${label}: nicht verwendet</span>`:`<span class="asset-state"><span class="health-dot ${state.exists?'ok':'bad'}"></span>${label}: <code>${escapeHtml(state.path||'')}</code></span>`;return`<div class="template-status-row"><strong>${escapeHtml(item.key)}</strong>${asset('HTML',item.html)}${asset('TXT',item.txt)}${asset('Assets',item.resources)}</div>`}).join('')}summaryTemplateState.textContent=list.length?`${okCount}/${list.length} OK`:'–'}
+function renderStatus(status={}){
+  currentStatus=status;
+  const list=Array.isArray(status.signatureStatus)?status.signatureStatus:[];
+  const byKey=new Map(list.map(item=>[String(item.key).toLowerCase(),item]));
+  const healthy=(item)=>Boolean(item?.html?.exists&&item?.txt?.exists&&(!item?.resources||item.resources.exists));
+  const good=list.filter(healthy).length;
+  const bad=list.length-good;
+  signatureCards.querySelectorAll('.signature-card').forEach(card=>{
+    const key=field(card,'key').value.trim();
+    const state=byKey.get(key.toLowerCase());
+    const health=card.querySelector('.signature-health');
+    if(!state){health.textContent='Nicht geprüft';health.className='signature-health';return}
+    const ok=healthy(state);
+    health.textContent=ok?'✓ Vollständig':'! Dateien fehlen';
+    health.className='signature-health '+(ok?'ok':'bad');
+  });
+  summaryTemplateState.textContent=list.length
+    ? bad===0 ? `${good} / ${list.length} OK` : `${bad} fehlerhaft · ${good} OK`
+    : 'Keine Signaturen';
+  summaryTemplateState.className='template-overview-count '+(bad?'bad':list.length?'ok':'muted');
+  templateStripChips.innerHTML=list.map((item,i)=>{
+    const ok=healthy(item);
+    const lines=[
+      'HTML: '+(item.html?.exists?'✓ ':'✗ ')+(item.html?.path||'fehlend'),
+      'TXT: '+(item.txt?.exists?'✓ ':'✗ ')+(item.txt?.path||'fehlend'),
+      'Assets: '+(!item.resources?'nicht benötigt':(item.resources.exists?'✓ ':'✗ ')+(item.resources.path||'fehlend'))
+    ];
+    const title=lines.join('\n');
+    return `<button type="button" class="template-chip ${ok?'ok':'bad'}" data-template-index="${i}" title="${escapeHtml(title)}" aria-label="${escapeHtml(item.key)}: ${ok?'Template vollständig':'Dateien prüfen'}. Details öffnen."><span class="health-dot ${ok?'ok':'bad'}"></span><strong>${escapeHtml(item.key)}</strong></button>`;
+  }).join('');
+  if(!list.length){
+    templateStatus.className='template-status empty-state';
+    templateStatus.textContent='Keine Signaturen konfiguriert.';
+  }else{
+    templateStatus.className='template-status';
+    const asset=(label,item)=>{
+      if(!item)return `<span class="asset-state neutral">${label}: –</span>`;
+      const file=String(item.path||'').split(/[\\/]/).pop();
+      return `<span class="asset-state ${item.exists?'ok':'bad'}" title="${escapeHtml(item.path||'')}"><span class="health-dot ${item.exists?'ok':'bad'}"></span>${label}: ${escapeHtml(file||'fehlt')}</span>`;
+    };
+    templateStatus.innerHTML=list.map((item,i)=>
+      `<div class="template-status-row" data-template-detail="${i}"><strong>${escapeHtml(item.key)}</strong>${asset('HTML',item.html)}${asset('TXT',item.txt)}${asset('Assets',item.resources)}</div>`
+    ).join('');
+  }
+}
+templateStripChips?.addEventListener('click',event=>{
+  const button=event.target.closest('button[data-template-index]');
+  if(!button)return;
+  templateDetails.open=true;
+  const row=templateStatus.querySelector('[data-template-detail="'+button.dataset.templateIndex+'"]');
+  row?.scrollIntoView({block:'nearest',behavior:'smooth'});
+});
 
 function renderProfile(profile,status={}){currentProfile=profile;organizationName.value=profile.organization?.name||'';directoryServer.value=profile.directory?.server||'';directorySearchBase.value=profile.directory?.searchBase||'';previewPath.value=profile.targets?.preview?.path||'';productionPath.value=profile.targets?.production?.path||'';secondaryTitleAttributes.value=(profile.secondaryTitleAttributes||[]).join(', ');signatureCards.innerHTML='';Object.entries(profile.signatures||{}).forEach(([key,value])=>addSignatureCard(key,value));variableCards.innerHTML='';const variables=profile.variables?.variables||[];variables.forEach(addVariableCard);applyVariableFilters();renderStatus(status);summarySignatureCount.textContent=Object.keys(profile.signatures||{}).length;summaryVariableCount.textContent=variables.length;summaryGroupCount.textContent=Object.values(profile.signatures||{}).reduce((n,s)=>n+(s.adGroups||[]).length,0);saveSummary.textContent=`${Object.keys(profile.signatures||{}).length} Signaturen · ${variables.length} Variablen`;markClean(envManaged?'Konfiguration aus .env (nur lesbar). Änderungen an .env erfordern einen Backend-Neustart.':'Profil geladen.');
   // Local accounts and template uploads remain operational; all v2 profile
@@ -199,6 +250,7 @@ function renderProfile(profile,status={}){currentProfile=profile;organizationNam
       variableField(card,'id').readOnly=true;
     }
   });
+  addSignatureBtn.hidden=envManaged;
   addSignatureBtn.disabled=envManaged;
   addVariableBtn.disabled=envManaged&&!envEditable;
   saveProfileBtn.disabled=true;
