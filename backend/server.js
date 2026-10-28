@@ -2653,13 +2653,14 @@ async function executeScopedRunnerAction(scopeRaw, actionRaw) {
       "$psExe = Join-Path $env:WINDIR 'System32\\WindowsPowerShell\\v1.0\\powershell.exe'",
       `$arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ${scriptLiteral} + '" -TargetTask "' + ${task} + '" -HelperTask "' + ${onceTask} + '" -RepoRoot "' + ${rootLiteral} + '"'`,
       `$actionDef = New-ScheduledTaskAction -Execute $psExe -Argument $arguments -WorkingDirectory ${rootLiteral}`,
-      "$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2)",
-      "$trigger.EndBoundary = (Get-Date).AddMinutes(3).ToString('s')",
+      // Task Scheduler, not the backend's process tree, starts the helper.
+      // A short delay leaves time for the API to respond before shutdown.
+      "$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(8)",
+      "$trigger.EndBoundary = (Get-Date).AddMinutes(2).ToString('s')",
       "$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest",
       "$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -DeleteExpiredTaskAfter (New-TimeSpan -Minutes 5)",
       `Register-ScheduledTask -TaskName ${onceTask} -Action $actionDef -Trigger $trigger -Principal $principal -Settings $settings -ErrorAction Stop | Out-Null`,
-      `Start-ScheduledTask -TaskName ${onceTask} -ErrorAction Stop`,
-      "'Backend restart helper scheduled' ",
+      "'Independent backend restart helper registered' ",
     ].join('; ');
     // Await registration errors. Never tell the UI that a restart was queued
     // when the helper task could not be registered or started.
