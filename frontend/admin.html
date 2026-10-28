@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="generate-v2.css">
   <link rel="stylesheet" href="admin-v2.css">
   <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="admin-compact.css">
   <script src="theme.js"></script>
 </head>
 <body>
@@ -17,7 +18,7 @@
         
       </div>
       <h1>Administration</h1>
-      <p class="subtitle">Konfiguration, Zugriff und Onboarding an einem Ort.</p>
+      
     </div>
     <div class="top-actions">
       <span id="adminConnectionBadge" class="connection-badge">Backend wird gesucht ...</span>
@@ -55,20 +56,32 @@
         <span id="profileSourceBadge" class="count-badge"></span>
       </section>
 
+      <section class="template-overview" aria-label="Template-Status">
+        <div class="template-overview-primary">
+          <div class="template-overview-heading">
+            <strong>Templates</strong>
+            <span id="summaryTemplateState" class="template-overview-count" role="status" aria-live="polite">Prüfe …</span>
+          </div>
+          <div id="templateStripChips" class="template-chip-list" aria-label="Status pro Signatur"></div>
+        </div>
+        <details id="templateDetails" class="template-overview-details">
+          <summary>Details</summary>
+          <div id="templateStatus" class="template-status empty-state">Noch nicht geladen.</div>
+        </details>
+      </section>
+
       <section class="admin-view active" data-view="overview">
-        <div class="admin-summary-grid">
+        <div class="admin-summary-grid" aria-label="Kennzahlen">
           <article class="admin-summary-card"><small>Signaturen</small><strong id="summarySignatureCount">–</strong></article>
           <article class="admin-summary-card"><small>Variablen</small><strong id="summaryVariableCount">–</strong></article>
           <article class="admin-summary-card"><small>AD-Gruppen</small><strong id="summaryGroupCount">–</strong></article>
-          <article class="admin-summary-card"><small>Templates</small><strong id="summaryTemplateState">–</strong></article>
+
         </div>
 
         <section class="step-card">
           <div class="admin-section-head">
             <div>
-              <span class="eyebrow">Grundlagen</span>
-              <h2>Organisation & Verzeichnis</h2>
-              <p>Diese Werte gelten für Suche, Preflight und Generierung.</p>
+              <h2>Organisation & AD</h2>
             </div>
           </div>
           <div class="admin-grid two">
@@ -77,14 +90,18 @@
             </label>
             <label>Domain Controller / AD Server
               <input id="directoryServer" type="text" placeholder="dc01.example.local">
-              <small>Leer = Windows-Domainkontext verwenden.</small>
+
             </label>
-            <label class="wide">AD Search Base
-              <input id="directorySearchBase" type="text" placeholder="OU=Users,DC=example,DC=local">
+            <label class="wide">AD-Suchbasis
+              <input id="directorySearchBase" type="text" placeholder="DC=example,DC=local">
             </label>
+          </div>
+          <details class="compact-disclosure config-advanced">
+            <summary>LDAP & weitere AD-Einstellungen <span class="disclosure-meta">Optional</span></summary>
+            <div class="admin-grid two">
             <label class="wide">Zusätzliche Titel-Attribute
               <input id="secondaryTitleAttributes" type="text" placeholder="extensionAttribute6, extensionAttribute7, extensionAttribute8">
-              <small>Kommagetrennt. Zentral für alle Signaturen.</small>
+
             </label>
             <label>LDAP-Domäne
               <input id="ldapDomainConfig" type="text" placeholder="example.local">
@@ -94,12 +111,13 @@
             </label>
             <label class="wide">LDAP-Suchcontainer (optional)
               <input id="ldapContainerConfig" type="text" placeholder="OU=Employees,DC=example,DC=local">
-              <small>Leer lassen, solange die tatsächliche OU nicht bekannt ist.</small>
+
             </label>
             <label class="wide">UPN-Suffix (optional)
               <input id="ldapUpnSuffixConfig" type="text" placeholder="example.local">
             </label>
-          </div>
+            </div>
+          </details>
         </section>
       </section>
 
@@ -153,52 +171,38 @@
         <section class="step-card">
           <div class="admin-section-head split">
             <div>
-              <span class="eyebrow">Signaturen</span>
+              
               <h2>Zuordnung & Templates</h2>
-              <p>AD-Gruppe, Template-Dateien und Spezialattribute gehören zusammen.</p>
+
             </div>
             <button id="addSignatureBtn" type="button" class="secondary">+ Signatur</button>
           </div>
-          <div id="signatureConventionSettings" class="deployment-note" hidden>
-            <strong>Automatische AD-Zuordnung</strong>
-            <p>Bei aktivierter Template-Erkennung wird die Signatur XY der bestehenden AD-Gruppe Signature-XY zugeordnet. Individuelle Zuordnungen bleiben als erweiterte .env-Konfiguration möglich.</p>
-            <label>Gruppenpräfix
+          <div id="signatureConventionSettings" class="signature-convention" hidden>
+            <label>AD-Gruppenpräfix <span class="field-hint" tabindex="0" role="note" title="AD_Template → Signature-AD" aria-label="AD_Template wird automatisch der bestehenden Gruppe Signature-AD zugeordnet.">?</span>
               <input id="signatureGroupPrefixConfig" type="text" placeholder="Signature-">
             </label>
           </div>
           <div id="signatureCards" class="signature-cards"></div>
         </section>
 
-        <section class="step-card">
-          <div class="admin-section-head">
-            <div>
-              <span class="eyebrow">Dateien</span>
-              <h2>Template-Status</h2>
-              <p>Kontrolle des produktiven Template-Verzeichnisses.</p>
-            </div>
-          </div>
-          <div id="templateStatus" class="template-status empty-state">Profil noch nicht geladen.</div>
-        </section>
+
       </section>
 
       <section class="admin-view" data-view="variables">
         <section class="step-card">
           <div class="admin-section-head split">
             <div>
-              <span class="eyebrow">Datenmodell</span>
+              
               <h2>Variablen</h2>
-              <p>Die eingebauten Standardvariablen bleiben erhalten. Du kannst ihre AD-Zuordnung anpassen oder neue Variablen und Template-Platzhalter hinzufügen. Gespeichert werden nur Abweichungen und Ergänzungen in .env.</p>
+
             </div>
             <button id="addVariableBtn" type="button" class="secondary">+ Variable</button>
           </div>
 
-          <div class="variable-explainer">
-            <div><small>Active Directory</small><strong>mail</strong></div>
-            <span>→</span>
-            <div><small>Signaturee</small><strong>E-Mail</strong></div>
-            <span>→</span>
-            <div><small>Template</small><strong>$mail</strong></div>
-          </div>
+          <details class="compact-disclosure variable-explainer-help">
+            <summary>Was ist ein Template-Platzhalter?</summary>
+            <p>Das AD-Feld <code>mail</code> wird in der Signatur als <code>$mail</code> eingesetzt. Standardvariablen bleiben erhalten.</p>
+          </details>
 
           <div class="variable-toolbar">
             <input id="variableSearch" type="search" placeholder="Variable suchen …">
@@ -214,27 +218,21 @@
       </section>
 
       <section class="admin-view" data-view="access">
-        <section class="step-card">
-          <div class="admin-section-head">
-            <div>
-              <span class="eyebrow">Zugriff</span>
-              <h2>Rollenmodell</h2>
-              <p>Nur zwei lokale Kontotypen. Normale Mitarbeiter melden sich später direkt mit ihrem AD-Konto an.</p>
-            </div>
-          </div>
+        <details class="compact-disclosure role-help">
+          <summary>Rollen & Berechtigungen</summary>
           <div class="role-grid">
-            <article><strong>Admin</strong><p>Konfiguration, lokale Benutzer, System/Runner und normaler Generate-Workflow.</p></article>
-            <article><strong>IT</strong><p>AD/CSV-Benutzer auswählen, Preflight durchführen und Signaturen generieren. Keine Administration.</p></article>
-            <article><strong>AD-User</strong><p>LDAP-Login mit eigenem AD-Konto. Darf ausschließlich die eigene Signatur erzeugen und herunterladen.</p></article>
+            <article><strong>Admin</strong><p>Konfiguration, Konten, System, Generierung.</p></article>
+            <article><strong>IT</strong><p>AD-Suche, Preflight und Generierung.</p></article>
+            <article><strong>AD-User</strong><p>Nur eigene Signaturen im Self-Service.</p></article>
           </div>
-        </section>
+        </details>
 
         <section class="step-card">
           <div class="admin-section-head split">
             <div>
-              <span class="eyebrow">Lokale Konten</span>
+              
               <h2>Admin & IT Benutzer</h2>
-              <p>Lokale Signaturee-Konten sind nur für Administration und IT gedacht.</p>
+
             </div>
             <button id="refreshAuthUsersBtn" type="button" class="secondary">Aktualisieren</button>
           </div>
@@ -269,21 +267,22 @@
         <section class="step-card">
           <div class="admin-section-head">
             <div>
-              <span class="eyebrow">AD Login</span>
+              
               <h2>LDAP / Active Directory</h2>
-              <p>Normale Benutzer benötigen kein lokales Signaturee-Konto.</p>
+
             </div>
           </div>
           <div id="ldapStatus" class="ldap-status empty-state">Status wird geladen ...</div>
           <div class="ldap-diagnostic">
             <h3>AD-Benutzersuche testen (Get-ADUser)</h3>
-            <p>Getrennt vom LDAP-Login: prüft Server, Suchbasis und Berechtigung des Backend-Dienstes oder optionalen AD-Lesekontos. Es wird kein Passwort benötigt.</p>
+
             <button id="adSearchTestBtn" type="button" class="secondary">AD-Suche testen</button>
             <div id="adSearchTestResult" role="status" aria-live="polite" class="ldap-test-result" hidden></div>
           </div>
-          <div class="ldap-diagnostic">
-            <h3>LDAP-Verbindung & Anmeldung testen</h3>
-            <p>Konfigurationscheck ohne Passwort oder echter AD-Anmeldetest mit Benutzername und Passwort. Der Test erstellt keine Signaturee-Sitzung und speichert keine Anmeldedaten.</p>
+          <details class="compact-disclosure ldap-diagnostic">
+            <summary>LDAP-Anmeldung testen</summary>
+            <div class="ldap-diagnostic-body">
+
             <form id="ldapTestForm" class="ldap-test-form" autocomplete="off">
               <label>AD-Benutzer / UPN
                 <input id="ldapTestUsername" name="ldapTestUsername" type="text" autocomplete="off" placeholder="z. B. vorname.nachname oder user@firma.local">
@@ -296,9 +295,10 @@
                 <button id="ldapCredentialTestBtn" type="submit">LDAP-Login testen</button>
               </div>
             </form>
-            <p class="ldap-test-help">Passworttests nur über HTTPS oder direkt über localhost ausführen. Das Passwort wird nach dem Test aus dem Formular gelöscht.</p>
+
             <div id="ldapTestResult" role="status" aria-live="polite" class="ldap-test-result" hidden></div>
-          </div>
+            </div>
+          </details>
         </section>
       </section>
 
@@ -306,22 +306,17 @@
         <section class="step-card">
           <div class="admin-section-head split">
             <div>
-              <span class="eyebrow">Mitarbeiter-Onboarding</span>
+              
               <h2>AD-Voraussetzungen für Signaturee</h2>
-              <p>Automatisch aus den aktuellen Einstellungen abgeleitet.</p>
+
             </div>
             <button id="copyOnboardingBtn" type="button" class="secondary">Checkliste kopieren</button>
           </div>
           <div id="onboardingChecklist" class="onboarding-checklist"></div>
         </section>
 
-        <section class="step-card onboarding-flow">
-          <div class="admin-section-head">
-            <div>
-              <span class="eyebrow">Empfohlener Ablauf</span>
-              <h2>Beim Anlegen eines neuen AD-Benutzers</h2>
-            </div>
-          </div>
+        <details class="compact-disclosure onboarding-flow">
+          <summary>Ablauf für neue AD-Benutzer</summary>
           <ol>
             <li>Pflichtfelder im AD vollständig setzen.</li>
             <li>Benutzer mindestens einer konfigurierten <code>Signatur-*</code>-Gruppe zuweisen.</li>
@@ -329,16 +324,16 @@
             <li>In Signaturee als IT-Benutzer nach dem neuen Account suchen.</li>
             <li>Preflight durchführen – erst bei grünem Preflight ist das Onboarding für Signaturee abgeschlossen.</li>
           </ol>
-        </section>
+        </details>
       </section>
 
       <section class="admin-view" data-view="system">
         <section class="step-card">
           <div class="admin-section-head split">
             <div>
-              <span class="eyebrow">Backend & Runner</span>
+              
               <h2>Systemstatus</h2>
-              <p>Nur Admins können Dienste und Scheduled Tasks steuern.</p>
+
             </div>
             <button id="refreshSystemBtn" type="button" class="secondary">Aktualisieren</button>
           </div>
@@ -346,13 +341,10 @@
             <div class="service-card"><span class="health-dot unknown"></span><div><strong>Backend</strong><small>--</small></div></div>
             <div class="service-card"><span class="health-dot unknown"></span><div><strong>Frontend</strong><small>--</small></div></div>
           </div>
-          <div class="system-section admin-system-section">
-            <div>
-              <h3>Scheduled Tasks</h3>
-              <p class="muted">Runner-Zustand auf dem Windows-Server.</p>
-            </div>
+          <details class="compact-disclosure admin-system-section">
+            <summary>Windows Scheduled Tasks</summary>
             <div id="taskList" class="task-list empty-state">Noch nicht geladen.</div>
-          </div>
+          </details>
           <div class="system-actions">
             <button id="restartBackendBtn" type="button" class="secondary">Backend neu starten</button>
             <button id="restartFrontendBtn" type="button" class="secondary">Frontend neu starten</button>
@@ -363,13 +355,13 @@
 
       <section id="profileSaveBar" class="save-bar">
         <div>
-          <strong id="saveSummary">Profil wird geladen ...</strong>
+          <strong id="saveSummary">Änderungen</strong>
           <span id="saveStatus">Noch keine Änderungen.</span>
         </div>
         <div class="save-actions">
           <button id="reloadProfileBtn" type="button" class="secondary">Änderungen verwerfen</button>
           <button id="saveProfileBtn" type="button" disabled>Konfiguration speichern</button>
-          <button id="applyEnvConfigBtn" type="button" class="secondary" hidden>Gespeicherte .env aktivieren (Backend-Neustart)</button>
+          <button id="applyEnvConfigBtn" type="button" class="secondary" hidden>Änderungen aktivieren</button>
         </div>
       </section>
     </main>
@@ -382,9 +374,12 @@
           <strong class="signature-title">Signatur</strong>
           <small class="signature-health"></small>
         </div>
+        <span class="signature-mapping-preview" aria-label="AD-Gruppen"></span>
         <button type="button" class="danger remove-signature">Entfernen</button>
       </div>
-      <div class="admin-grid two compact">
+      <details class="signature-editor">
+        <summary>Zuordnung & Dateien</summary>
+        <div class="admin-grid two compact">
         <label>Schlüssel<input data-field="key" type="text" placeholder="ACME"></label>
         <label>Anzeigename<input data-field="label" type="text" placeholder="Acme Corp"></label>
         <label class="wide">AD-Gruppe(n)
@@ -403,7 +398,8 @@
           <input data-upload="templateFiles" type="file" accept=".htm,.html,.txt,text/html,text/plain" multiple>
         </label>
         <span class="asset-upload-status muted"></span>
-      </div>
+        </div>
+      </details>
     </article>
   </template>
 

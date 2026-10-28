@@ -120,6 +120,12 @@ The Admin interface edits approved business settings directly in the single `.en
 
 See the [Environment reference](docs/environment.md) for every setting and its scope.
 
+### Compact administration workspace
+
+The Admin interface keeps a small **Template status** strip at the top of every section, showing all discovered signatures and missing files at a glance. Hover/focus on a signature to inspect its files, or select it and open **Details** for a complete, keyboard-accessible list.
+
+Signatures and variables appear as compact rows by default; select **Zuordnung & Dateien** or **Bearbeiten** to edit. LDAP settings, role explanations, onboarding steps and Windows Task details are collapsed until needed. The Save/Activate bar appears only for unsaved or not-yet-activated changes. These are display changes only: existing configuration sources, permissions and signature generation remain unchanged.
+
 ## Manage configuration in the Admin UI
 
 Sign in with a **local Admin** account and open **Administration**. In v2 env mode, approved business settings can be edited directly and saved back to the **existing project-root .env**:
