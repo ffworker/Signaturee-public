@@ -1,140 +1,74 @@
-# Prepare Machine / Dependencies
+# Windows host preparation — Signaturee v2
 
-Use this page to prepare a Windows machine for Signaturee v2.
+This page covers only the current v2 installation. For the full setup, authentication, AD search, SMB rights and service lifecycle, use the [README](../README.md).
 
-## 1) Install software
+## Dependencies
 
-- Node.js 22.13+
-- Git
-- Windows PowerShell 5.1+
-- ActiveDirectory PowerShell module
+- Windows Server with PowerShell 5.1, Git and Node.js 22.13+.
+- RSAT Active Directory module for `Get-ADUser`, installed using the applicable Windows feature/capability.
+- Working DNS/DC discovery, accessible AD users, and appropriate Windows service identity permissions.
 
-Depending on the Windows edition:
+Install/check the AD module (Windows Server):
 
-```powershell
+~~~powershell
 Install-WindowsFeature RSAT-AD-PowerShell
-```
+Import-Module ActiveDirectory
+Get-Module -ListAvailable ActiveDirectory
+~~~
 
-or:
+On supported Windows desktop editions:
 
-```powershell
+~~~powershell
 Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0
-```
+~~~
 
-## 2) Clone and install
+## Application
 
-```powershell
-git clone https://github.com/ffworker/Signaturee-public.git C:\signaturee
-cd C:\signaturee
+~~~powershell
+git clone https://github.com/ffworker/Signaturee-public.git C:\Signaturee
+cd C:\Signaturee
 npm ci --omit=dev
-```
-
-## 3) Prepare runtime environment
-
-```powershell
 Copy-Item .env.example .env
 notepad .env
-```
+New-Item -ItemType Directory -Force config\templates | Out-Null
+node .\backend\server.js --check
+~~~
 
-Set at minimum:
-- backend/frontend bind settings,
-- authentication,
-- CORS when frontend and backend are not same-origin.
+The **single local .env** contains runtime, LDAP login, AD search, and local/SMB target configuration. Templates/images remain files in `config/templates/`, while local Admin password hashes are in `config/signaturee_auth.db`. In env mode the v2 business profile **is not** stored in SQLite.
 
-For employee AD login:
+Create a local Admin:
 
-```env
-AUTH_REQUIRED=true
-AUTH_DB_LOGIN_ENABLED=true
-AUTH_LDAP_ENABLED=true
-```
+~~~powershell
+$pw = Read-Host "New Admin password" -AsSecureString
+$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw)
+try {
+    [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) |
+        node .\scripts\manage-auth-users.js add --username admin --role admin --password-stdin
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+}
+~~~
 
-LDAP defaults to Self-Service. To grant IT from AD attributes or direct groups, configure a local rules file as described in [Environment](environment.md). LDAP never grants full Admin access.
+Install two Windows Scheduled Tasks from elevated PowerShell:
 
-## 4) Bootstrap a local Admin
+~~~powershell
+.\scripts\install-backend-task.ps1 -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\.env -StartNow
+.\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\.env -StartNow
+~~~
 
-```powershell
-$secure = Read-Host "Choose an Admin password" -AsSecureString
-$ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) | npm run auth:users -- add --username admin --password-stdin --role admin }
-finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
-```
+Reload local configuration and update code using separate commands:
 
-After first login, create additional Admin/IT accounts from:
+~~~powershell
+.\scripts\reload-config.ps1
+.\scripts\update-signaturee.ps1
+~~~
 
-**Administration → Benutzer & Zugriff**
+## Validate before production
 
-Normal employees should use LDAP/AD login rather than local Signaturee accounts.
+Use Admin → **Benutzer & Zugriff** for separate **AD-Suche testen** and **LDAP-Login testen** checks. Use Admin → **Ausgabe & Deployment** to test both the automatically created local preview folder and the remote UNC target. A successful interactive AD command does not prove that SYSTEM (or your configured task account) has the same AD/SMB permissions.
 
-## 5) Start Signaturee
+For production SMB, the task identity needs **share + NTFS write, create and ACL modification** rights on the **dedicated** target. When SYSTEM accesses a domain SMB server, it commonly uses `DOMAIN\COMPUTER$`. This is unrelated to optional read-only credentials in `AD_QUERY_USERNAME/AD_QUERY_PASSWORD`.
 
-```powershell
-npm start
-```
+Back up `.env`, the complete `config/templates/` tree and both SQLite databases. Stop tasks or perform consistent SQLite backups before copying databases.
 
-`npm start` loads `.env` and starts backend + frontend.
-
-Open:
-
-```text
-http://localhost:3000/
-```
-
-For troubleshooting, the services can also be started separately with `npm run start:backend` and `npm run start:frontend`.
-
-## 6) Configure Signaturee v2
-
-Open the Admin UI and configure:
-- **Übersicht**: organization and AD connection/search base,
-- **Ausgabe & Deployment**: local preview and productive UNC path,
-- **Signaturen**: templates and AD group mappings,
-- **Variablen**: AD fields/placeholders,
-- **Benutzer & Zugriff**: Admin/IT access and LDAP status,
-- **Onboarding**: generated AD onboarding requirements.
-
-Use the path test buttons under **Ausgabe & Deployment** before the first productive run.
-
-### Network share permissions
-
-The account that runs the backend must also have SMB **and** NTFS access to the productive UNC target.
-
-If the Backend Scheduled Task runs as `NT AUTHORITY\SYSTEM`, remote SMB access normally uses the server's AD computer account:
-
-```text
-DOMAIN\SIGNATUREE-SERVER$
-```
-
-Because productive generation applies ACLs to generated user folders, grant sufficient permission to manage ACLs on the dedicated Signaturee output subtree.
-
-See `docs/network-share-permissions.md` for the complete setup.
-
-## 7) Scheduled Tasks
-
-For production:
-
-```powershell
-.\scripts\install-backend-task.ps1 -RepoRoot C:\signaturee -EnvFile C:\signaturee\.env -StartNow
-.\scripts\install-frontend-task.ps1 -RepoRoot C:\signaturee -EnvFile C:\signaturee\.env -StartNow
-```
-
-Control both:
-
-```powershell
-.\scripts\start-runner-tasks.ps1
-.\scripts\stop-runner-tasks.ps1
-```
-
-The Admin **System** page shows Backend and Frontend health/task state.
-
-## 8) Backup
-
-Before manual repository recovery, stop both tasks and back up at least:
-- `.env`,
-- `config/signaturee.db`,
-- `config/signaturee_auth.db`,
-- `config/templates/`,
-- optional `frontend/runtime-config.js`.
-
-The v2 profile is stored in `signaturee.db`.
-
-Repository Markdown under `docs/` is documentation only; Signaturee does not run a separate documentation web service.
+[Environment reference](environment.md) · [SMB permissions](network-share-permissions.md)
