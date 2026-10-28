@@ -1,23 +1,60 @@
-# Templates
+# Templates — Signaturee v2
 
-Signaturee uses Outlook-compatible HTML/TXT templates from `Templatefiles/`.
+The active source directory is **`config/templates/`**, configured by `TEMPLATE_DIR=config/templates` in the project-root `.env`. It contains the HTML/TXT source files and their image/resource folders.
 
-## Add a signature
+## Automatic discovery (recommended)
 
-In **Administration → Signaturen**:
+~~~dotenv
+TEMPLATE_DIR=config/templates
+SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true
+~~~
 
-1. create a signature key and label
-2. map one or more AD groups
-3. configure HTML/TXT filenames
-4. configure the optional resource folder
-5. save the profile
-6. run Preflight with a test user
+Example layout:
 
-## Common placeholders
+~~~text
+config/templates/
+├── AD_Template.htm
+├── AD_Template.txt
+├── AD-Dateien/
+│   └── logo.png
+├── FF_Template.htm
+├── FF_Template.txt
+├── FF-Dateien/
+│   └── logo.png
+├── LS_Template.htm
+└── LS_Template.txt
+~~~
 
-Typical defaults:
+Each **complete pair** is shown as an available signature in Administration → **Signaturen**. `.html` is also accepted, and extensions are case-insensitive. Optional matching `XY-Dateien/` folders become resource directories. The bundled `example_template.*` pair is deliberately ignored.
 
-```text
+| Templates | Signature | AD security group |
+| --- | --- | --- |
+| `AD_Template.htm` + `AD_Template.txt` | AD | `Signature-AD` |
+| `FF_Template.htm` + `FF_Template.txt` | FF | `Signature-FF` |
+| `LS_Template.htm` + `LS_Template.txt` | LS | `Signature-LS` |
+
+A corresponding **existing** AD security group grants an employee access to the associated signature. Signaturee **does not create or edit AD groups**. The default automatic rule matches the group's CN. Direct group membership is the supported baseline; do not assume nested membership is expanded.
+
+To use `Signatur-XY` groups instead, set `SIGNATUREE_AUTO_GROUP_PREFIX=Signatur-`.
+
+**Both HTML and TXT are required.** An incomplete pair causes configuration validation to fail rather than silently hiding it. After adding or renaming a template, run `.\scripts\reload-config.ps1` and refresh Admin.
+
+## Manual mapping (optional)
+
+If your template filenames/groups do not follow the convention, disable discovery and define an explicit one-line JSON mapping in `.env`:
+
+~~~dotenv
+SIGNATUREE_SIGNATURES_AUTO_DISCOVER=false
+SIGNATUREE_SIGNATURES_JSON={"AD":{"label":"AD","adGroups":["CN=Signature-AD,OU=Groups,DC=example,DC=local"],"templateHtml":"AD_Template.htm","templateTxt":"AD_Template.txt","resourceFolder":"AD-Dateien"}}
+~~~
+
+In manual mode, full group DNs match exactly and short group names match the CN. With discovery enabled, `SIGNATUREE_SIGNATURES_JSON` is ignored.
+
+## Variables, image assets and encoding
+
+Common built-in placeholders include:
+
+~~~text
 $givenname
 $sn
 $mail
@@ -28,30 +65,14 @@ $telephonenumber
 $mobile
 $fax
 $sAMAccountName
-```
+~~~
 
-The authoritative list is **Administration → Variablen**.
+The effective variable catalog is shown under **Administration → Variablen**. The advanced `SIGNATUREE_VARIABLES_JSON` override is generally unnecessary.
 
-## Files
+Keep relative resource/image links aligned with the matching `XY-Dateien/` folder. Preserve the entire folder when copying templates. If special characters render incorrectly in Outlook, verify the HTML charset and template file encoding on a copy, then test using server preview before production.
 
-Example:
+## Test sequence
 
-```text
-Templatefiles/
-├─ ACME_Template.htm
-├─ ACME_Template.txt
-└─ ACME-Dateien/
-   └─ logo.png
-```
+Confirm all types in **Administration → Signaturen**, test AD search, select a test employee with a direct `Signature-XY` membership, run Preflight and Server-Vorschau, then perform a controlled production generation once SMB permissions have been verified.
 
-Keep image/resource references relative to the matching resource folder.
-
-## Encoding
-
-Outlook/Word templates are safest with Windows-1252 when using the current PowerShell generator.
-
-If umlauts or symbols are corrupted, re-save the affected `.htm` / `.txt` file as Windows-1252 and test again.
-
-## Test safely
-
-Use **Server-Vorschau** first. Productive generation should only be used after Preflight is green.
+[README](../README.md) · [Environment](environment.md)
