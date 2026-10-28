@@ -1,37 +1,34 @@
-# AD onboarding
+# Active Directory onboarding — Signaturee v2
 
-The authoritative onboarding checklist is generated inside:
+Signaturee uses AD for employee data and signature-group membership. A local **Admin** account configures the application; employees use their own AD credentials for Self-Service. The in-app **Administration → Onboarding** page shows the effective profile's requirements.
 
-**Administration → Onboarding**
+## Ready-to-generate checklist
 
-It follows the current `profile_v2` configuration, so documentation cannot drift from required variables or signature groups.
+1. The employee account is enabled and has a usable `sAMAccountName`.
+2. Required AD attributes for the selected template are populated (for example names and email).
+3. A complete `XY_Template.htm` / `XY_Template.txt` pair exists in `config/templates/`.
+4. The matching **AD security group** `Signature-XY` exists and the employee is a member.
+5. **AD-Suche testen** succeeds under the backend service identity or configured read account.
+6. Preflight shows no blocking issues; preview looks correct before productive SMB output.
 
-A user is ready when:
+For standard files, `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` supplies the mapping. For example, `HG_Template.htm` and `HG_Template.txt` map to group `Signature-HG`. The application does not add users to groups or create groups. Direct membership should be tested first; nested membership is not automatically expanded in every workflow.
 
-1. the AD account is enabled,
-2. `sAMAccountName` is set,
-3. all variables marked **required** have a usable AD value,
-4. the user belongs to at least one configured signature group,
-5. any signature-specific custom attributes are populated,
-6. Signaturee Preflight has no blocking errors.
+## Login roles are independent from signature groups
 
-## Roles
+| Identity | Permissions | Source |
+| --- | --- | --- |
+| **Admin** | Configuration and local account management, operations and generation | Local Signaturee account |
+| **IT** | Search AD users, run preflight and generate signatures | Local IT account or eligible LDAP role rule |
+| **Self-Service** | Sign in with AD credentials and generate own assigned signatures | LDAP login, default role |
 
-- **Admin** — configuration, local Admin/IT users, system controls and generation.
-- **IT** — live AD search, selection, Preflight and generation.
-- **AD user / Self-Service** — LDAP login and own signatures only.
+LDAP role rules are **optional** and only change the login role to IT; they are **not** required for an employee to receive a `Signature-XY` signature. LDAP never grants the local Admin role.
 
-Normal employees do not need a local Signaturee account.
+The domain controller and OU used for `Get-ADUser` are set by `AD_SERVER` and `OU_SEARCH_BASE`. LDAP sign-in uses `AUTH_LDAP_DOMAIN` and optional LDAP context settings. These two operations can succeed or fail independently.
 
-## LDAP self-service
+## Validate in Admin
 
-Minimum runtime settings:
+Under **Benutzer & Zugriff**, use **AD-Suche testen** to check the actual server/search base and the Windows task's directory permissions. Use **LDAP-Login testen** separately with a normal AD account; only enter a password over localhost or HTTPS.
 
-```env
-AUTH_REQUIRED=true
-AUTH_LDAP_ENABLED=true
-```
+After verifying direct group membership, use the generate screen's Preflight to see which signatures are available to that user. Network generation additionally requires the backend task's SMB/NTFS/ACL rights.
 
-LDAP users default to Self-Service. Optional attribute/group-based IT rules are configured with `AUTH_LDAP_ROLE_RULES_PATH`; see [Environment](environment.md). Full Admin access requires a local Signaturee account.
-
-Optional LDAP domain/server/container settings are documented in [Environment](environment.md).
+[Environment](environment.md) · [Templates](templates.md) · [README](../README.md)

@@ -1,14 +1,15 @@
 # Windows host preparation — Signaturee v2
 
-This page covers only the current v2 installation. For the full setup, authentication, AD search, SMB rights and service lifecycle, use the [README](../README.md).
+Use the [Quickstart](../README.md#quickstart) for the complete installation sequence. This page covers the required Windows components and scheduled runtime.
 
-## Dependencies
+## Windows prerequisites
 
-- Windows Server with PowerShell 5.1, Git and Node.js 22.13+.
-- RSAT Active Directory module for `Get-ADUser`, installed using the applicable Windows feature/capability.
-- Working DNS/DC discovery, accessible AD users, and appropriate Windows service identity permissions.
+- Supported Windows Server/Windows host on the AD network.
+- Node.js **22.13+**, Git and Windows PowerShell **5.1**.
+- RSAT **ActiveDirectory** PowerShell module for `Get-ADUser` queries.
+- DNS/DC connectivity for AD; SMB access when generating productive network signatures.
 
-Install/check the AD module (Windows Server):
+On Windows Server:
 
 ~~~powershell
 Install-WindowsFeature RSAT-AD-PowerShell
@@ -16,30 +17,33 @@ Import-Module ActiveDirectory
 Get-Module -ListAvailable ActiveDirectory
 ~~~
 
-On supported Windows desktop editions:
+On supported Windows client editions:
 
 ~~~powershell
 Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0
 ~~~
 
-## Application
+## Application layout
 
 ~~~powershell
 git clone https://github.com/ffworker/Signaturee-public.git C:\Signaturee
 cd C:\Signaturee
 npm ci --omit=dev
 Copy-Item .env.example .env
-notepad .env
 New-Item -ItemType Directory -Force config\templates | Out-Null
+notepad .env
+~~~
+
+Fill in your DC, domain, search base and production UNC path. Standard `XY_Template` file pairs belong in `config/templates/`; set `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` (already enabled in `.env.example`) to assign them to existing `Signature-XY` AD security groups.
+
+~~~powershell
 node .\backend\server.js --check
 ~~~
 
-The **single local .env** contains runtime, LDAP login, AD search, and local/SMB target configuration. Templates/images remain files in `config/templates/`, while local Admin password hashes are in `config/signaturee_auth.db`. In env mode the v2 business profile **is not** stored in SQLite.
-
-Create a local Admin:
+Create your local Admin account:
 
 ~~~powershell
-$pw = Read-Host "New Admin password" -AsSecureString
+$pw = Read-Host "Signaturee Admin password" -AsSecureString
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw)
 try {
     [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) |
@@ -49,26 +53,39 @@ try {
 }
 ~~~
 
-Install two Windows Scheduled Tasks from elevated PowerShell:
+## Windows Scheduled Tasks
+
+Run from an **elevated PowerShell**:
 
 ~~~powershell
 .\scripts\install-backend-task.ps1 -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\.env -StartNow
 .\scripts\install-frontend-task.ps1 -RepoRoot C:\Signaturee -EnvFile C:\Signaturee\.env -StartNow
 ~~~
 
-Reload local configuration and update code using separate commands:
+The two tasks are `Signaturee-Backend-Runner` (default 3001) and `Signaturee-Frontend-Runner` (default 3000). Node reads the selected `.env` on startup. Do not run `npm start` simultaneously on the same ports.
+
+Apply configuration changes **without a Git pull**:
 
 ~~~powershell
 .\scripts\reload-config.ps1
+~~~
+
+Update the repository version and restart both tasks:
+
+~~~powershell
 .\scripts\update-signaturee.ps1
 ~~~
 
+These operations verify real Node listeners; a Scheduled Task `Ready` state by itself does not prove the application is healthy.
+
 ## Validate before production
 
-Use Admin → **Benutzer & Zugriff** for separate **AD-Suche testen** and **LDAP-Login testen** checks. Use Admin → **Ausgabe & Deployment** to test both the automatically created local preview folder and the remote UNC target. A successful interactive AD command does not prove that SYSTEM (or your configured task account) has the same AD/SMB permissions.
+In Admin, verify that **Signaturen** lists all discovered pairs, run **AD-Suche testen** and **LDAP-Login testen** independently, then use the local and production output-path tests. Preflight with a known employee in `Signature-XY` before generating.
 
-For production SMB, the task identity needs **share + NTFS write, create and ACL modification** rights on the **dedicated** target. When SYSTEM accesses a domain SMB server, it commonly uses `DOMAIN\COMPUTER$`. This is unrelated to optional read-only credentials in `AD_QUERY_USERNAME/AD_QUERY_PASSWORD`.
+For productive SMB, the Windows task identity needs share/NTFS write and ACL modification rights. Under SYSTEM, remote domain access normally uses `DOMAIN\COMPUTER$`. An optional AD read account in `.env` does **not** change the SMB identity.
 
-Back up `.env`, the complete `config/templates/` tree and both SQLite databases. Stop tasks or perform consistent SQLite backups before copying databases.
+## Backup
 
-[Environment reference](environment.md) · [SMB permissions](network-share-permissions.md)
+Protect `.env`, `config/templates/` (including images), `config/signaturee_auth.db` and `config/signaturee.db`. Stop tasks or use a consistent SQLite backup mechanism before copying active databases.
+
+[Environment reference](environment.md) · [Templates](templates.md) · [SMB permissions](network-share-permissions.md)

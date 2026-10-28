@@ -1,7 +1,0 @@
-{
-  "rules": [
-    { "attribute": "department", "equals": "IT", "role": "it" },
-    { "attribute": "extensionAttribute5", "equals": "Support", "role": "it" },
-    { "groupDn": "CN=Signaturee-IT,OU=Groups,DC=example,DC=com", "role": "it" }
-  ]
-}
