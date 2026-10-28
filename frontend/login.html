@@ -6,11 +6,13 @@
   <title>Signaturee – Anmeldung</title>
   <link rel="stylesheet" href="generate-v2.css">
   <link rel="stylesheet" href="login-v2.css">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
 </head>
 <body class="login-page-v2">
   <main class="login-shell">
     <section class="login-card">
-      <div class="brand-row"><span class="brand">Signaturee</span><span class="beta">v2</span></div>
+      <div class="brand-row"><span class="brand">Signaturee</span></div>
       <h1>Anmelden</h1>
       <p class="subtitle">Mit Firmenkonto oder lokalem Signaturee-Konto.</p>
 
@@ -31,10 +33,10 @@
         <div id="loginStatus" class="inline-status"></div>
       </form>
 
-      <div class="login-help">
+      <details class="login-help"><summary>Welche Anmeldeart?</summary>
         <strong>Wer meldet sich wie an?</strong>
         <p><b>Admin / IT:</b> lokales Signaturee-Konto. <b>Mitarbeiter:</b> normales AD-/Windows-Konto, sobald LDAP aktiviert ist.</p>
-      </div>
+      </details>
 
       <details class="connection-details">
         <summary>Verbindungsdetails</summary>
