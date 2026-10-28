@@ -27,7 +27,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administra
 }
 
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
-if (-not $EnvFile) { $EnvFile = Join-Path $RepoRoot 'config\runner.env' }
+if (-not $EnvFile) { $EnvFile = Join-Path $RepoRoot '.env' }
 
 function Get-EnvValue {
     param([string]$Name, [string]$Default)
