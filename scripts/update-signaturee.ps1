@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-  Update a running Signaturee Scheduled Task installation.
+  Update Signaturee code and restart both Windows Scheduled Tasks.
 .DESCRIPTION
-  Stop old tasks, wait for ports to close, fast-forward pull the current branch,
-  run npm ci, and restart the tasks that were running before the update.
-  Never modifies ignored local config or silently overwrites tracked changes.
-  On failure, makes no rollback attempt; tasks may remain stopped or partially running.
+  Works even if Task Scheduler reports Ready. Checks actual Node listeners and
+  identifies old Node processes from this clone before stopping them. Refuses
+  to kill unrelated processes on 3000/3001. Local .env is never overwritten.
+  For ONLY reloading .env, use scripts/reload-config.ps1 instead.
 #>
 [CmdletBinding()]
 param(
@@ -19,129 +19,50 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'runner-lifecycle.ps1')
 
-$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($identity)
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
-    throw 'Open PowerShell as Administrator to manage the Signaturee Scheduled Tasks.'
-}
-
-$RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
-if (-not $EnvFile) { $EnvFile = Join-Path $RepoRoot '.env' }
-
-function Get-EnvValue {
-    param([string]$Name, [string]$Default)
-    if (-not (Test-Path -LiteralPath $EnvFile)) { return $Default }
-    $value = $Default
-    foreach ($line in Get-Content -LiteralPath $EnvFile) {
-        if ($line -match ('^\s*' + [regex]::Escape($Name) + '\s*=\s*(.*?)\s*$')) {
-            $value = $Matches[1]
-        }
-    }
-    return $value
-}
-function Invoke-Checked {
-    param([string]$Executable, [string[]]$Arguments)
-    & $Executable @Arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Executable exited with code $LASTEXITCODE."
-    }
-}
-
-$ports = @(
-    [int](Get-EnvValue -Name 'BACKEND_PORT' -Default '3001'),
-    [int](Get-EnvValue -Name 'FRONTEND_PORT' -Default '3000')
-) | Select-Object -Unique
-
+$config = Get-SignatureeRunnerConfig -RepoRoot $RepoRoot -EnvFile $EnvFile -BackendTaskName $BackendTaskName -FrontendTaskName $FrontendTaskName
 $git = (Get-Command git.exe -ErrorAction Stop).Source
 $npm = (Get-Command npm.cmd -ErrorAction Stop).Source
-$branch = (& $git -C $RepoRoot symbolic-ref --quiet --short HEAD)
-if ($LASTEXITCODE -ne 0 -or -not $branch) { throw 'A named Git branch must be checked out.' }
+$branch = & $git -C $config.RepoRoot symbolic-ref --quiet --short HEAD
+if ($LASTEXITCODE -ne 0 -or -not $branch) { throw 'Detached HEAD; checkout a branch first.' }
 
-$dirty = @(& $git -C $RepoRoot status --porcelain --untracked-files=no)
-if ($LASTEXITCODE -ne 0) { throw 'Cannot read Git status.' }
+$dirty = @(& $git -C $config.RepoRoot status --porcelain --untracked-files=no)
+if ($LASTEXITCODE -ne 0) { throw 'Cannot determine Git working-tree status.' }
 if (($dirty -join '').Trim()) {
-    throw "Tracked files have local changes. Preserve them before updating: $($dirty -join '; ')"
+    throw "Tracked Git changes must be preserved before updating: $($dirty -join '; ')"
 }
+Test-SignatureeConfiguration -Config $config
 
-$tasks = @($FrontendTaskName, $BackendTaskName)
-$wasRunning = @()
-foreach ($name in $tasks) {
-    $task = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
-    if (-not $task) { throw "Missing Scheduled Task: $name. Install both tasks before using this updater." }
-    if ([string]$task.State -eq 'Running') { $wasRunning += $name }
-}
-if ($wasRunning.Count -ne 2) {
-    throw 'Both Signaturee tasks must be running before an update. Check their state first.'
-}
-
-Write-Host "Updating $RepoRoot (branch: $branch)" -ForegroundColor Cyan
-$completed = $false
+Write-Host "Updating Signaturee from branch $branch; local .env will remain untouched." -ForegroundColor Cyan
+$complete = $false
 try {
-    foreach ($name in $wasRunning) {
-        Write-Host "Stopping $name..."
-        Stop-ScheduledTask -TaskName $name -ErrorAction Stop
-    }
-
-    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-    do {
-        $running = @($wasRunning | Where-Object {
-            [string](Get-ScheduledTask -TaskName $_ -ErrorAction Stop).State -eq 'Running'
-        })
-        if ($running.Count -eq 0) { break }
-        Start-Sleep -Milliseconds 500
-    } while ((Get-Date) -lt $deadline)
-    if ($running.Count -gt 0) { throw "Scheduled Tasks did not stop: $($running -join ', ')" }
-
-    # Task state alone cannot detect orphaned Node child processes.
-    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-    do {
-        $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction Stop |
-            Where-Object { $ports -contains [int]$_.LocalPort })
-        if ($listeners.Count -eq 0) { break }
-        Start-Sleep -Milliseconds 500
-    } while ((Get-Date) -lt $deadline)
-    if ($listeners.Count -gt 0) {
-        $details = ($listeners | ForEach-Object { "$($_.LocalPort) (PID $($_.OwningProcess))" }) -join ', '
-        throw "Old TCP listeners still present: $details. Investigate them manually before pulling."
-    }
+    Stop-SignatureeRunner -Config $config -TimeoutSeconds $TimeoutSeconds
 
     if (-not $SkipPull) {
         Write-Host 'Pulling current branch (fast-forward only)...' -ForegroundColor Cyan
-        Invoke-Checked -Executable $git -Arguments @('-C', $RepoRoot, 'pull', '--ff-only')
+        & $git -C $config.RepoRoot pull --ff-only
+        if ($LASTEXITCODE -ne 0) { throw "git pull failed ($LASTEXITCODE)." }
     }
-    Push-Location $RepoRoot
+
+    Push-Location $config.RepoRoot
     try {
-        Write-Host 'Installing npm dependencies...' -ForegroundColor Cyan
-        Invoke-Checked -Executable $npm -Arguments @('ci', '--omit=dev')
-    } finally { Pop-Location }
-
-    foreach ($name in $wasRunning) {
-        Write-Host "Starting $name..."
-        Start-ScheduledTask -TaskName $name -ErrorAction Stop
+        Write-Host 'Installing locked npm runtime dependencies...' -ForegroundColor Cyan
+        & $npm ci --omit=dev
+        if ($LASTEXITCODE -ne 0) { throw "npm ci failed ($LASTEXITCODE)." }
+    } finally {
+        Pop-Location
     }
-    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-    do {
-        $notRunning = @($wasRunning | Where-Object {
-            [string](Get-ScheduledTask -TaskName $_ -ErrorAction Stop).State -ne 'Running'
-        })
-        $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction Stop |
-            Where-Object { $ports -contains [int]$_.LocalPort })
-        $listeningPorts = @($listeners | ForEach-Object { [int]$_.LocalPort } | Select-Object -Unique)
-        $missingPorts = @($ports | Where-Object { $listeningPorts -notcontains $_ })
-        if ($notRunning.Count -eq 0 -and $missingPorts.Count -eq 0) { break }
-        Start-Sleep -Seconds 1
-    } while ((Get-Date) -lt $deadline)
 
-    if ($notRunning.Count -gt 0 -or $missingPorts.Count -gt 0) {
-        throw "Startup incomplete. Stopped tasks: $($notRunning -join ', '); missing listeners: $($missingPorts -join ', ')"
-    }
-    $completed = $true
+    # Re-read .env; editing ports during migration is supported.
+    $config = Get-SignatureeRunnerConfig -RepoRoot $config.RepoRoot -EnvFile $config.EnvFile -BackendTaskName $BackendTaskName -FrontendTaskName $FrontendTaskName
+    Test-SignatureeConfiguration -Config $config
+    Start-SignatureeRunner -Config $config -TimeoutSeconds $TimeoutSeconds
+    $complete = $true
 } finally {
-    if (-not $completed) {
-        Write-Warning 'Update was NOT completed. No automatic rollback or restart is attempted after an error.'
-        Write-Warning 'Inspect Git status, process listeners and task state before retrying.'
+    if (-not $complete) {
+        Write-Warning 'Update incomplete. No automatic rollback; tasks may be stopped or partially started.'
+        Write-Warning 'Inspect the specific failure, update your .env, then run scripts/reload-config.ps1.'
     }
 }
-Write-Host "Signaturee update complete ($branch). Both tasks are running." -ForegroundColor Green
-Write-Host 'Next: test local login, AD login, and the production SMB target from the Admin UI.'
+Write-Host "Signaturee update complete on $branch, .env reloaded." -ForegroundColor Green
