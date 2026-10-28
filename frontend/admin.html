@@ -177,12 +177,57 @@
             </div>
             <button id="addSignatureBtn" type="button" class="secondary">+ Signatur</button>
           </div>
-          <div id="signatureConventionSettings" class="signature-convention" hidden>
-            <label>AD-Gruppenpräfix <span class="field-hint" tabindex="0" role="note" title="AD_Template → Signature-AD" aria-label="AD_Template wird automatisch der bestehenden Gruppe Signature-AD zugeordnet.">?</span>
-              <input id="signatureGroupPrefixConfig" type="text" placeholder="Signature-">
-            </label>
-          </div>
+          <section id="newSignatureWizard" class="signature-create-panel" hidden aria-label="Signatur anlegen">
+            <form id="newSignatureForm">
+              <div class="admin-section-head split">
+                <h3>Neue Signatur</h3>
+                <button id="cancelSignatureCreateBtn" type="button" class="secondary">Abbrechen</button>
+              </div>
+              <p class="signature-create-note">Vorlagen hochladen und eine bestehende AD-Sicherheitsgruppe zuordnen. Die .env bleibt unverändert.</p>
+              <div class="signature-create-fields">
+                <label>Signatur-Kürzel
+                  <input id="newSignatureKey" name="key" type="text" maxlength="40" required pattern="[A-Za-z0-9][A-Za-z0-9_-]*" placeholder="HR" autocomplete="off">
+                </label>
+                <div class="signature-create-group"><small>Automatische AD-Gruppe</small><strong id="newSignatureGroupPreview">Signature-HR</strong></div>
+                <label>HTML-Vorlage (.htm/.html)
+                  <input id="newSignatureHtml" type="file" required accept=".htm,.html,text/html">
+                </label>
+                <label>Text-Vorlage (.txt)
+                  <input id="newSignatureTxt" type="file" required accept=".txt,text/plain">
+                </label>
+              </div>
+              <details class="compact-disclosure signature-howto">
+                <summary>Was müssen meine Vorlagen enthalten?</summary>
+                <p>Nutze die vorhandenen Variablen als Platzhalter, zum Beispiel <code>$givenname</code>, <code>$sn</code>, <code>$department</code> und <code>$mail</code>. Die HTML-Datei enthält das Layout; die TXT-Datei den unformatierten Text derselben Signatur.</p>
+                <div class="signature-example-grid">
+                  <div><strong>HTML-Beispiel</strong><pre>&lt;p&gt;Viele Grüße&lt;br&gt;$givenname $sn&lt;br&gt;$department&lt;br&gt;$mail&lt;/p&gt;</pre></div>
+                  <div><strong>TXT-Beispiel</strong><pre>Viele Grüße
+$givenname $sn
+$department
+$mail</pre></div>
+                </div>
+                <p>Für die aktuelle klassische Outlook-Ausgabe sind beide Vorlagen erforderlich; eine RTF-Datei wird bei produktiver Generierung erzeugt. Die Signatur wird erst Benutzern zugeteilt, wenn sie Mitglied der passenden AD-Gruppe sind.</p>
+              </details>
+              <div class="signature-create-actions">
+                <button id="submitSignatureCreateBtn" type="submit">Signatur anlegen</button>
+                <span id="newSignatureStatus" role="status" aria-live="polite"></span>
+              </div>
+            </form>
+          </section>
           <div id="signatureCards" class="signature-cards"></div>
+          <details id="signatureConventionSettings" class="compact-disclosure signature-convention-advanced" hidden>
+            <summary>Erweiterte Gruppenzuordnung</summary>
+            <div class="signature-prefix-summary">
+              <span>Gruppenpräfix: <code id="signaturePrefixPreview">Signature-</code></span>
+              <button id="editSignaturePrefixBtn" type="button" class="secondary">Bearbeiten</button>
+            </div>
+            <div id="signaturePrefixEditor" hidden>
+              <label>AD-Gruppenpräfix
+                <input id="signatureGroupPrefixConfig" type="text" placeholder="Signature-">
+              </label>
+              <small>Beispiel: HR_Template.htm → Signature-HR. Nur ändern, wenn deine AD-Gruppen anders benannt sind.</small>
+            </div>
+          </details>
         </section>
 
 
