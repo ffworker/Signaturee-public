@@ -1,6 +1,6 @@
 # Configuration reference — Signaturee v2
 
-The project-root `.env` is the **only source for v2 runtime and business settings** (`SIGNATUREE_CONFIG_MODE=env`). Copy [`.env.example`](../.env.example) to `.env` once, then edit the ignored local file. The Admin UI reads and can safely edit selected settings in the same `.env`; no second business profile is stored.
+For the **recommended deployment** (`SIGNATUREE_CONFIG_MODE=env`), the project-root `.env` is the source of business settings. Copy [`.env.example`](../.env.example) to `.env` once, then edit the ignored local file. The Admin UI reads and can safely edit selected allowlisted settings in that file. An older database/file configuration mode remains in the code for compatibility; it is **not the default onboarding path**.
 
 Apply changes with `.\scripts\reload-config.ps1` from elevated PowerShell. During initial setup, `.\scripts\reload-config.ps1 -Watch` can monitor and reload valid saves.
 
@@ -26,17 +26,18 @@ Apply changes with `.\scripts\reload-config.ps1` from elevated PowerShell. Durin
 | `SIGNATUREE_SIGNATURES_AUTO_DISCOVER` | Auto-recognize complete template pairs |
 | `SIGNATUREE_AUTO_GROUP_PREFIX` | AD group prefix, default `Signature-` |
 | `SIGNATUREE_SIGNATURES_JSON` | Optional manual mapping when auto-discovery is false |
-| `SIGNATUREE_VARIABLES_JSON` | Advanced variable schema override; normally unnecessary |
+| `SIGNATUREE_VARIABLES_EXTRA_JSON` | Additive variables and overrides saved by Admin, preserving the built-in schema |
+| `SIGNATUREE_VARIABLES_JSON` | Advanced full variable schema replacement; not the ordinary Admin editor |
 
 ## Templates and signature group membership
 
-With `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`, the backend scans `config/templates/` on startup:
+With `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`, the effective profile scans the configured `TEMPLATE_DIR` when it is read:
 
 - `AD_Template.htm` + `AD_Template.txt` → signatur `AD` → existing AD group `Signature-AD`
 - `FF_Template.htm` + `FF_Template.txt` → signature `FF` → `Signature-FF`
 - An optional `AD-Dateien/` folder supplies matching resources.
 
-`.html` is also accepted, and extensions are matched case-insensitively. The shipped `example_template.*` pair is skipped. Both HTML and TXT must be present; incomplete pairs fail configuration validation. Restart after adding/renaming templates.
+`.html` is also accepted, and extensions are matched case-insensitively. The shipped `example_template.*` pair is skipped. Both HTML and TXT must be present; incomplete pairs fail configuration validation. After manually adding/renaming templates, refresh the relevant Admin profile/catalog view; the `+ Signatur` wizard also refreshes the catalog. A **backend reload is needed for changes to `.env`**, not simply for discovery of a new complete on-disk pair.
 
 **The group must already exist in AD and the user must belong to it.** The default mapping compares the AD group **CN**, while a manual full-DN mapping compares the **complete DN**. Direct membership is the reliable baseline; nested membership is not automatically expanded in every workflow.
 
@@ -69,9 +70,9 @@ The save action writes the file, while **Gespeicherte .env aktivieren** initiate
 | `generatedsignatures/` | Local output (unless overridden) |
 | `Logs/` | Generator logs |
 
-A newly uploaded template is stored as a file; it does not add a second configuration entry. In the Admin deployment view you may draft path values and copy the corresponding `.env` lines. Applying the new values requires editing `.env` and restarting.
+A newly uploaded template is stored as a file; it does not add a second configuration entry. In the Admin deployment view, approved business path fields can be saved back to the existing `.env` with validation and backup. The saved values become active after backend activation/reload; an ad hoc **Pfad testen** check does not save them.
 
-The Node process reads `.env` at startup. An explicitly inherited parent-process environment value can override the file for direct Node runs. Use one-line JSON values, without inline comments.
+The Node process loads `.env` at startup. Automatic template discovery separately reads the template directory for the effective profile; these are not the same lifecycle. An explicitly inherited parent-process environment value can override the file for direct Node runs. Use one-line JSON values, without inline comments.
 
 ~~~powershell
 cd C:\Signaturee
@@ -79,6 +80,8 @@ node .\backend\server.js --check
 .\scripts\reload-config.ps1
 ~~~
 
-`--check` verifies configuration, **not** live AD login, AD searches or SMB access. Use the three separate in-app tests.
+`--check` verifies configuration, **not** live AD login, AD searches, Word/RTF output or SMB access. Use the independent in-app diagnostics and an isolated sample generation.
+
+[Data sources and workflow limits](data-sources.md) explains why a CSV worklist in **Generieren** still requires live AD; the older full-file generation mode is a separate compatibility path.
 
 [Quickstart](../README.md#quickstart) · [Templates](templates.md) · [AD onboarding](ad-onboarding.md) · [SMB permissions](network-share-permissions.md)
