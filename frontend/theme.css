@@ -234,3 +234,24 @@ html[data-theme="dark"] .onboarding-group h3{
 html[data-theme="dark"] .variable-explainer>span{color:#a9c5af!important}
 html[data-theme="dark"] .source-pill,
 html[data-theme="dark"] .signature-badge{color:#ccebd6!important}
+
+/* Employee Self-Service */
+html[data-theme="dark"] .identity-field,
+html[data-theme="dark"] .self-signature-option,
+html[data-theme="dark"] .self-action-card,
+html[data-theme="dark"] .outlook-guide {
+  background:var(--sig-panel)!important;color:var(--sig-text)!important;
+  border:1px solid var(--sig-border)!important;
+}
+html[data-theme="dark"] .self-signature-option:has(input:checked) {
+  background:#294a36!important;border-color:#70b289!important;
+}
+html[data-theme="dark"] .identity-main p,
+html[data-theme="dark"] .identity-field small,
+html[data-theme="dark"] .self-action-card span {
+  color:var(--sig-muted)!important;
+}
+html[data-theme="dark"] .self-signature-status.ready{color:#8ce5ad!important}
+html[data-theme="dark"] .self-signature-status.not-ready{color:#ffb1a7!important}
+html[data-theme="dark"] .outlook-guide code{background:#33483a!important;color:#d5f2dd!important}
+html[data-theme="dark"] .outlook-guide kbd{background:#111d15!important;color:#fff!important}
