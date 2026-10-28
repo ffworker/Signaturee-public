@@ -4197,8 +4197,14 @@ async function handleV2AdminEnvPut(req, res) {
   // A cross-origin request must never write a server-side .env even if an
   // administrator's bearer token is available to unrelated JS.
   const origin=req.headers.origin;
-  if (origin && !isSameHostOrigin(origin, req)) {
-    return sendJson(res, 403, { error:'Admin file edits require a same-host origin.' });
+  if (origin) {
+    let sameHost=false;
+    try {
+      const source=new URL(origin);
+      const backend=new URL('http://'+String(req.headers.host||''));
+      sameHost=source.hostname.toLowerCase()===backend.hostname.toLowerCase();
+    } catch {}
+    if (!sameHost) return sendJson(res,403,{ error:'Admin file edits require a same-host origin.' });
   }
   adminEnvSaveBusy = true;
   try {
