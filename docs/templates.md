@@ -1,93 +1,102 @@
-# Templates — Signaturee v2
+# Templates and variables
 
-The active source directory is **`config/templates/`**, configured by `TEMPLATE_DIR=config/templates` in the project-root `.env`. It contains the HTML/TXT source files and their image/resource folders.
+**Signaturee uses templates that you supply.** It does not contain a visual drag-and-drop editor and does not require one for generation. Bring working HTML/TXT source files from your design/marketing workflow and configure how employee fields replace their placeholders.
 
-## Automatic discovery (recommended)
+The active source directory is defined by `TEMPLATE_DIR` in the local `.env` (default `config/templates/`).
 
-~~~dotenv
+## Automatic discovery (standard configuration)
+
+```dotenv
 TEMPLATE_DIR=config/templates
 SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true
-~~~
+```
 
-Example layout:
+Example:
 
-~~~text
+```text
 config/templates/
-├── AD_Template.htm
-├── AD_Template.txt
-├── AD-Dateien/
-│   └── logo.png
-├── FF_Template.htm
-├── FF_Template.txt
-├── FF-Dateien/
-│   └── logo.png
-├── LS_Template.htm
-└── LS_Template.txt
-~~~
+  HR_Template.htm
+  HR_Template.txt
+  HR-Dateien/
+    logo.png
+  Sales_Template.html
+  Sales_Template.txt
+```
 
-Each **complete pair** is shown as an available signature in Administration → **Signaturen**. `.html` is also accepted, and extensions are case-insensitive. Optional matching `XY-Dateien/` folders become resource directories. The bundled `example_template.*` pair is deliberately ignored.
+Each **complete pair** appears as a signature in **Administration → Signaturen**. Template extensions are case-insensitive; `.html` is accepted as well as `.htm`. The optional matching `XY-Dateien/` directory is used for linked resources. The bundled example templates are **not** auto-discovered as production signatures.
 
-| Templates | Signature | AD security group |
+| Source files | Signature key | Existing AD group CN |
 | --- | --- | --- |
-| `AD_Template.htm` + `AD_Template.txt` | AD | `Signature-AD` |
-| `FF_Template.htm` + `FF_Template.txt` | FF | `Signature-FF` |
-| `LS_Template.htm` + `LS_Template.txt` | LS | `Signature-LS` |
+| `HR_Template.htm` + `HR_Template.txt` | `HR` | `Signature-HR` |
+| `Sales_Template.html` + `Sales_Template.txt` | `Sales` | `Signature-Sales` |
 
-A corresponding **existing** AD security group grants an employee access to the associated signature. Signaturee **does not create or edit AD groups**. The default automatic rule matches the group's CN. Direct group membership is the supported baseline; do not assume nested membership is expanded.
+Both HTML and TXT files **must** be present. An incomplete pair causes configuration validation to fail; it does not silently produce an HTML-only signature.
 
-To use `Signatur-XY` groups instead, set `SIGNATUREE_AUTO_GROUP_PREFIX=Signatur-`.
+The catalog is derived from disk whenever the effective profile is requested. **An Admin-created signature becomes visible without restarting the backend.** After a manual file change, refresh the catalog/profile view. **Changes to `.env`**—including the group prefix—still require configuration activation/reload.
 
-**Both HTML and TXT are required.** An incomplete pair causes configuration validation to fail rather than silently hiding it. After adding or renaming a template, run `.\scripts\reload-config.ps1` and refresh Admin.
+Signaturee does **not** create AD groups or edit user memberships. The default automatic mapping compares the group's **CN**; direct group membership is the reliable baseline.
 
-## Neue Signatur im Admin anlegen
+## Add a signature through Admin
 
-Unter **Administration → Signaturen → + Signatur** kannst du bei aktivierter automatischer Erkennung eine Signatur erstellen, ohne `.env` oder die Signatur-Zuordnung manuell zu bearbeiten:
+Under **Administration → Signaturen → + Signatur** (with automatic discovery enabled):
 
-1. **Kürzel** eingeben, z. B. `HR`. Das Kürzel ist der stabile technische Schlüssel.
-2. **HTML-Datei** mit Layout und AD-Platzhaltern hochladen. Beispiel: `<p>$givenname $sn<br>$mail</p>`.
-3. **TXT-Datei** mit der unformatierten Variante hochladen, z. B. `$givenname $sn` und `$mail` auf getrennten Zeilen.
-4. **Signatur anlegen**. Signaturee speichert atomar und ohne Überschreiben `HR_Template.htm` und `HR_Template.txt`, nimmt `HR` direkt in den Katalog auf und erwartet die bestehende AD-Gruppe `Signature-HR` (oder das konfigurierte Gruppenpräfix).
+1. Enter a key (for example `HR`).
+2. Upload one HTML file (`.htm`/`.html`), containing your layout and placeholders.
+3. Upload one plain-text file (`.txt`), containing the equivalent unformatted content.
+4. Select **Signatur anlegen**.
 
-Das Anlegen verändert **keine** `.env`, legt **keine** AD-Gruppen an und ersetzt keine vorhandenen Templates. Ein System-Neustart ist für die neue Anzeige in diesem Workflow nicht erforderlich. Für Bilder/Logos müssen zugehörige Ressourcen derzeit separat in das passende `HR-Dateien/`-Verzeichnis übertragen werden.
+The API creates `HR_Template.htm` and `HR_Template.txt` without overwriting existing files or touching `.env`. A new pair appears in the catalog automatically, but assigning it to an employee requires the **existing** `Signature-HR` group (or your configured prefix). Uploading the pair alone does not prove that group exists.
 
-Die Präfixkonfiguration ist unter **Erweiterte Gruppenzuordnung → Bearbeiten** erreichbar. Eine Änderung betrifft die automatische Zuordnung **aller** Signaturen; erst nach bewusstem Speichern und Backend-Aktivieren wird sie wirksam.
+Logo/image folders are not uploaded by this specific wizard. Preserve/add any matching `HR-Dateien/` folder separately in the template directory.
 
-**Aktuelle Formatgrenze:** Für den bestehenden Classic-Outlook-Generator sind HTML und TXT als Quellen erforderlich. Bei produktiven Läufen wird eine passende RTF-Ausgabe aus dem fertig generierten HTML erzeugt. Ein einfaches HTML-only-Template ist als zukünftiger, separat getesteter Workflow geplant; es darf nicht stillschweigend TXT/RTF mit ungeprüfter Qualität ersetzen.
+The group-prefix setting is intentionally placed behind **Erweiterte Gruppenzuordnung → Bearbeiten**, as changing it affects every convention-based signature.
 
-## Manual mapping (optional)
+## Explicit mapping for nonstandard groups/files
 
-If your template filenames/groups do not follow the convention, disable discovery and define an explicit one-line JSON mapping in `.env`:
+If the convention is unsuitable, set a manual mapping instead:
 
-~~~dotenv
+```dotenv
 SIGNATUREE_SIGNATURES_AUTO_DISCOVER=false
-SIGNATUREE_SIGNATURES_JSON={"AD":{"label":"AD","adGroups":["CN=Signature-AD,OU=Groups,DC=example,DC=local"],"templateHtml":"AD_Template.htm","templateTxt":"AD_Template.txt","resourceFolder":"AD-Dateien"}}
-~~~
+SIGNATUREE_SIGNATURES_JSON={"HR":{"label":"HR","adGroups":["CN=Mail-HR,OU=Groups,DC=example,DC=local"],"templateHtml":"HR_Template.htm","templateTxt":"HR_Template.txt","resourceFolder":"HR-Dateien"}}
+```
 
-In manual mode, full group DNs match exactly and short group names match the CN. With discovery enabled, `SIGNATUREE_SIGNATURES_JSON` is ignored.
+Manual full group DNs match the **complete DN**; short names match the CN. When automatic discovery is enabled, `SIGNATUREE_SIGNATURES_JSON` is ignored.
 
-## Variables, image assets and encoding
+The Admin `+ Signatur` upload wizard is for **automatic-discovery mode**. Manual mappings are maintained in configuration; do not assume the upload wizard edits those mappings.
 
-Common built-in placeholders include:
+## Common placeholders
 
-~~~text
+```text
 $givenname
 $sn
 $mail
-$domain
 $department
 $description
 $telephonenumber
 $mobile
 $fax
 $sAMAccountName
-~~~
+```
 
-The effective variable catalog is shown under **Administration → Variablen**. The advanced `SIGNATUREE_VARIABLES_JSON` override is generally unnecessary.
+The effective mapping is configurable under **Administration → Variablen**. For example, a custom placeholder `$standort` can read AD `extensionAttribute10` without deleting built-in variables. `SIGNATUREE_VARIABLES_EXTRA_JSON` stores additive/overridden variable definitions in `.env`; the optional full `SIGNATUREE_VARIABLES_JSON` replaces the complete schema and is not part of normal Admin editing.
 
-Keep relative resource/image links aligned with the matching `XY-Dateien/` folder. Preserve the entire folder when copying templates. If special characters render incorrectly in Outlook, verify the HTML charset and template file encoding on a copy, then test using server preview before production.
+The generator uses the configured variables for substitution. It also contains historical fax/mobile table-row handling tailored to certain HTML structures: **test any new template in Preview before production**, particularly if it contains `Fax:` or mobile-number rows.
 
-## Test sequence
+## Output formats and encoding
 
-Confirm all types in **Administration → Signaturen**, test AD search, select a test employee with a direct `Signature-XY` membership, run Preflight and Server-Vorschau, then perform a controlled production generation once SMB permissions have been verified.
+- **Source files:** HTML + TXT are required for the current generator. There is no automatic HTML-only-to-TXT authoring workflow.
+- **Generated files:** HTM and TXT, with an attempted RTF conversion during non-preview output. RTF conversion uses Microsoft Word; without Word or after a conversion error the current generator writes an **empty RTF placeholder**.
+- **Images:** Preserve relative resource paths and any associated `XY-Dateien/` directory.
+- **Encoding:** The current PowerShell rendering path reads/writes templates using **Windows-1252**. Test the original file encoding, HTML charset, German umlauts and any non-Western characters with representative users.
+- **Client scope:** This is a Classic-Outlook-compatible file workflow. A local HTM/TXT/RTF set is not a supported installation mechanism for new Outlook or Outlook on the web.
 
-[README](../README.md) · [Environment](environment.md)
+## Safe rollout checklist
+
+1. Confirm the complete pair and resources appear under **Signaturen**.
+2. Check an employee's **direct** signature-group membership.
+3. Run **AD-Suche testen**, then **Generieren → Preflight → Vorschau** for a representative employee.
+4. Check substituted variables, line breaks, links, image rendering, umlauts and the generated TXT.
+5. Verify the local output and Word/RTF behavior.
+6. Only then test the production UNC destination with the correct backend task/ACL identity.
+
+[README](../README.md) · [Environment](environment.md) · [AD onboarding](ad-onboarding.md) · [Data sources](data-sources.md)
