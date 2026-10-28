@@ -1,6 +1,6 @@
 # Active Directory onboarding — Signaturee v2
 
-Signaturee uses AD for employee data and signature-group membership. A local **Admin** account configures the application; employees use their own AD credentials for Self-Service. The in-app **Administration → Onboarding** page shows the effective profile's requirements.
+Signaturee uses AD for employee data and signature-group membership. A local **Admin** account configures the application; employees use their own AD credentials for Self-Service. The in-app **Administration → Onboarding / Check-Liste** page shows the effective profile's requirements.
 
 ## Ready-to-generate checklist
 
@@ -9,7 +9,7 @@ Signaturee uses AD for employee data and signature-group membership. A local **A
 3. A complete `XY_Template.htm` / `XY_Template.txt` pair exists in `config/templates/`.
 4. The matching **AD security group** `Signature-XY` exists and the employee is a member.
 5. **AD-Suche testen** succeeds under the backend service identity or configured read account.
-6. Preflight shows no blocking issues; preview looks correct before productive SMB output.
+6. **Generieren → Preflight → Vorschau** shows no blocking issues and renders the right values before productive SMB output.
 
 For standard files, `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true` supplies the mapping. For example, `HG_Template.htm` and `HG_Template.txt` map to group `Signature-HG`. The application does not add users to groups or create groups. Direct membership should be tested first; nested membership is not automatically expanded in every workflow.
 
@@ -29,6 +29,6 @@ The domain controller and OU used for `Get-ADUser` are set by `AD_SERVER` and `O
 
 Under **Benutzer & Zugriff**, use **AD-Suche testen** to check the actual server/search base and the Windows task's directory permissions. Use **LDAP-Login testen** separately with a normal AD account; only enter a password over localhost or HTTPS.
 
-After verifying direct group membership, use the generate screen's Preflight to see which signatures are available to that user. Network generation additionally requires the backend task's SMB/NTFS/ACL rights.
+After verifying direct group membership, use the generate screen's Preflight to see which signatures are available to that user. The current web UI resolves users **through AD**, even when their identifiers were pasted or loaded from CSV/TXT; it processes no more than 50 selected users per targeted run. A full offline-CSV source is currently a separate legacy generator path. Network generation additionally requires the backend task's SMB/NTFS/ACL rights.
 
-[Environment](environment.md) · [Templates](templates.md) · [README](../README.md)
+[Environment](environment.md) · [Templates](templates.md) · [Data sources](data-sources.md) · [README](../README.md)

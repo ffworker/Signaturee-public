@@ -122,7 +122,7 @@ Name-based SMB access works better with normal domain authentication/Kerberos an
 
 Set `NETWORK_DEPLOYMENT_PATH` in the **project-root `.env`**, run `.\scripts\reload-config.ps1`, and then open:
 
-**Administration → Ausgabe & Deployment → Netzwerkpfad testen**
+**Administration → Ausgabe → Netzwerkpfad testen**
 
 The check runs as the **actual backend execution identity** and verifies access, temporary directory/file creation, and Windows ACL modification on that temporary directory. The probe removes the temporary directory afterward. Production generation still needs correct permissions for every target user directory.
 
