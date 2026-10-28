@@ -102,7 +102,8 @@ function addVariableCard(value={}){
   const csvHeader=String(value.csvHeader||'').trim();
 
   card.innerHTML=`
-    <div class="variable-card-head">
+    <details class="variable-editor">
+    <summary class="variable-card-head">
       <div class="variable-card-title">
         <div class="variable-card-title-line">
           <h3 class="variable-card-name">${escapeHtml(displayName||'Neue Variable')}</h3>
@@ -111,7 +112,7 @@ function addVariableCard(value={}){
         </div>
         <span class="variable-card-summary">${escapeHtml(adProperties[0]||id||'AD-Feld')} → ${escapeHtml(placeholders[0]||'$variable')}</span>
       </div>
-    </div>
+    </summary>
 
     <div class="variable-primary-settings">
       <label>Anzeigename
@@ -154,7 +155,8 @@ function addVariableCard(value={}){
 
     <div class="variable-remove-row">
       <button type="button" class="danger remove-variable">Variable entfernen</button>
-    </div>`;
+    </div>
+    </details>`;
 
   card.querySelectorAll('input').forEach(input=>{
     input.addEventListener('input',()=>{refreshVariableCard(card);markDirty();renderOnboarding()});
@@ -227,7 +229,7 @@ templateStripChips?.addEventListener('click',event=>{
   row?.scrollIntoView({block:'nearest',behavior:'smooth'});
 });
 
-function renderProfile(profile,status={}){currentProfile=profile;organizationName.value=profile.organization?.name||'';directoryServer.value=profile.directory?.server||'';directorySearchBase.value=profile.directory?.searchBase||'';previewPath.value=profile.targets?.preview?.path||'';productionPath.value=profile.targets?.production?.path||'';secondaryTitleAttributes.value=(profile.secondaryTitleAttributes||[]).join(', ');signatureCards.innerHTML='';Object.entries(profile.signatures||{}).forEach(([key,value])=>addSignatureCard(key,value));variableCards.innerHTML='';const variables=profile.variables?.variables||[];variables.forEach(addVariableCard);applyVariableFilters();renderStatus(status);summarySignatureCount.textContent=Object.keys(profile.signatures||{}).length;summaryVariableCount.textContent=variables.length;summaryGroupCount.textContent=Object.values(profile.signatures||{}).reduce((n,s)=>n+(s.adGroups||[]).length,0);saveSummary.textContent=`${Object.keys(profile.signatures||{}).length} Signaturen · ${variables.length} Variablen`;markClean(envManaged?'Konfiguration aus .env (nur lesbar). Änderungen an .env erfordern einen Backend-Neustart.':'Profil geladen.');
+function renderProfile(profile,status={}){currentProfile=profile;organizationName.value=profile.organization?.name||'';directoryServer.value=profile.directory?.server||'';directorySearchBase.value=profile.directory?.searchBase||'';previewPath.value=profile.targets?.preview?.path||'';productionPath.value=profile.targets?.production?.path||'';secondaryTitleAttributes.value=(profile.secondaryTitleAttributes||[]).join(', ');signatureCards.innerHTML='';Object.entries(profile.signatures||{}).forEach(([key,value])=>addSignatureCard(key,value));variableCards.innerHTML='';const variables=profile.variables?.variables||[];variables.forEach(addVariableCard);applyVariableFilters();renderStatus(status);summarySignatureCount.textContent=Object.keys(profile.signatures||{}).length;summaryVariableCount.textContent=variables.length;summaryGroupCount.textContent=Object.values(profile.signatures||{}).reduce((n,s)=>n+(s.adGroups||[]).length,0);saveSummary.textContent='Ungespeicherte Änderungen';markClean(envManaged?'Konfiguration geladen.':'Profil geladen.');
   // Local accounts and template uploads remain operational; all v2 profile
   // settings are read-only so the UI cannot diverge from the .env source.
   const readonlyInputs=[organizationName,directoryServer,directorySearchBase,secondaryTitleAttributes];
@@ -384,7 +386,7 @@ async function applySavedEnv(){
   }
 }
 async function loadProfile(){if(!(await ensureAdminSession()))return;saveSummary.textContent='Profil wird geladen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{},10000));if(!ok){saveSummary.textContent='Profil konnte nicht geladen werden';saveStatus.textContent=body.error||`HTTP ${status}`;return}envManaged=String(body.source||'').startsWith('environment');profileSourceBadge.textContent=body.source||'Konfiguration';profileSourceText.textContent=envManaged?'Konfigurationsquelle: .env. Freigegebene Einstellungen kannst du hier mit Backup und Validierung bearbeiten. Änderungen werden nach Backend-Neustart aktiv.':'Konfigurationsquelle: profile_v2 in SQLite. Änderungen werden in der Datenbank gespeichert.';renderProfile(body.profile,body.status)}
-async function saveProfile(){if(envManaged){return saveEnvSettings()}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert. V2 verwendet ab jetzt genau diesen Stand.'}
+async function saveProfile(){if(envManaged){return saveEnvSettings()}if(!(await ensureAdminSession()))return;let profile;try{profile=collectProfile()}catch(error){saveStatus.textContent=error.message;return}saveProfileBtn.disabled=true;saveStatus.textContent='Speichern und prüfen ...';const{ok,status,body}=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})},15000));if(!ok){saveProfileBtn.disabled=false;const details=Array.isArray(body.errors)?body.errors.join(' · '):'';saveStatus.textContent=`${body.error||`HTTP ${status}`}${details?` — ${details}`:''}`;return}renderProfile(body.profile,body.status);saveStatus.textContent='Gespeichert.'}
 
 function renderService(name,service){const ok=Boolean(service?.healthy);const detail=service?.statusCode?`HTTP ${service.statusCode} · ${service.responseMs??0} ms`:(service?.error||'nicht erreichbar');return `<div class="service-card"><span class="health-dot ${ok?'ok':'bad'}"></span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div></div>`}
 function renderSystem(snapshot={}){const services=snapshot.services||{};serviceGrid.innerHTML=[renderService('Backend',services.backend),renderService('Frontend',services.frontend)].join('');const tasks=Array.isArray(snapshot?.tasks?.tasks)?snapshot.tasks.tasks:[];if(!tasks.length){taskList.className='task-list empty-state';taskList.textContent=snapshot?.tasks?.reason||'Keine Task-Daten verfügbar.'}else{taskList.className='task-list';taskList.innerHTML=tasks.map(task=>`<div class="task-row"><span><strong>${escapeHtml(task.taskName)}</strong><br><small>Last result: ${escapeHtml(task.lastTaskResult??'--')}</small></span><span>${escapeHtml(task.state||'Unknown')}</span></div>`).join('')}}
@@ -579,7 +581,7 @@ adminLogoutBtn?.addEventListener('click',logoutAdmin);
 
 [organizationName,directoryServer,directorySearchBase,previewPath,productionPath,secondaryTitleAttributes].forEach(input=>input.addEventListener('input',()=>{markDirty();renderOnboarding();if(input===previewPath){previewPathStatus.textContent='Noch nicht geprüft.';previewPathStatus.className='path-status muted'}if(input===productionPath){productionPathStatus.textContent='Noch nicht geprüft.';productionPathStatus.className='path-status muted';productionPathHelp.hidden=true;productionPathHelp.open=false}}));
 addSignatureBtn.addEventListener('click',()=>{addSignatureCard();markDirty();renderOnboarding()});
-addVariableBtn.addEventListener('click',()=>{const card=addVariableCard({required:false});markDirty();renderOnboarding();card.scrollIntoView({behavior:'smooth',block:'center'});variableField(card,'displayName').focus()});
+addVariableBtn.addEventListener('click',()=>{const card=addVariableCard({required:false});card.querySelector('.variable-editor').open=true;markDirty();renderOnboarding();card.scrollIntoView({behavior:'smooth',block:'center'});variableField(card,'displayName').focus()});
 reloadProfileBtn.addEventListener('click',async()=>{if(dirty&&!confirm('Ungespeicherte Änderungen verwerfen?'))return;await loadProfile();await loadAdminEnvSettings()});
 saveProfileBtn.addEventListener('click',saveProfile);
 applyEnvConfigBtn.addEventListener('click',applySavedEnv);
