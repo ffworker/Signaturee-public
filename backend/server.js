@@ -50,9 +50,11 @@ const AUTH_LDAP_CONTAINER = String(process.env.AUTH_LDAP_CONTAINER || '').trim()
 const AUTH_LDAP_UPN_SUFFIX = String(process.env.AUTH_LDAP_UPN_SUFFIX || '').trim();
 const AUTH_LDAP_ROLE_MAP = parseAuthRoleMap(process.env.AUTH_LDAP_ROLE_MAP || '');
 const AUTH_LDAP_ROLE_RULES_PATH = String(process.env.AUTH_LDAP_ROLE_RULES_PATH || '').trim();
-const AUTH_LDAP_ROLE_RULES = AUTH_LDAP_ROLE_RULES_PATH
-  ? parseLdapRoleRules(JSON.parse(fs.readFileSync(resolvePath(AUTH_LDAP_ROLE_RULES_PATH), 'utf8')))
-  : [];
+const AUTH_LDAP_ROLE_RULES = process.env.AUTH_LDAP_ROLE_RULES_JSON
+  ? parseLdapRoleRules(JSON.parse(process.env.AUTH_LDAP_ROLE_RULES_JSON))
+  : (AUTH_LDAP_ROLE_RULES_PATH
+    ? parseLdapRoleRules(JSON.parse(fs.readFileSync(resolvePath(AUTH_LDAP_ROLE_RULES_PATH), 'utf8')))
+    : []);
 const AUTH_LDAP_ROLE_ATTRIBUTES = [...new Set(AUTH_LDAP_ROLE_RULES.map((rule) => rule.attribute).filter(Boolean))];
 const AUTH_LDAP_FALLBACK_TO_DB = process.env.AUTH_LDAP_FALLBACK_TO_DB === undefined
   ? true
@@ -808,6 +810,7 @@ function buildUserFilePath(preferredExtension) {
 }
 
 function loadConfigJson() {
+  if (CONFIG_MODE === 'env') return profileToLegacyConfig(getV2Profile());
   try {
     const fromDb = dbGetJson(STORE_KEYS.config);
     if (fromDb && typeof fromDb === 'object') {
@@ -1798,6 +1801,7 @@ const DEFAULT_USER_FILE_CANDIDATES = [
 ];
 
 function loadVariableSchema() {
+  if (CONFIG_MODE === 'env') return getV2Profile().variables;
   try {
     const fromDb = dbGetJson(STORE_KEYS.variables);
     if (fromDb && Array.isArray(fromDb.variables)) {
@@ -2872,6 +2876,9 @@ async function handleTemplateExport(_req, res) {
 
 async function handleDomainImport(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     let data;
     if (contentType.includes('application/json')) {
@@ -2930,6 +2937,9 @@ function handleVariableCatalog(_req, res) {
 
 async function handleVariables(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     let data;
     if (contentType.includes('application/json')) {
@@ -3015,6 +3025,9 @@ async function handleVariablePresetLoad(_req, res, name) {
 
 async function handleVariablePresetSave(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
       return sendJson(res, 415, { error: 'application/json expected' });
@@ -5121,6 +5134,9 @@ async function handleDomainPresetLoad(req, res, name) {
 
 async function handleDomainPresetSave(req, res) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
       return sendJson(res, 415, { error: 'application/json erwartet' });
@@ -5161,6 +5177,9 @@ async function handleStorageBackup(_req, res) {
 
 async function handleStorageRestore(req, res, requestUrl) {
   try {
+    if (CONFIG_MODE === 'env') {
+      return sendJson(res, 409, { error: 'Business configuration is managed by .env; legacy API writes are disabled.' });
+    }
     const contentType = req.headers['content-type'] || '';
     let data;
     if (contentType.includes('application/json')) {
