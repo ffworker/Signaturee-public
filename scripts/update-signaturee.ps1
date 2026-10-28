@@ -5,7 +5,7 @@
   Stop old tasks, wait for ports to close, fast-forward pull the current branch,
   run npm ci, and restart the tasks that were running before the update.
   Never modifies ignored local config or silently overwrites tracked changes.
-  On failure, leaves tasks stopped for investigation.
+  On failure, makes no rollback attempt; tasks may remain stopped or partially running.
 #>
 [CmdletBinding()]
 param(
