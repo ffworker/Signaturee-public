@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
 const { parseLdapRoleRules, resolveLdapRuleRole } = require('./ldap-roles');
 const adminEnvEditor = require('./admin-env-editor');
+const {createSignaturePair, SignatureCreateError} = require('./signature-create');
 const { discoverSignatureProfiles } = require('./signature-discovery');
 
 const HOST = process.env.BACKEND_HOST || '0.0.0.0';
@@ -4169,6 +4170,30 @@ function buildV2ProfileStatus(profileRaw) {
   };
 }
 
+async function handleV2SignatureCreate(req,res){
+  try{
+    if(!AUTH_REQUIRED)return sendJson(res,403,{error:'Für die Signaturverwaltung muss die Anmeldung aktiviert sein.'});
+    if(CONFIG_MODE!=='env'||!parseBooleanFlag(process.env.SIGNATUREE_SIGNATURES_AUTO_DISCOVER||false))
+      return sendJson(res,409,{error:'Die automatische Template-Erkennung ist nicht aktiviert. Manuelle Signaturen werden über die bestehende Profilzuordnung eingerichtet.'});
+    if(!(req.headers['content-type']||'').includes('multipart/form-data'))
+      return sendJson(res,415,{error:'HTML und TXT als Datei-Upload senden.'});
+    const {fields,files}=await parseMultipart(req);
+    if(Array.isArray(fields.key))return sendJson(res,400,{error:'Signatur-Kürzel nur einmal angeben.'});
+    const result=await createSignaturePair(V2_TEMPLATE_DIRECTORY,fields.key,files,{
+      groupPrefix:process.env.SIGNATUREE_AUTO_GROUP_PREFIX||'Signature-'
+    });
+    // Do not change .env, generate AD groups or restart tasks. The current
+    // env-mode catalog is discovered when each profile request is handled.
+    return sendJson(res,201,{...result,profile:getV2Profile(),
+      message:'Signatur angelegt. Sie erscheint ab sofort im Template-Katalog. Die AD-Gruppe muss bereits existieren.'});
+  }catch(error){
+    return sendJson(res,error.status||getErrorStatus(error),{
+      error:error instanceof SignatureCreateError?error.message:error.message,
+      code:error.code||'SIGNATURE_CREATE_FAILED'
+    });
+  }
+}
+
 async function handleV2TemplateImport(req, res) {
   try {
     const contentType = req.headers['content-type'] || '';
@@ -4253,6 +4278,8 @@ async function handleV2ProfileGet(_req, res) {
       profile,
       status: buildV2ProfileStatus(profile),
       source: CONFIG_MODE === 'env' ? 'environment (.env)' : 'profile_v2',
+      automaticSignatures: CONFIG_MODE === 'env' &&
+        parseBooleanFlag(process.env.SIGNATUREE_SIGNATURES_AUTO_DISCOVER || false),
     });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), { error: error.message, code: error.code });
@@ -6047,6 +6074,10 @@ function routeRequest(req, res) {
   if (relativePath === '/api/logs/download' && req.method === 'GET') {
     if (!ensure('viewer')) return;
     return handleLogDownload(req, res, requestUrl);
+  }
+  if (relativePath === '/api/v2/signatures/create' && req.method === 'POST') {
+    if (!ensure('admin')) return;
+    return handleV2SignatureCreate(req,res);
   }
   if (relativePath === '/api/v2/templates/import' && req.method === 'POST') {
     if (!ensure('admin')) return;
