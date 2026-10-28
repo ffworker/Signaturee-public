@@ -130,6 +130,20 @@ The Admin interface edits approved business settings directly in the single `.en
 
 See the [Environment reference](docs/environment.md) for every setting and its scope.
 
+### Night Sky interface: modern panels and preview status
+
+The same `frontend/ui-polish.css` finishing layer applies across Admin,
+Generate, Login and Self-Service, after the shared light/dark theme. It keeps
+the Night Sky color system but reduces nested box outlines, standardizes
+interactive surfaces and shows readable, semantically colored Preflight
+(success/warning/error) and Preview loading/completion states. Status details
+remain accessible through the existing expandable panels.
+
+The rendered HTML signature **intentionally stays on a white canvas inside a
+labeled app frame**: this is separate from the UI theme and preserves its
+Outlook-style colors. Neither the preview's Shadow DOM nor the backend
+generation logic is changed by this styling update.
+
 ### Compact administration workspace
 
 The Admin interface keeps a small **Template status** strip at the top of every section, showing all discovered signatures and missing files at a glance. Hover/focus on a signature to inspect its files, or select it and open **Details** for a complete, keyboard-accessible list.
