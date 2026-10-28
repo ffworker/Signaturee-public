@@ -6,13 +6,15 @@
   <title>Signaturee Administration</title>
   <link rel="stylesheet" href="generate-v2.css">
   <link rel="stylesheet" href="admin-v2.css">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
 </head>
 <body>
   <header class="topbar admin-topbar">
     <div>
       <div class="brand-row">
         <span class="brand">Signaturee</span>
-        <span class="beta">Administration v2</span>
+        
       </div>
       <h1>Administration</h1>
       <p class="subtitle">Konfiguration, Zugriff und Onboarding an einem Ort.</p>
@@ -27,7 +29,7 @@
   <div class="admin-shell">
     <aside class="admin-nav">
       <button class="admin-nav-item active" data-admin-view="overview">Übersicht</button>
-      <button class="admin-nav-item" data-admin-view="deployment">Ausgabe & Deployment</button>
+      <button class="admin-nav-item" data-admin-view="deployment">Ausgabe</button>
       <button class="admin-nav-item" data-admin-view="signatures">Signaturen</button>
       <button class="admin-nav-item" data-admin-view="variables">Variablen</button>
       <button class="admin-nav-item" data-admin-view="access">Benutzer & Zugriff</button>
@@ -45,12 +47,12 @@
         <button id="adminRetryBtn" type="button" class="secondary">Erneut prüfen</button>
       </section>
 
-      <section id="profileSourceBanner" class="admin-banner">
+      <section id="profileSourceBanner" class="admin-banner" hidden aria-hidden="true">
         <div>
-          <strong>V2-Konfiguration</strong>
+          <strong>Konfiguration</strong>
           <p id="profileSourceText">Konfigurationsquelle wird ermittelt ...</p>
         </div>
-        <span id="profileSourceBadge" class="count-badge">profile_v2</span>
+        <span id="profileSourceBadge" class="count-badge"></span>
       </section>
 
       <section class="admin-view active" data-view="overview">
