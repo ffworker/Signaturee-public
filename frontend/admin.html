@@ -47,8 +47,8 @@
 
       <section class="admin-banner">
         <div>
-          <strong>V2-Profil</strong>
-          <p>Eine fachliche Quelle: <code>profile_v2</code>. Änderungen hier gelten direkt für den v2-Workflow.</p>
+          <strong>V2-Konfiguration</strong>
+          <p id="profileSourceText">Konfigurationsquelle wird ermittelt ...</p>
         </div>
         <span id="profileSourceBadge" class="count-badge">profile_v2</span>
       </section>
@@ -262,6 +262,24 @@
             </div>
           </div>
           <div id="ldapStatus" class="ldap-status empty-state">Status wird geladen ...</div>
+          <div class="ldap-diagnostic">
+            <h3>LDAP-Verbindung & Anmeldung testen</h3>
+            <p>Konfigurationscheck ohne Passwort oder echter AD-Anmeldetest mit Benutzername und Passwort. Der Test erstellt keine Signaturee-Sitzung und speichert keine Anmeldedaten.</p>
+            <form id="ldapTestForm" class="ldap-test-form" autocomplete="off">
+              <label>AD-Benutzer / UPN
+                <input id="ldapTestUsername" name="ldapTestUsername" type="text" autocomplete="off" placeholder="z. B. vorname.nachname oder user@firma.local">
+              </label>
+              <label>AD-Passwort
+                <input id="ldapTestPassword" name="ldapTestPassword" type="password" autocomplete="off" placeholder="Nur für diesen Test">
+              </label>
+              <div class="ldap-test-actions">
+                <button id="ldapConfigTestBtn" type="button" class="secondary">Konfiguration anzeigen</button>
+                <button id="ldapCredentialTestBtn" type="submit">LDAP-Login testen</button>
+              </div>
+            </form>
+            <p class="ldap-test-help">Passworttests nur über HTTPS oder direkt über localhost ausführen. Das Passwort wird nach dem Test aus dem Formular gelöscht.</p>
+            <div id="ldapTestResult" role="status" aria-live="polite" class="ldap-test-result" hidden></div>
+          </div>
         </section>
       </section>
 
