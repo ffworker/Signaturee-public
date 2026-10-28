@@ -298,18 +298,24 @@ async function applySavedEnv(){
   }catch{} // The restarting backend may close the active HTTP connection.
   await new Promise(resolve=>setTimeout(resolve,2500));
   apiBase='';
-  let recovered=false;
-  for(let i=0;i<12;i++){
-    if(await connect()){recovered=true;break}
+  let active=false;
+  for(let i=0;i<15;i++){
+    try{
+      if(await connect()){
+        const status=await jsonResponse(await fetchTimeout(`${apiBase}/api/v2/admin/env`,{},6500));
+        if(status.ok&&!status.body.requiresRestart){active=true;break}
+      }
+    }catch{}
     await new Promise(resolve=>setTimeout(resolve,1000));
   }
-  if(recovered){
+  if(active){
     await loadProfile();
     await loadAdminEnvSettings();
     applyEnvConfigBtn.hidden=true;
-    saveStatus.textContent='Backend wieder verbunden. Änderungen wurden zum Neustart eingelesen.';
+    envPendingRestart=false;
+    saveStatus.textContent='Backend neu gestartet. Die .env-Änderungen sind jetzt aktiv.';
   }else{
-    saveStatus.textContent='Neustart nicht bestätigt. Bitte auf dem Server scripts/reload-config.ps1 ausführen.';
+    saveStatus.textContent='Neustart nicht bestätigt oder alte .env weiterhin aktiv. Bitte auf dem Server scripts/reload-config.ps1 ausführen.';
     applyEnvConfigBtn.disabled=false;
   }
 }
@@ -329,6 +335,7 @@ async function checkDeploymentTarget(target){
   statusEl.className='path-status muted';
   button.disabled=true;
   try{
+    if(envManaged&&envPendingRestart){statusEl.textContent='Zuerst die gespeicherte .env aktivieren.';statusEl.className='path-status error';return}
     if(envManaged) {
       const actual=isProduction?currentProfile?.targets?.production?.path:currentProfile?.targets?.preview?.path;
       const drafted=(isProduction?productionPath:previewPath).value.trim();
