@@ -1,6 +1,6 @@
-# Windows host preparation — Signaturee v2
+# Windows host preparation — Signaturee
 
-Use the [Quickstart](../README.md#quickstart) for the complete installation sequence. This page covers the required Windows components and scheduled runtime.
+Use the [Quickstart](../README.md#quickstart--standard-ad-deployment) for the complete installation sequence. This page covers the required Windows components and scheduled runtime.
 
 ## Windows prerequisites
 
