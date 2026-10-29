@@ -23,7 +23,7 @@ config/templates/
   Sales_Template.txt
 ```
 
-Each **complete pair** appears as a signature in **Administration → Signaturen**. Template extensions are case-insensitive; `.html` is accepted as well as `.htm`. The optional matching `XY-Dateien/` directory is used for linked resources. The bundled example templates are **not** auto-discovered as production signatures.
+Each **complete pair** appears as a signature in **Administration → Signaturen**. Template extensions are case-insensitive; `.html` is accepted as well as `.htm`. The optional matching `XY-Dateien/` directory is used for linked resources. Template files named `example_template.*` are excluded from automatic discovery.
 
 | Source files | Signature key | Existing AD group CN |
 | --- | --- | --- |
