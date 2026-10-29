@@ -18,7 +18,7 @@ cd C:\path\to\Signaturee-public
 .\scripts\package-windows.ps1
 ~~~
 
-This creates `dist\signaturee-win-v<version>.zip`, where `<version>` comes from `package.json`. You can also use `-OutputDirectory` or `-Ref` for a specific committed revision. The build refuses to package an uncommitted/dirty checkout and will not overwrite an existing ZIP. It checks that the release ZIP contains the essential application files and no obvious runtime secrets.
+This creates `dist\signaturee-win-v<version>.zip`, where `<version>` comes from `package.json`. You can also use `-OutputDirectory` or `-Ref` for a specific committed revision. The build archives only the selected committed revision: it warns if the working tree has local changes because **those changes are excluded**. It will not overwrite an existing ZIP. It checks that the release ZIP contains the essential application files and no obvious runtime secrets.
 
 The ZIP is built via **git archive** from tracked files. By design, it does **not** include: `.env`, private config, live AD data, customer templates/logos under `config/templates/`, user databases, generated signatures, logs, `node_modules`, the LibreOffice executable, or Node.js. Do **not** commit sensitive files to Git; ZIP filtering is a defense in depth, not a substitute for repository security review. A tagged ZIP can be reproduced from the exact commit with the same builder.
 
