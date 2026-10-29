@@ -67,7 +67,14 @@ param(
     [string]$NetworkDeploymentPath,
 
     [Parameter(Mandatory=$false, HelpMessage="Render a temporary preview without RTF/report side effects.")]
-    [switch]$PreviewOnly = $false
+    [switch]$PreviewOnly = $false,
+
+    [Parameter(Mandatory=$false, HelpMessage="RTF converter: Word or LibreOffice (default: Word)")]
+    [ValidateSet("Word", "LibreOffice")]
+    [string]$RtfEngine = "Word",
+
+    [Parameter(Mandatory=$false, HelpMessage="Optional full path to soffice executable")]
+    [string]$LibreOfficePath
 )
 
 # =========================
@@ -1222,13 +1229,87 @@ function Test-GeneratedRtfFile {
     }
 }
 
+function Resolve-LibreOfficeExecutable {
+    $paths = @()
+    if (-not [string]::IsNullOrWhiteSpace($LibreOfficePath)) {
+        if (-not [System.IO.File]::Exists($LibreOfficePath)) {
+            throw "Configured LibreOffice executable does not exist: $LibreOfficePath"
+        }
+        return $LibreOfficePath
+    }
+    $programFiles = [Environment]::GetFolderPath('ProgramFiles')
+    if ($programFiles) {
+        $paths += (Join-Path $programFiles 'LibreOffice\program\soffice.com')
+        $paths += (Join-Path $programFiles 'LibreOffice\program\soffice.exe')
+    }
+    $paths += '/usr/bin/libreoffice'
+    $paths += '/usr/bin/soffice'
+    foreach ($candidate in $paths) {
+        if ([System.IO.File]::Exists($candidate)) { return $candidate }
+    }
+    foreach ($name in @('soffice.com', 'soffice.exe', 'libreoffice', 'soffice')) {
+        $command = Get-Command $name -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command) { return $command.Source }
+    }
+    throw 'LibreOffice is not installed or is not accessible from the Signaturee runner. Set SIGNATUREE_LIBREOFFICE_PATH in .env.'
+}
+
+function New-LibreOfficeRtfOutput {
+    param([string]$HtmlPath, [string]$StagedRtfPath)
+
+    # The conversion profile and output belong only to this invocation.
+    # Unlike Word COM, LibreOffice runs headlessly without Office activation.
+    $root = Join-Path ([System.IO.Path]::GetTempPath()) ('signaturee-lo-' + [guid]::NewGuid().ToString('N'))
+    $outDir = Join-Path $root 'out'
+    $profileDir = Join-Path $root 'profile'
+    $process = $null
+    try {
+        $null = [System.IO.Directory]::CreateDirectory($outDir)
+        $null = [System.IO.Directory]::CreateDirectory($profileDir)
+        $profileUri = ([System.Uri]::new($profileDir + [System.IO.Path]::DirectorySeparatorChar)).AbsoluteUri
+        $executable = Resolve-LibreOfficeExecutable
+        $arguments = @(
+            ('"-env:UserInstallation=' + $profileUri + '"'),
+            '--headless', '--nologo', '--nodefault', '--norestore',
+            '--infilter="HTML (StarWriter)"',
+            '--convert-to', '"rtf:Rich Text Format"',
+            '--outdir', ('"' + $outDir + '"'),
+            ('"' + $HtmlPath + '"')
+        ) -join ' '
+        $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName = $executable
+        $startInfo.Arguments = $arguments
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $process = [System.Diagnostics.Process]::Start($startInfo)
+        if ($null -eq $process) { throw 'LibreOffice did not start.' }
+        if (-not $process.WaitForExit(90000)) {
+            try { $process.Kill() } catch {}
+            throw 'LibreOffice conversion timed out after 90 seconds.'
+        }
+        if ($process.ExitCode -ne 0) {
+            throw "LibreOffice conversion exited with code $($process.ExitCode)."
+        }
+        $produced = Join-Path $outDir (([System.IO.Path]::GetFileNameWithoutExtension($HtmlPath)) + '.rtf')
+        if (-not (Test-GeneratedRtfFile -Path $produced)) {
+            throw 'LibreOffice did not produce a plausible RTF document.'
+        }
+        [System.IO.File]::Copy($produced, $StagedRtfPath)
+    } finally {
+        if ($null -ne $process) { $process.Dispose() }
+        try { [System.IO.Directory]::Delete($root, $true) } catch {
+            Write-Log "Could not clean LibreOffice temporary files at $root : $_" -Level 'WARNING'
+        }
+    }
+}
+
 function ConvertTo-RtfVersion {
     param(
         [string]$HtmlPath,
         [string]$RtfPath
     )
 
-    if ($script:wordComStartupFailed) {
+    if ($RtfEngine -eq 'Word' -and $script:wordComStartupFailed) {
         Write-Log "RTF conversion skipped: Word COM activation already failed in this run. Existing RTF left untouched." -Level "ERROR"
         return $false
     }
@@ -1241,6 +1322,9 @@ function ConvertTo-RtfVersion {
     $doc = $null
 
     try {
+        if ($RtfEngine -eq 'LibreOffice') {
+            New-LibreOfficeRtfOutput -HtmlPath $HtmlPath -StagedRtfPath $stagedRtfPath
+        } else {
         try {
             try {
                 $word = New-WordRtfApplication
@@ -1280,9 +1364,10 @@ function ConvertTo-RtfVersion {
             [System.GC]::Collect()
             [System.GC]::WaitForPendingFinalizers()
         }
+        } # Word COM path
 
         if (-not (Test-GeneratedRtfFile -Path $stagedRtfPath)) {
-            throw "Word output failed RTF validation (file missing, too small, or invalid header)."
+            throw "$RtfEngine output failed RTF validation (file missing, too small, or invalid header)."
         }
 
         # Stage and destination share a directory/volume. On Windows, Replace
@@ -1531,7 +1616,23 @@ function New-OutlookSignatures {
 
         $txtPath = Join-Path -Path $userSignaturePath -ChildPath "$signatureName.txt"
         [System.IO.File]::WriteAllText($txtPath, $txtTemplate, [System.Text.Encoding]::GetEncoding(1252))
-        
+
+        # LibreOffice imports linked images while converting HTML. Prepare the
+        # per-signature resource directory before conversion (Word's ordering
+        # stays unchanged for compatibility).
+        $resourcesPreparedForLibreOffice = $false
+        if (-not $PreviewOnly -and $RtfEngine -eq 'LibreOffice') {
+            $resourceFolder = $domainResourceFolders[$Domain]
+            if ($resourceFolder) {
+                $resourcesPreparedForLibreOffice = Copy-ResourceFolder -SourceFolder $resourceFolder -Username $Username -Domain $Domain -Email $UserData['$mail'] -DestinationPath $userSignaturePath
+                if (-not $resourcesPreparedForLibreOffice) {
+                    Write-Log "Required resource folder could not be copied before LibreOffice conversion for $Username ($Domain)." -Level 'ERROR'
+                    return $false
+                }
+                Write-Log "Prepared resource folder for LibreOffice ($Username - $Domain)"
+            }
+        }
+
         if (-not $PreviewOnly) {
             $rtfPath = Join-Path -Path $userSignaturePath -ChildPath "$signatureName.rtf"
             if (-not (ConvertTo-RtfVersion -HtmlPath $htmlPath -RtfPath $rtfPath)) {
@@ -1544,10 +1645,10 @@ function New-OutlookSignatures {
         
         $email = $UserData['$mail']
         $resourceFolder = $domainResourceFolders[$Domain]
-        $resourceFolderSuccess = $false
-        if ($resourceFolder) {
+        $resourceFolderSuccess = $resourcesPreparedForLibreOffice
+        if ($resourceFolder -and -not $resourcesPreparedForLibreOffice) {
             $resourceFolderSuccess = Copy-ResourceFolder -SourceFolder $resourceFolder -Username $Username -Domain $Domain -Email $email -DestinationPath $userSignaturePath
-        } else {
+        } elseif (-not $resourceFolder) {
             Write-Log "No resource folder configured for domain $Domain" -Level "WARNING"
         }
         

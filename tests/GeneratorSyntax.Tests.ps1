@@ -38,7 +38,7 @@ Describe 'RTF output integrity' {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile(
             $generatorPath, [ref]$tokens, [ref]$parseErrors
         )
-        foreach ($name in @('Test-GeneratedRtfFile', 'ConvertTo-RtfVersion', 'New-WordRtfApplication')) {
+        foreach ($name in @('Test-GeneratedRtfFile', 'ConvertTo-RtfVersion', 'New-WordRtfApplication', 'New-LibreOfficeRtfOutput', 'Resolve-LibreOfficeExecutable')) {
             $functionAst = $ast.FindAll({
                 param($node)
                 $node -is [System.Management.Automation.Language.FunctionDefinitionAst]
@@ -51,6 +51,7 @@ Describe 'RTF output integrity' {
 
     BeforeEach {
         $script:wordComStartupFailed = $false
+        $script:RtfEngine = 'Word'
     }
 
     It 'rejects empty placeholders and invalid RTF headers' {
@@ -117,6 +118,57 @@ Describe 'RTF output integrity' {
         (ConvertTo-RtfVersion -HtmlPath (Join-Path $TestDrive 'input.html') -RtfPath $rtf) |
             Should -BeFalse
         Should -Invoke New-WordRtfApplication -Exactly 1
+    }
+
+
+    It 'uses LibreOffice only when explicitly selected and preserves successful RTF output' {
+        $script:RtfEngine = 'LibreOffice'
+        Mock New-WordRtfApplication { throw 'Word must not be started' }
+        Mock New-LibreOfficeRtfOutput {
+            param($HtmlPath, $StagedRtfPath)
+            [System.IO.File]::WriteAllText(
+                $StagedRtfPath, ('{\rtf1\ansi ' + ('LibreOffice output ' * 12) + '}'),
+                [System.Text.Encoding]::ASCII
+            )
+        }
+
+        $old = Join-Path $TestDrive 'output.rtf'
+        [System.IO.File]::WriteAllText($old, ('{\rtf1\ansi ' + ('old ' * 25) + '}'))
+        $result = ConvertTo-RtfVersion -HtmlPath (Join-Path $TestDrive 'input.htm') -RtfPath $old
+
+        $result | Should -BeTrue
+        [System.IO.File]::ReadAllText($old) | Should -Match 'LibreOffice output'
+        Should -Invoke New-WordRtfApplication -Exactly 0
+        Should -Invoke New-LibreOfficeRtfOutput -Exactly 1
+    }
+
+    It 'preserves existing RTF if the LibreOffice converter fails' {
+        $script:RtfEngine = 'LibreOffice'
+        Mock New-WordRtfApplication { throw 'Word must not be started' }
+        Mock New-LibreOfficeRtfOutput { throw 'Simulated LibreOffice failure' }
+
+        $old = Join-Path $TestDrive 'keep.rtf'
+        $original = '{\rtf1\ansi ' + ('old ' * 25) + '}'
+        [System.IO.File]::WriteAllText($old, $original)
+        (ConvertTo-RtfVersion -HtmlPath (Join-Path $TestDrive 'input.htm') -RtfPath $old) |
+            Should -BeFalse
+
+        [System.IO.File]::ReadAllText($old) | Should -Be $original
+        @(Get-ChildItem $TestDrive -Filter 'keep.rtf.signaturee-*').Count | Should -Be 0
+        Should -Invoke New-WordRtfApplication -Exactly 0
+    }
+
+    It 'does not publish incomplete LibreOffice RTF output' {
+        $script:RtfEngine = 'LibreOffice'
+        Mock New-LibreOfficeRtfOutput {
+            param($HtmlPath, $StagedRtfPath)
+            [System.IO.File]::WriteAllText($StagedRtfPath, '{\rtf1}')
+        }
+
+        $outputPath = Join-Path $TestDrive 'placeholder-from-lo.rtf'
+        (ConvertTo-RtfVersion -HtmlPath (Join-Path $TestDrive 'input.htm') -RtfPath $outputPath) |
+            Should -BeFalse
+        [System.IO.File]::Exists($outputPath) | Should -BeFalse
     }
 
 }
