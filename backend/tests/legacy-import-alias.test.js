@@ -88,11 +88,16 @@ async function run() {
 
     const routes = ['/api/users/import', '/api/users/import-single'];
     for (const route of routes) {
+      const contentBeforeUnauthorized = fs.existsSync(usersFile)
+        ? fs.readFileSync(usersFile, 'utf8') : null;
       const withoutToken = await fetch(base + route, {
         method: 'POST', body: csvForm(),
       });
       assert.equal(withoutToken.status, 401, route + ' must enforce authentication');
-      assert.ok(!fs.existsSync(usersFile), 'Unauthorized request must not create users.csv');
+      const contentAfterUnauthorized = fs.existsSync(usersFile)
+        ? fs.readFileSync(usersFile, 'utf8') : null;
+      assert.equal(contentAfterUnauthorized, contentBeforeUnauthorized,
+        'Unauthorized requests must not create or modify users.csv');
 
       const valid = await fetch(base + route, {
         method: 'POST',
