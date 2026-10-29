@@ -23,12 +23,19 @@ Signaturee is a self-hosted Windows application: a web frontend, a Node.js API a
 ## Requirements
 
 - Windows Server or a supported Windows workstation; Windows PowerShell **5.1**.
-- **Node.js 22.13+**, Git and the RSAT **ActiveDirectory** PowerShell module for AD workflows.
+- **Node.js 22.13+** and the RSAT **ActiveDirectory** PowerShell module for AD workflows. Git is required for source checkout/updates, not for installing from a ZIP.
 - Network/DNS access to the domain controller, plus suitable AD read rights.
 - For productive SMB output: an existing UNC destination and share/NTFS permissions for the **Windows account running the backend**.
-- Microsoft Word is used for RTF conversion. Without it (or if conversion fails), the current generator writes an **RTF placeholder**, not a usable rich-text signature. Validate this before relying on RTF in production.
+- **LibreOffice** installed system-wide for headless RTF conversion (the **default for web generation**). Microsoft Word is **not required**. The legacy Word-COM engine remains an explicitly selectable compatibility option (`SIGNATUREE_RTF_ENGINE=word`) but is not recommended for unattended tasks.
+- Failed RTF conversion is reported as an error: Signaturee does **not** intentionally publish an empty placeholder. Existing RTF is preserved when possible; successful generation should still be checked in Classic Outlook.
 
-For RSAT installation commands and an initial machine check, see [Windows prerequisites](docs/prepare-machine-dependencies.md).
+For RSAT installation commands and an initial machine check, see [Windows prerequisites](docs/prepare-machine-dependencies.md). For the portable Windows ZIP, installation instructions, and release validation checklist, see [Windows releases](docs/windows-release.md).
+
+## Windows ZIP package
+
+The Windows CI produces a portable ZIP of **tracked application source only**. It includes the two Scheduled Task installers and example configuration, but not Node.js, LibreOffice, credentials, employee data, private templates, databases or a bundled Windows executable. The ZIP requires no Git on the installation target; Git-based update scripts do not work in a ZIP deployment.
+
+See [Windows releases and clean-install validation](docs/windows-release.md). Until a release is tagged and published, CI ZIPs are **test artifacts**, not approved stable releases.
 
 ## Quickstart — standard AD deployment
 
@@ -68,7 +75,7 @@ Validate the local configuration **before starting**:
 node .\backend\server.js --check
 ```
 
-This validates configuration and available template files. It **does not test live AD access, LDAP passwords, Microsoft Word or SMB rights**.
+This validates configuration and available template files. It **does not test live AD access, LDAP passwords, LibreOffice conversion or SMB rights**.
 
 Create the first **local Admin account** (the password is entered securely; do not put it into `.env`):
 
@@ -100,7 +107,7 @@ Open **http://127.0.0.1:3000/login.html** on the host and select **Lokales Signa
 4. **Generieren:** search for an employee with *direct membership* in the matching signature group; select the desired signature and the **local** target.
 5. Run **Preflight → Vorschau → Generieren**. Inspect the output and employee attributes before attempting the network target.
 
-A successful template catalog does **not** imply that AD queries, group membership, SMB or Word-based RTF output work.
+A successful template catalog does **not** imply that AD queries, group membership, SMB or LibreOffice-based RTF output work.
 
 ## Templates, attributes and assignments
 
@@ -150,14 +157,14 @@ cd C:\Signaturee
 .\scripts\update-signaturee.ps1
 ```
 
-The update script uses a fast-forward Git pull and locked npm dependencies, and preserves ignored local configuration and templates. **It does not implement automatic rollback.** Back up before upgrades. Do not run `npm start` simultaneously with Scheduled Tasks on the same ports.
+The update script uses a fast-forward Git pull and locked npm dependencies, and preserves ignored local configuration and templates. **It requires a Git checkout and does not support ZIP installations or automatic rollback.** For ZIP upgrades, follow [Windows release instructions](docs/windows-release.md) and back up first. Do not run `npm start` simultaneously with Scheduled Tasks on the same ports.
 
 Configuration may be saved through the **local Admin** UI. Only approved business keys are editable; ports, login policy, secrets and task identities remain file-managed. After saving, activate the new `.env` via the Admin UI or reload script.
 
 ## Important limits and security
 
 - **Current web generator:** up to 50 selected users per targeted Preflight/Generate run; worklist CSV identifies AD accounts but is **not an offline-data import**.
-- **Classic Outlook:** generated file sets consist of HTM, TXT and an attempted RTF conversion. A valid RTF depends on Microsoft Word. Local Classic-Outlook files are **not** a deployment mechanism for new Outlook/Outlook on the web.
+- **Classic Outlook:** generated file sets consist of HTM, TXT, RTF and optional linked resource folders. Web generation defaults to LibreOffice for RTF. Valid RTF structure alone does **not** guarantee all images render in Rich Text; check HTML and RTF separately. Local Classic-Outlook files are **not** a deployment mechanism for new Outlook/Outlook on the web.
 - **Encoding:** the PowerShell rendering path reads/writes template data with **Windows-1252**. Test umlauts, Unicode characters and existing HTML encoding with your real templates before production.
 - **Templates and logs:** templates are administrator-controlled; generation logs can contain substituted employee information. Restrict access to logs, databases, `.env`, output shares and the template directory.
 - **Network access:** keep `AUTH_REQUIRED=true`, protect the backend port, use HTTPS for non-local users, and grant least privilege to the task's SMB destination.
@@ -172,12 +179,12 @@ Configuration may be saved through the **local Admin** UI. Only approved busines
 | No AD search results | Run **AD-Suche testen**; check `AD_SERVER`, search-base DN, RSAT and backend task identity |
 | LDAP login fails | Run **LDAP-Login testen**, check the AD domain and optional container; do not confuse LDAP with AD querying |
 | Network output fails (`EPERM`) | Check UNC name, share/NTFS permissions and task principal; see the SMB troubleshooting guide |
-| Empty/invalid RTF output | Check Microsoft Word availability and generator logs |
+| Missing/invalid RTF output | Check the LibreOffice installation/path under the backend task identity and generator logs; no empty placeholder should be published |
 | Config saved but not active | Use **Gespeicherte .env aktivieren** or `.\scripts\reload-config.ps1` |
 
 ## Documentation
 
-- [Windows host preparation](docs/prepare-machine-dependencies.md)
+- [Windows host preparation](docs/prepare-machine-dependencies.md) · [Windows ZIP release and validation](docs/windows-release.md)
 - [Template and variable reference](docs/templates.md)
 - [Data sources and workflow limits](docs/data-sources.md)
 - [Environment/configuration](docs/environment.md)
