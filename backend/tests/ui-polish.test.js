@@ -74,7 +74,7 @@ assert.ok(rows[2].children.some(node => node.className === 'terminal-level termi
 assert.ok(rows[2].children.some(node => node.textContent === ' Error <script>'),
   'Untrusted log content must stay literal text, never HTML');
 // Verify actual HTML/TXT replacement logs, split stdout and untrusted values.
-const flatten = node => node.children ? node.children.map(flatten).join('') : node.textContent;
+const flatten = node => node.children?.length ? node.children.map(flatten).join('') : node.textContent;
 writer.write('[2026-10-29 09:50:08] [INFO] Replaced $description with IT-', 'stdout');
 writer.write('Systemadministrator\n[2026-10-29 09:50:09] [INFO] Replaced (TXT) $mail with \'x@y.de\'\n', 'stdout');
 writer.write('[2026-10-29 09:50:10] [WARNING] Unresolved $mobile <img onerror=x>\n', 'stdout');
