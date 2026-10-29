@@ -1,0 +1,97 @@
+name: Publish Signaturee Windows v2.0.0 (one-time)
+
+# This branch contains only a one-off publication workflow. Build and tag
+# exactly the fresh-VM-validated main commit, never this workflow branch.
+on:
+  push:
+    branches:
+      - publish/windows-v2.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  publish-windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the approved Windows release commit
+        uses: actions/checkout@v4
+        with:
+          ref: d0b7a7d8337a4d7db170b004f7c098979398fe4f
+          persist-credentials: false
+
+      - name: Verify commit, package version and GitHub CLI
+        shell: powershell
+        run: |
+          $expected = 'd0b7a7d8337a4d7db170b004f7c098979398fe4f'
+          if ((git rev-parse HEAD).Trim() -ne $expected) {
+            throw 'Checkout is not at the validated main commit.'
+          }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($version -ne '2.0.0') { throw "Expected version 2.0.0, found $version" }
+          if (-not (Get-Command gh.exe -ErrorAction SilentlyContinue)) {
+            throw 'GitHub CLI is unavailable on the Windows runner.'
+          }
+
+      - name: Build Windows ZIP and SHA256SUMS
+        shell: powershell
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'signaturee-v2-release'
+          $lines = @(.\scripts\package-windows.ps1 -OutputDirectory $out)
+          $zip = $lines[-1]
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
+            throw 'Release ZIP not produced.'
+          }
+          if ((Split-Path -Leaf $zip) -ne 'signaturee-win-v2.0.0.zip') {
+            throw "Unexpected release ZIP: $zip"
+          }
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  signaturee-win-v2.0.0.zip" |
+            Set-Content -LiteralPath (Join-Path $out 'SHA256SUMS.txt') -Encoding Ascii
+          Write-Host "Release ZIP SHA256: $hash"
+
+      - name: Publish tag and GitHub Release (one time)
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ffworker/Signaturee-public
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $target = 'd0b7a7d8337a4d7db170b004f7c098979398fe4f'
+          $out = Join-Path $env:RUNNER_TEMP 'signaturee-v2-release'
+          $zip = Join-Path $out 'signaturee-win-v2.0.0.zip'
+          $sums = Join-Path $out 'SHA256SUMS.txt'
+          $notesPath = Join-Path $out 'release-notes.md'
+          $notes = @'
+          ## Signaturee v2.0.0 — Windows
+
+          First validated Windows Server 2025 release with a self-hosted web UI, Node.js backend and Windows PowerShell Active Directory signature generator.
+
+          ### Highlights
+          - Single- and multi-user Outlook signatures in HTML, TXT and RTF.
+          - LibreOffice as the default headless RTF converter. No Word license required. Word-COM remains an opt-in legacy engine, never an automatic fallback.
+          - Local and network (SMB/UNC) signature output. Under the SYSTEM task, remote share access normally uses the domain machine account (DOMAIN\VMNAME$).
+          - Generation and Classic Outlook HTML rendering validated on a freshly prepared Windows Server 2025 VM.
+
+          ### Installation
+          Download **signaturee-win-v2.0.0.zip** and verify **SHA256SUMS.txt**. Follow [Prepare your VM (Windows Server 2025)](https://github.com/ffworker/Signaturee-public/blob/v2.0.0/docs/prepare-windows-server-2025.md) and [Windows release and rollback guidance](https://github.com/ffworker/Signaturee-public/blob/v2.0.0/docs/windows-release.md).
+
+          ZIP contains application sources/scripts, not Node.js, LibreOffice, customer templates, credentials or runtime databases. Windows PowerShell 5.1, Node.js 22.13+, RSAT ActiveDirectory and system-wide LibreOffice are prerequisites. This is not an EXE/MSI; Git-based update scripts do not apply to ZIP installations.
+
+          ### Supported scope and limitations
+          - Classic Outlook **HTML** signatures were visually checked. Validate RTF logos separately if Rich Text email formatting is required.
+          - Standard web workflows require Active Directory for user/group lookup. CSV worklists select AD users; they are not an independent employee-data source.
+          - Linux/Docker is not part of v2.0.0. This release establishes the stable Windows baseline for future Linux support in the same repo.
+          - No automatic rollback for upgrades. Back up all configuration, templates, databases and output state.
+          '@
+          $notes | Set-Content -LiteralPath $notesPath -Encoding UTF8
+
+          & gh release view v2.0.0 --json tagName *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw 'v2.0.0 release already exists; refusing to overwrite.'
+          }
+          & gh release create v2.0.0 $zip $sums --target $target --title 'Signaturee v2.0.0 (Windows)' --notes-file $notesPath --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
+          & gh release view v2.0.0 --json tagName,isDraft,assets,targetCommitish
+          if ($LASTEXITCODE -ne 0) { throw 'Release verification failed.' }
