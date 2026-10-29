@@ -14,6 +14,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # This does not claim Linux generation support: it tests only the shared
+  # Node application and static frontend on an Ubuntu CI runner.
+  linux-node-compatibility:
+    name: Linux Node/backend compatibility (not a Linux release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install runtime dependencies
+        run: npm ci --omit=dev
+      - name: Frontend JavaScript syntax
+        run: |
+          node --check frontend/generate-v2.js
+          node --check frontend/admin-v2.js
+          node --check frontend/login.js
+          node --check frontend/self-service.js
+      - name: Backend configuration syntax
+        run: node backend/server.js --check
+      - name: Portable backend tests (mocked AD/PowerShell only)
+        run: npm run test:backend
+
   windows-quality-gate:
     name: Windows quality gate
     runs-on: windows-latest
