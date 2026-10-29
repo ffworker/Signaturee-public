@@ -116,7 +116,8 @@ const SELF_SERVICE_ARTIFACT_PATH = resolvePath(
 const GENERATE_SCRIPT_PATH = resolvePath(
   process.env.GENERATE_SCRIPT_PATH || path.join(ROOT_DIR, 'GenerateSignatures.ps1'),
 );
-const RTF_ENGINE = String(process.env.SIGNATUREE_RTF_ENGINE || 'word').trim().toLowerCase();
+// Web backend defaults to headless LibreOffice. 'word' remains an explicit legacy option.
+const RTF_ENGINE = String(process.env.SIGNATUREE_RTF_ENGINE || 'libreoffice').trim().toLowerCase();
 if (!['word', 'libreoffice'].includes(RTF_ENGINE)) {
   throw new Error('SIGNATUREE_RTF_ENGINE must be word or libreoffice.');
 }
