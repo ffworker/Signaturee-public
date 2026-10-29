@@ -1,4 +1,4 @@
-# Configuration reference — Signaturee v2
+# Configuration reference — Signaturee
 
 For the **recommended deployment** (`SIGNATUREE_CONFIG_MODE=env`), the project-root `.env` is the source of business settings. Copy [`.env.example`](../.env.example) to `.env` once, then edit the ignored local file. The Admin UI reads and can safely edit selected allowlisted settings in that file. An older database/file configuration mode remains in the code for compatibility; it is **not the default onboarding path**.
 
@@ -84,4 +84,4 @@ node .\backend\server.js --check
 
 [Data sources and workflow limits](data-sources.md) explains why a CSV worklist in **Generieren** still requires live AD; the older full-file generation mode is a separate compatibility path.
 
-[Quickstart](../README.md#quickstart) · [Templates](templates.md) · [AD onboarding](ad-onboarding.md) · [SMB permissions](network-share-permissions.md)
+[Quickstart](../README.md#quickstart--standard-ad-deployment) · [Templates](templates.md) · [AD onboarding](ad-onboarding.md) · [SMB permissions](network-share-permissions.md)
