@@ -95,6 +95,22 @@ async function run() {
     const result = await response.json();
     assert.equal(result.source, 'environment (.env)');
     assert.equal(result.profile.organization.name, 'My Env Organization');
+
+    // Streaming generation must emit live events without invoking AD or PowerShell
+    // when no users are selected. The legacy JSON endpoint stays untouched.
+    const streaming = await fetch(base + '/api/run/generate/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users: [], target: 'Local' }),
+    });
+    assert.equal(streaming.status, 200);
+    assert.match(streaming.headers.get('content-type') || '', /application\/x-ndjson/);
+    const events = (await streaming.text()).trim().split(/\r?\n/).map(line => JSON.parse(line));
+    assert.equal(events[0].type, 'status');
+    assert.equal(events.at(-1).type, 'error');
+    assert.match(events.at(-1).error, /Preflight failed/);
+    assert.ok(events.at(-1).plan.issues.some(issue => issue.code === 'NO_USERS'));
+
     const put = await fetch(base + '/api/v2/profile', {
       method:'PUT', headers:{ 'Content-Type':'application/json' },
       body:JSON.stringify({ profile:{ organization:{ name:'Should not persist' } } }),
