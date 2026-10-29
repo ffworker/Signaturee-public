@@ -71,7 +71,7 @@ assert.equal(rows.length, 3);
 assert.ok(rows[0].children.some(node => node.className === 'terminal-level terminal-level-info'));
 assert.ok(rows[1].children.some(node => node.className === 'terminal-level terminal-level-warning'));
 assert.ok(rows[2].children.some(node => node.className === 'terminal-level terminal-level-error'));
-assert.ok(rows[2].children.some(node => node.textContent === ' Error <script>'),
+assert.ok(rows[2].children.some(node => node.textContent === 'Error <script>'),
   'Untrusted log content must stay literal text, never HTML');
 // Verify actual HTML/TXT replacement logs, split stdout and untrusted values.
 const flatten = node => node.children?.length ? node.children.map(flatten).join('') : node.textContent;
