@@ -30,6 +30,8 @@ CONTOSO\SIG01$
 
 The trailing `$` is part of the computer-account name.
 
+**Important:** Grant the **Signaturee VM's domain computer account**, not `NT AUTHORITY\SYSTEM` on the **remote file server** (which is that file server's own local SYSTEM identity). If you are setting up a new Windows Server 2025 VM, follow the [VM preparation guide's SMB step](prepare-windows-server-2025.md#8a-allow-the-new-vms-computer-account-on-the-smb-file-server).
+
 ## Required permissions
 
 Windows applies both:
@@ -65,6 +67,9 @@ a practical configuration is:
 If the existing share has broad share permissions and access is controlled through NTFS, keep the organization's existing share-permission model and grant the required NTFS rights only on the Signaturee subtree.
 
 ## Adding the computer account
+
+Apply this to **both** the share ACL (**Sharing → Advanced Sharing → Permissions**) and the backing folder's NTFS ACL (**Security → Edit/Advanced**). A grant on one layer is insufficient when the other remains restrictive. Choose the actual Signaturee VM account, **not the broad `Domain Computers` group**.
+
 
 In the Windows ACL dialog:
 
