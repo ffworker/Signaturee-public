@@ -41,9 +41,11 @@ See [Windows releases and clean-install validation](docs/windows-release.md). Un
 
 For a clean Windows Server 2025 VM or first-time release qualification, start with the **[step-by-step VM preparation guide](docs/prepare-windows-server-2025.md)**. This includes LibreOffice as the default RTF engine, Node.js, RSAT, domain/network requirements and the complete acceptance checklist. The ZIP option avoids requiring Git on the test VM.
 
-## Linux / Docker status — under development
+## Looking for Linux / Docker?
 
-The published [v2.0.0 release](https://github.com/ffworker/Signaturee-public/releases/tag/v2.0.0) is **Windows-only**. We are planning a Linux/Docker edition in this same repository, reusing the existing frontend and Node.js API with platform-specific adapters for Active Directory/LDAP, rendering, LibreOffice conversion and output permissions. The existing generator is **not Linux-ready** simply because its backend can start on Linux. Read the [Linux architecture audit and roadmap](docs/linux-architecture.md) for current limitations and milestones.
+We're rebuilding the Linux/Docker edition as a **separate, leaner project**: **[signaturee-linux](https://github.com/ffworker/signaturee-linux)**. It builds on the experience from Signaturee for Windows, but uses a new Node.js rendering engine, LDAP integration and LibreOffice rather than porting the old PowerShell generator.
+
+**Work in progress — not yet a working Linux release.** This repository remains the stable Windows edition. Use [Signaturee v2.0.0 for Windows](https://github.com/ffworker/Signaturee-public/releases/tag/v2.0.0) if you need a working installation today.
 
 ## Quickstart — standard AD deployment
 
