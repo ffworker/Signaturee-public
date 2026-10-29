@@ -116,6 +116,11 @@ const SELF_SERVICE_ARTIFACT_PATH = resolvePath(
 const GENERATE_SCRIPT_PATH = resolvePath(
   process.env.GENERATE_SCRIPT_PATH || path.join(ROOT_DIR, 'GenerateSignatures.ps1'),
 );
+const RTF_ENGINE = String(process.env.SIGNATUREE_RTF_ENGINE || 'word').trim().toLowerCase();
+if (!['word', 'libreoffice'].includes(RTF_ENGINE)) {
+  throw new Error('SIGNATUREE_RTF_ENGINE must be word or libreoffice.');
+}
+const LIBREOFFICE_PATH = String(process.env.SIGNATUREE_LIBREOFFICE_PATH || '').trim();
 const TAR_CMD = process.env.TAR_CMD || 'tar';
 const ALLOWED_IMPORT_MODES = ['userFile', 'mass'];
 const ALLOWED_DEPLOYMENT_MODES = ['Local', 'Network', 'Prompt'];
@@ -2763,6 +2768,10 @@ async function runGenerateScript(options = {}) {
 
   return new Promise((resolve, reject) => {
     const args = ['-File', GENERATE_SCRIPT_PATH, '-TemplateDirectory', TEMPLATE_DIRECTORY];
+    if (RTF_ENGINE === 'libreoffice') {
+      args.push('-RtfEngine', 'LibreOffice');
+      if (LIBREOFFICE_PATH) args.push('-LibreOfficePath', LIBREOFFICE_PATH);
+    }
   // Explicitly set UseUserFile to bypass interactive prompt inside the script
   if (mode === 'userFile') {
     args.push('-UseUserFile');
