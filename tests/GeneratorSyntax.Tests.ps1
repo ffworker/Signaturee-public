@@ -38,7 +38,7 @@ Describe 'RTF output integrity' {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile(
             $generatorPath, [ref]$tokens, [ref]$parseErrors
         )
-        foreach ($name in @('Test-GeneratedRtfFile', 'ConvertTo-RtfVersion')) {
+        foreach ($name in @('Test-GeneratedRtfFile', 'ConvertTo-RtfVersion', 'New-WordRtfApplication')) {
             $functionAst = $ast.FindAll({
                 param($node)
                 $node -is [System.Management.Automation.Language.FunctionDefinitionAst]
@@ -47,11 +47,10 @@ Describe 'RTF output integrity' {
             . ([scriptblock]::Create($functionAst.Extent.Text))
         }
         function Write-Log { param([string]$Message, [string]$Level = 'INFO') }
-        $script:originalWordAvailable = $global:wordAvailable
     }
 
-    AfterAll {
-        $global:wordAvailable = $script:originalWordAvailable
+    BeforeEach {
+        $script:wordComStartupFailed = $false
     }
 
     It 'rejects empty placeholders and invalid RTF headers' {
@@ -72,8 +71,8 @@ Describe 'RTF output integrity' {
         (Test-GeneratedRtfFile -Path $valid) | Should -BeTrue
     }
 
-    It 'does not overwrite a pre-existing RTF when Word is unavailable' {
-        $global:wordAvailable = $false
+    It 'does not overwrite a pre-existing RTF when Word COM activation fails' {
+        Mock New-WordRtfApplication { throw 'Simulated Word COM startup failure' }
         $existing = Join-Path $TestDrive 'existing.rtf'
         $original = '{\rtf1\ansi ' + ('preserve ' * 20) + '}'
         [System.IO.File]::WriteAllText($existing, $original, [System.Text.Encoding]::ASCII)
@@ -85,11 +84,39 @@ Describe 'RTF output integrity' {
         @(Get-ChildItem -Path $TestDrive -Filter 'existing.rtf.signaturee-*').Count | Should -Be 0
     }
 
-    It 'never creates an empty RTF placeholder when Word is unavailable' {
-        $global:wordAvailable = $false
+    It 'never creates an empty RTF placeholder when Word COM startup fails' {
+        Mock New-WordRtfApplication { throw 'Simulated Word COM startup failure' }
         $outputPath = Join-Path $TestDrive 'missing-output.rtf'
         (ConvertTo-RtfVersion -HtmlPath (Join-Path $TestDrive 'missing.html') -RtfPath $outputPath) |
             Should -BeFalse
         [System.IO.File]::Exists($outputPath) | Should -BeFalse
     }
+
+    It 'does not repeat Word COM activation after a startup failure in one run' {
+        Mock New-WordRtfApplication { throw 'Simulated Word COM startup failure' }
+        $inputPath = Join-Path $TestDrive 'input.html'
+        $first = Join-Path $TestDrive 'first.rtf'
+        $second = Join-Path $TestDrive 'second.rtf'
+        [System.IO.File]::WriteAllText($inputPath, '<html><body>test</body></html>')
+
+        (ConvertTo-RtfVersion -HtmlPath $inputPath -RtfPath $first) | Should -BeFalse
+        (ConvertTo-RtfVersion -HtmlPath $inputPath -RtfPath $second) | Should -BeFalse
+
+        Should -Invoke New-WordRtfApplication -Exactly 1
+        [System.IO.File]::Exists($first) | Should -BeFalse
+        [System.IO.File]::Exists($second) | Should -BeFalse
+    }
+
+    It 'attempts Word COM again in a fresh generation run' {
+        Mock New-WordRtfApplication { throw 'Simulated Word COM startup failure' }
+        $script:wordComStartupFailed = $true
+        # Each invocation of GenerateSignatures.ps1 initializes the circuit
+        # breaker to false. Simulate that reset without starting live Word.
+        $script:wordComStartupFailed = $false
+        $rtf = Join-Path $TestDrive 'fresh-run.rtf'
+        (ConvertTo-RtfVersion -HtmlPath (Join-Path $TestDrive 'input.html') -RtfPath $rtf) |
+            Should -BeFalse
+        Should -Invoke New-WordRtfApplication -Exactly 1
+    }
+
 }
