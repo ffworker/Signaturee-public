@@ -180,6 +180,7 @@ Configuration may be saved through the **local Admin** UI. Only approved busines
 - [Windows host preparation](docs/prepare-machine-dependencies.md)
 - [Template and variable reference](docs/templates.md)
 - [Data sources and workflow limits](docs/data-sources.md)
+- [Compatibility audit and cleanup decisions](docs/compatibility-audit.md)
 - [Environment/configuration](docs/environment.md)
 - [Active Directory onboarding](docs/ad-onboarding.md)
 - [SMB permissions](docs/network-share-permissions.md) · [Reverse proxy](docs/reverse-proxy.md)

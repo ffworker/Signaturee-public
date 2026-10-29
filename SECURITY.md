@@ -4,7 +4,7 @@ Please report potential security vulnerabilities privately to the repository own
 
 ## Deployment
 
-Signaturee v2 is intended for a trusted Windows/Active Directory environment.
+Signaturee is intended for a trusted Windows/Active Directory environment.
 
 - Keep `AUTH_REQUIRED=true` and use HTTPS (prefer a same-origin reverse proxy).
 - Restrict direct access to the backend API port (default **3001**).
