@@ -52,3 +52,25 @@ Do not confuse (a) employee attributes, (b) signature assignment, (c) login/role
 4. Only then propose focused behavior changes or deletions in **separate, test-backed PRs**; preserve a reversible deployment path.
 
 **Result of this PR:** clearer decisions and corrected documentation, **no changes to JavaScript, PowerShell, runtime configuration, dependencies or tests**. CI confirms existing regression tests, not the independent legacy acceptance cases above.
+
+
+## Follow-up inventory — 2026-10-29 (after PR #21)
+
+This is a repository reference audit of the current tracked tree, not telemetry of manually invoked commands on installed hosts. **No tests were classified as abandoned solely because their names are old.**
+
+| Category | Evidence / entry point | Decision |
+| --- | --- | --- |
+| All 15 `backend/tests/*.test.js` files | Each appears in `package.json` `test:backend`; the Windows workflow calls that script | **KEEP** — all are run by CI |
+| Four `tests/*.Tests.ps1` suites | Windows CI runs `Invoke-Pester -Path tests -CI` (and local quality gate runs the same test directory) | **KEEP** — all four remain discoverable |
+| `tests/Get-CsvUserDomains.Tests.ps1`, `tests/Get-UserDomains.Tests.ps1`, `tests/SafeUsername.Tests.ps1` | They exercise `Functions/UserDomainHelpers.ps1`, whose functions are invoked by `GenerateSignatures.ps1` | **KEEP** — CSV/AD group and filename safety coverage |
+| `tests/RunnerLifecycle.Tests.ps1` | Exercises `scripts/runner-lifecycle.ps1` and checks live task-script syntax | **KEEP** — protects Windows deployment |
+| `Templatefiles/` and `Templatefiles_test/` sample pairs | Generator still selects these directories in legacy/test modes; modern `config/templates` remains independent | **KEEP** pending real compatibility deprecation |
+| `config/variables.json` and `config/presets/*` examples | Database-mode fallback and preset import/mirroring still exist | **KEEP** until database-mode compatibility is retired |
+| `frontend/runtime-config.example.js` | Optional configuration example for the separately loaded `runtime-config.js` (which is intentionally local) | **KEEP** — manual configuration asset, not a dead module |
+| `frontend/*css`, `frontend/theme.js`, `frontend/ui-polish.css` | HTML entry points still include these files | **KEEP** — visual overlap is not evidence of non-use |
+| `scripts/clean.js` | `package.json` `clean`/`clean:all` invoke it | **KEEP**, but review deletion targets before running on a populated installation |
+| `scripts/export-profile-env.js` | Standalone one-off exporter for v1/v2 migration into a new `.env`; no reference from package scripts, workflow, current docs, backend, web entry points, generator or runner scripts | **REMOVE candidate in the follow-up PR** — it is not part of the installed application. Its historical implementation remains recoverable from Git. Users explicitly invoking this undocumented migration CLI externally would lose the command after updating. |
+
+**Boundaries:** This audit does not remove legacy `/api/generate*` routes, offline file import, `-MassGeneration`, SQLite database-mode support, sample template folders or UI styles. Their consumers may be external or installed outside this repo. Audit call sites and run independent acceptance tests before deprecating them.
+
+**Review requirement for the follow-up PR:** confirm the old migration-export CLI is no longer needed. A green CI means the tracked test suite passes; it cannot prove nobody calls a standalone utility manually.
