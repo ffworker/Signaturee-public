@@ -521,10 +521,6 @@ function resolveRequestAuth(req) {
   return { role: '', username: '', source: '', token };
 }
 
-function resolveRequestRole(req) {
-  return resolveRequestAuth(req).role;
-}
-
 function issueAuthSessionToken({ role, username, source }) {
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = Date.now() + AUTH_SESSION_TTL_MS;
@@ -826,14 +822,6 @@ function setCors(req, res) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
   return true;
-}
-
-function buildUserFilePath(preferredExtension) {
-  const configuredExtension = path.extname(USER_FILE_PATH) || '.csv';
-  const extension = preferredExtension || configuredExtension || '.csv';
-  const directory = path.dirname(USER_FILE_PATH);
-  const basename = path.basename(USER_FILE_PATH, configuredExtension) || 'users';
-  return path.join(directory, `${basename}${extension}`);
 }
 
 function loadConfigJson() {
@@ -1148,14 +1136,6 @@ function readLogTail(filePath, tailBytes) {
     size,
     modified: stats.mtime.toISOString(),
   };
-}
-
-function normalizeUsersPayload(payload, singleMode) {
-  if (payload === undefined || payload === null) return null;
-  if (singleMode) return [payload];
-  if (Array.isArray(payload)) return payload;
-  if (typeof payload === 'object') return [payload];
-  return null;
 }
 
 async function parseMultipart(req) {
@@ -2426,45 +2406,6 @@ async function runPowerShellScriptFile(scriptPath, args = []) {
   ]);
 }
 
-async function runNodeScriptFile(scriptPath, args = []) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [scriptPath, ...args], {
-      cwd: ROOT_DIR,
-      env: { ...process.env },
-    });
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve({ code, stdout, stderr });
-        return;
-      }
-      const error = new Error(`Node script failed with code ${code}`);
-      error.status = 500;
-      error.code = 'NODE_SCRIPT_FAILED';
-      error.exitCode = code;
-      error.stdout = stdout;
-      error.stderr = stderr;
-      reject(error);
-    });
-    child.on('error', (error) => {
-      const executionError = new Error(`Node script execution failed: ${error.message}`);
-      executionError.status = 500;
-      executionError.code = 'NODE_SCRIPT_EXECUTION_FAILED';
-      executionError.stdout = stdout;
-      executionError.stderr = stderr;
-      reject(executionError);
-    });
-  });
-}
-
 function getRunnerTaskNames() {
   return [RUNNER_BACKEND_TASK_NAME, RUNNER_FRONTEND_TASK_NAME];
 }
@@ -2933,13 +2874,13 @@ function queueGenerateScript(options = {}) {
   return queued;
 }
 
-async function handleUserImport(req, res, singleMode = false) {
+async function handleUserImport(req, res) {
   try {
     const contentType = req.headers['content-type'] || '';
     let userFilePath = USER_FILE_PATH;
 
     if (contentType.includes('multipart/form-data')) {
-      const { files, fields } = await parseMultipart(req);
+      const { files } = await parseMultipart(req);
       if (files.length > 0) {
         const extension = (path.extname(files[0].filename) || '.csv').toLowerCase();
         if (extension !== '.csv') {
@@ -3439,35 +3380,6 @@ async function handleGenerateSingle(req, res) {
       fs.promises.unlink(tempPath).catch(() => {});
     }
   }
-}
-
-async function findStoredUserBySamAccountName(username) {
-  const needle = String(username || '').trim().toLowerCase();
-  if (!needle) return null;
-  try {
-    const { users } = await readUserEntries();
-    const match = (users || []).find((user) => {
-      const candidate = String(
-        user.sAMAccountName ||
-        user.samaccountname ||
-        user.SAMAccountName ||
-        '',
-      )
-        .trim()
-        .toLowerCase();
-      return candidate === needle;
-    });
-    return match || null;
-  } catch {
-    return null;
-  }
-}
-
-function listConfiguredDomains(config) {
-  const domains = config?.domains && typeof config.domains === 'object' ? config.domains : {};
-  return Object.keys(domains)
-    .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
-    .map((key) => ({ key }));
 }
 
 async function handleSelfBootstrap(req, res) {
@@ -5974,13 +5886,9 @@ function routeRequest(req, res) {
     if (!ensureAny(['selfservice', 'it', 'operator', 'user', 'admin'])) return;
     return handleSelfSignatureDownload(req, res);
   }
-  if (relativePath === '/api/users/import' && req.method === 'POST') {
+  if ((relativePath === '/api/users/import' || relativePath === '/api/users/import-single') && req.method === 'POST') {
     if (!ensure('user')) return;
-    return handleUserImport(req, res, false);
-  }
-  if (relativePath === '/api/users/import-single' && req.method === 'POST') {
-    if (!ensure('user')) return;
-    return handleUserImport(req, res, true);
+    return handleUserImport(req, res);
   }
   if (relativePath === '/api/users/export' && req.method === 'GET') {
     if (!ensure('viewer')) return;
