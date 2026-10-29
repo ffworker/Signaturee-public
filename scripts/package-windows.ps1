@@ -39,7 +39,9 @@ $gitPath = $git.Source
 $worktree = & $gitPath -C $RepoRoot status --porcelain --untracked-files=normal
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect Git worktree.' }
 if (@($worktree | Where-Object { $_ }).Count -gt 0) {
-    throw 'Refusing to package a dirty worktree: commit or stash changes first.'
+    # Tests/installation can create untracked build files. git archive reads
+    # the selected committed tree and cannot include those local changes.
+    Write-Warning 'The worktree has local changes; they are excluded from this commit-based ZIP.'
 }
 
 $commit = & $gitPath -C $RepoRoot rev-parse --verify "$Ref^{commit}"
