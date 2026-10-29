@@ -1189,28 +1189,55 @@ if ($usingUserFile) {
 # Word availability (RTF)
 # =========================
 function Test-WordAvailability {
+    $word = $null
     try {
         $word = New-Object -ComObject Word.Application
-        $word.Quit()
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
-        [System.GC]::Collect()
-        [System.GC]::WaitForPendingFinalizers()
+        if ($null -eq $word) { throw "Word.Application returned NULL." }
         return $true
     } catch {
-        Write-Log "Microsoft Word is not available on this system. RTF files will be created as empty placeholders." -Level "WARNING"
+        Write-Log "Microsoft Word is not available on this system. RTF conversion cannot proceed: $_" -Level "WARNING"
         return $false
+    } finally {
+        if ($null -ne $word) {
+            try { $word.Quit() } catch { Write-Log "Word availability probe could not quit Word: $_" -Level "WARNING" }
+            try {
+                [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($word)
+            } catch { Write-Log "Word availability probe could not release COM object: $_" -Level "WARNING" }
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+        }
     }
 }
 $global:wordAvailable = Test-WordAvailability
 if ($global:wordAvailable) {
     Write-Host "Microsoft Word is available for RTF generation." -ForegroundColor Green
 } else {
-    Write-Host "Microsoft Word is NOT available. RTF files will be created as empty placeholders." -ForegroundColor Red
+    Write-Host "Microsoft Word is NOT available. RTF generation will fail rather than write an empty placeholder." -ForegroundColor Red
 }
 
 # =========================
 # HTML helpers
 # =========================
+
+function Test-GeneratedRtfFile {
+    param([string]$Path)
+
+    if (-not [System.IO.File]::Exists($Path)) { return $false }
+    $info = [System.IO.FileInfo]::new($Path)
+    if ($info.Length -lt 64) { return $false }
+
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+        $header = New-Object byte[] 5
+        if ($stream.Read($header, 0, $header.Length) -ne $header.Length) { return $false }
+        return [System.Text.Encoding]::ASCII.GetString($header) -eq '{\rtf'
+    } catch {
+        return $false
+    } finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+    }
+}
 
 function ConvertTo-RtfVersion {
     param(
@@ -1219,31 +1246,79 @@ function ConvertTo-RtfVersion {
     )
 
     if (-not $global:wordAvailable) {
-        "{\rtf1}" | Out-File -FilePath $RtfPath -Encoding ASCII
-        Write-Log "Created empty RTF placeholder (Word not available)" -Level "WARNING"
+        Write-Log "RTF conversion failed: Microsoft Word is not available. Existing RTF left untouched." -Level "ERROR"
         return $false
     }
 
+    # Never save directly on top of a working signature: Word can fail after
+    # creating/truncating the destination. Use a sibling staging file instead.
+    $stagedRtfPath = "$RtfPath.signaturee-$([guid]::NewGuid().ToString('N')).rtf"
+    $word = $null
+    $documents = $null
+    $doc = $null
+
     try {
-        $word = New-Object -ComObject Word.Application
-        $word.Visible = $false
-        
-        $doc = $word.Documents.Open($HtmlPath)
-        $doc.SaveAs([ref]$RtfPath, [ref]6)
-        $doc.Close()
-        $word.Quit()
-        
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($doc) | Out-Null
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
-        [System.GC]::Collect()
-        [System.GC]::WaitForPendingFinalizers()
-        
+        try {
+            $word = New-Object -ComObject Word.Application
+            if ($null -eq $word) { throw "Word.Application returned NULL." }
+            $word.Visible = $false
+            $documents = $word.Documents
+            if ($null -eq $documents) { throw "Word.Documents returned NULL." }
+            $doc = $documents.Open($HtmlPath)
+            if ($null -eq $doc) { throw "Word.Documents.Open returned NULL." }
+            $doc.SaveAs([ref]$stagedRtfPath, [ref]6)
+        } finally {
+            # Release only the COM objects created by this conversion. Never
+            # kill WINWORD globally: other users may have real Word sessions.
+            if ($null -ne $doc) {
+                try { $doc.Close() } catch { Write-Log "Unable to close converted Word document: $_" -Level "WARNING" }
+                try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($doc) } catch {
+                    Write-Log "Unable to release Word document COM object: $_" -Level "WARNING"
+                }
+            }
+            if ($null -ne $documents) {
+                try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($documents) } catch {
+                    Write-Log "Unable to release Word.Documents COM object: $_" -Level "WARNING"
+                }
+            }
+            if ($null -ne $word) {
+                try { $word.Quit() } catch { Write-Log "Unable to quit Word: $_" -Level "WARNING" }
+                try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) } catch {
+                    Write-Log "Unable to release Word.Application COM object: $_" -Level "WARNING"
+                }
+            }
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+        }
+
+        if (-not (Test-GeneratedRtfFile -Path $stagedRtfPath)) {
+            throw "Word output failed RTF validation (file missing, too small, or invalid header)."
+        }
+
+        # Stage and destination share a directory/volume. On Windows, Replace
+        # preserves the original as backup until the replacement succeeds.
+        if ([System.IO.File]::Exists($RtfPath)) {
+            $backupPath = "$RtfPath.signaturee-backup-$([guid]::NewGuid().ToString('N'))"
+            [System.IO.File]::Replace($stagedRtfPath, $RtfPath, $backupPath)
+            # If cleanup fails, the backup can be recovered manually.
+            try { [System.IO.File]::Delete($backupPath) } catch {
+                Write-Log "Old RTF backup retained at $backupPath : $_" -Level "WARNING"
+            }
+        } else {
+            [System.IO.File]::Move($stagedRtfPath, $RtfPath)
+        }
+
         Write-Log "Created RTF version of signature"
         return $true
     } catch {
-        Write-Log "Error creating RTF version: $_" -Level "WARNING"
-        "{\rtf1}" | Out-File -FilePath $RtfPath -Encoding ASCII
+        Write-Log "Error creating RTF version (existing RTF preserved when possible): $_" -Level "ERROR"
         return $false
+    } finally {
+        if ([System.IO.File]::Exists($stagedRtfPath)) {
+            try { [System.IO.File]::Delete($stagedRtfPath) } catch {
+                Write-Log "Unable to clean staged RTF file $stagedRtfPath : $_" -Level "WARNING"
+            }
+        }
     }
 }
 
@@ -1469,7 +1544,10 @@ function New-OutlookSignatures {
         
         if (-not $PreviewOnly) {
             $rtfPath = Join-Path -Path $userSignaturePath -ChildPath "$signatureName.rtf"
-            ConvertTo-RtfVersion -HtmlPath $htmlPath -RtfPath $rtfPath
+            if (-not (ConvertTo-RtfVersion -HtmlPath $htmlPath -RtfPath $rtfPath)) {
+                Write-Log "RTF conversion failed for $Username - $Domain; signature is incomplete." -Level "ERROR"
+                return $false
+            }
         } else {
             Write-Log "PreviewOnly enabled. Skipping RTF generation for $Username - $Domain"
         }
