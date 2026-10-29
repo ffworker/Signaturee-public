@@ -498,7 +498,6 @@ async function runAdSearchDiagnostic(){
   }finally{adSearchTestBtn.disabled=false}
 }
 adSearchTestBtn.addEventListener('click',runAdSearchDiagnostic);
-function authRoleLabel(role){return role==='admin'?'Admin':'IT'}
 
 function renderLdap(system={}){
   const ldap=system.ldap||{};
