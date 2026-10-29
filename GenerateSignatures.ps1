@@ -601,8 +601,6 @@ function Get-SignatureCsvUsers {
     return Get-SignatureUserData -Path $Path
 }
 
-
-
 function Select-CsvUsers {
     param(
         [Parameter(Mandatory=$true)]
@@ -1499,10 +1497,6 @@ function New-OutlookSignatures {
         return $false
     }
 }
-
-# =========================
-# Optional: deploy to Outlook (kept as in original)
-# =========================
 
 # =========================
 # Determine central signature path
