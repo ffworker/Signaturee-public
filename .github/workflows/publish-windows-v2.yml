@@ -87,10 +87,9 @@ jobs:
           '@
           $notes | Set-Content -LiteralPath $notesPath -Encoding UTF8
 
-          & gh release view v2.0.0 --json tagName *> $null
-          if ($LASTEXITCODE -eq 0) {
-            throw 'v2.0.0 release already exists; refusing to overwrite.'
-          }
+          # 'gh release create' itself refuses a duplicate release. Do not use
+          # 'gh release view' for the missing-release case under PS 5.1: its
+          # expected stderr exit is promoted into a terminating error.
           & gh release create v2.0.0 $zip $sums --target $target --title 'Signaturee v2.0.0 (Windows)' --notes-file $notesPath --latest
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
           & gh release view v2.0.0 --json tagName,isDraft,assets,targetCommitish
