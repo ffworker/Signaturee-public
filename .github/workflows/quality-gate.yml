@@ -55,3 +55,42 @@ jobs:
       - name: PowerShell tests
         shell: powershell
         run: Invoke-Pester -Path tests -CI
+
+      - name: Build and inspect Windows ZIP
+        shell: powershell
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'signaturee-artifacts'
+          $files = @(.\scripts\package-windows.ps1 -OutputDirectory $dir)
+          $zip = $files[-1]
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
+            throw 'Packaging did not create the expected ZIP.'
+          }
+          $unpack = Join-Path $env:RUNNER_TEMP 'signaturee-package-smoke'
+          Expand-Archive -LiteralPath $zip -DestinationPath $unpack
+          $releaseDir = @(Get-ChildItem -LiteralPath $unpack -Directory)
+          if ($releaseDir.Count -ne 1) { throw 'ZIP must have exactly one top-level directory.' }
+          $top = $releaseDir[0].FullName
+          foreach ($relative in @('README.md', '.env.example', 'package-lock.json',
+            'GenerateSignatures.ps1', 'backend\server.js', 'frontend\login.html',
+            'scripts\install-backend-task.ps1', 'scripts\install-frontend-task.ps1')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $top $relative))) {
+              throw "Missing Windows release file: $relative"
+            }
+          }
+          foreach ($private in @('.env', 'config\secrets.env', 'config\users.csv',
+            'config\templates', 'generatedsignatures', 'Logs', 'node_modules')) {
+            if (Test-Path -LiteralPath (Join-Path $top $private)) {
+              throw "Private/runtime path unexpectedly shipped: $private"
+            }
+          }
+          Get-FileHash -LiteralPath $zip -Algorithm SHA256 |
+            Format-Table Hash, Path -AutoSize
+
+      - name: Attach test ZIP (not a published release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: signaturee-win-${{ github.sha }}
+          path: ${{ runner.temp }}\signaturee-artifacts\*.zip
+          if-no-files-found: error
+          retention-days: 7
+

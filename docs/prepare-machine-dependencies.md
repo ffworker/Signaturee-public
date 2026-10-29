@@ -8,7 +8,7 @@ Use the [Quickstart](../README.md#quickstart--standard-ad-deployment) for the co
 - Node.js **22.13+**, Git and Windows PowerShell **5.1**.
 - RSAT **ActiveDirectory** PowerShell module for `Get-ADUser` queries.
 - DNS/DC connectivity for AD; SMB access when generating productive network signatures.
-- **Microsoft Word for real RTF output**. Without Word, the current generator emits an empty RTF placeholder even if HTML/TXT are generated. Validate Word/RTF output before production.
+- **LibreOffice** for real RTF output (web generation default). Install it system-wide and verify `C:\Program Files\LibreOffice\program\soffice.com --version` or configure its absolute path using `SIGNATUREE_LIBREOFFICE_PATH`. **Microsoft Word is not required.** A failed RTF conversion is reported and does not intentionally publish a placeholder. Test output under the actual Scheduled Task identity.
 
 On Windows Server:
 
@@ -27,6 +27,20 @@ Get-Command Get-ADUser
 ~~~
 
 The capability name above is the one documented by [Microsoft for Windows clients](https://learn.microsoft.com/en-us/windows-server/administration/install-remote-server-administration-tools). On Windows Server, use the Windows Feature command shown earlier. Make sure `Get-ADUser` is actually available under the environment in which Signaturee runs.
+
+## Check the RTF converter
+
+In an elevated PowerShell session on Windows, verify the executable is installed:
+
+~~~powershell
+$lo = 'C:\Program Files\LibreOffice\program\soffice.com'
+Test-Path -LiteralPath $lo
+& $lo --version
+~~~
+
+This confirms the command is available **to the interactive administrator only**. The final test is a local Signaturee generation through the backend Scheduled Task (often `SYSTEM` in Session 0), followed by a Classic Outlook visual check. Test network/ACL output only after that passes. LibreOffice does not require Microsoft Office activation.
+
+The web backend defaults to `SIGNATUREE_RTF_ENGINE=libreoffice`. `SIGNATUREE_RTF_ENGINE=word` is a legacy/manual option; direct standalone `GenerateSignatures.ps1` invocations still default to Word unless `-RtfEngine LibreOffice` is supplied. See [Windows releases](windows-release.md).
 
 ## Application layout
 
