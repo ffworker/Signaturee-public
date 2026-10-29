@@ -41,6 +41,44 @@ assert.match(generator,/consumeGenerationStream\(response, handleEvent\)/,
   'The streamed NDJSON must update the result panel continuously');
 assert.match(generator,/Created Outlook signatures for user/,
   'Progress must reflect successful generator output, not a fake timer');
+// Exercise the existing terminal renderer with split streaming chunks, without a browser.
+const vm = require('node:vm');
+const helpers = generator.match(/\/\/ Render log fragments[\s\S]*?(?=generateBtn\.addEventListener)/);
+assert.ok(helpers, 'Live terminal renderer must exist');
+const documentMock = {
+  createElement: tagName => ({
+    tagName, className: '', textContent: '', children: [],
+    append(...nodes) { this.children.push(...nodes); },
+  }),
+  createTextNode: text => ({ textContent: text }),
+};
+const { createTerminalLogWriter } = vm.runInNewContext(
+  helpers[0] + '\n({createTerminalLogWriter})',
+  { document: documentMock },
+);
+const terminal = {
+  children: [], scrollTop: 0, scrollHeight: 20,
+  append(...nodes) { this.children.push(...nodes); },
+};
+const writer = createTerminalLogWriter(terminal);
+writer.write('[2026-10-29 09:50:05] [INFO] Signature', 'stdout');
+assert.equal(terminal.children.length, 0, 'Never render partial terminal lines');
+writer.write(' done\n[2026-10-29 09:50:06] [WARNING] Word issue\n', 'stdout');
+writer.write('[2026-10-29 09:50:07] [ERROR] Error <script>\n', 'stderr');
+writer.flush();
+const rows = terminal.children.filter(node => node.tagName === 'span');
+assert.equal(rows.length, 3);
+assert.ok(rows[0].children.some(node => node.className === 'terminal-level terminal-level-info'));
+assert.ok(rows[1].children.some(node => node.className === 'terminal-level terminal-level-warning'));
+assert.ok(rows[2].children.some(node => node.className === 'terminal-level terminal-level-error'));
+assert.ok(rows[2].children.some(node => node.textContent === ' Error <script>'),
+  'Untrusted log content must stay literal text, never HTML');
+const generatorCss = fs.readFileSync(path.join(uiDir,'generate-v2.css'),'utf8');
+for (const level of ['info','warning','error']) {
+  assert.ok(generatorCss.includes('.terminal-level-' + level), 'Missing terminal color: ' + level);
+}
+assert.ok(!generator.includes('runTechnicalLog.innerHTML'),
+  'Do not interpolate PowerShell logs into HTML');
 assert.ok(!css.includes('::file-selector-button)'),
   'Pseudo-elements cannot appear inside :is() selectors');
 let depth=0;

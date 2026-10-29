@@ -852,6 +852,51 @@ async function consumeGenerationStream(response, onEvent) {
   }
 }
 
+// Render log fragments as text nodes: severity highlighting without interpreting log HTML.
+function appendTerminalLogLine(target, line, channel) {
+  const row = document.createElement('span');
+  row.className = 'terminal-line' + (channel === 'stderr' ? ' terminal-line-stderr' : '');
+  const match = line.match(/^(\[\d{4}-\d\d-\d\d\s+\d\d:\d\d:\d\d\])\s+(\[(INFO|WARNING|ERROR|DEBUG)\])\s*(.*)$/i);
+  if (match) {
+    const timestamp = document.createElement('span');
+    timestamp.className = 'terminal-timestamp';
+    timestamp.textContent = match[1] + ' ';
+    const badge = document.createElement('span');
+    badge.className = 'terminal-level terminal-level-' + match[3].toLowerCase();
+    badge.textContent = match[2];
+    row.append(timestamp, badge, document.createTextNode(' ' + match[4]));
+  } else {
+    const tagged = line.match(/^(\[(INFO|WARNING|ERROR|DEBUG)\])\s*(.*)$/i);
+    if (tagged) {
+      const badge = document.createElement('span');
+      badge.className = 'terminal-level terminal-level-' + tagged[2].toLowerCase();
+      badge.textContent = tagged[1];
+      row.append(badge, document.createTextNode(' ' + tagged[3]));
+    } else {
+      row.textContent = line;
+    }
+  }
+  target.append(row, document.createTextNode('\n'));
+}
+
+function createTerminalLogWriter(target) {
+  const pending = { stdout: '', stderr: '', system: '' };
+  const write = (text, channel = 'stdout', flush = false) => {
+    const kind = Object.hasOwn(pending, channel) ? channel : 'stdout';
+    const lines = (pending[kind] + String(text || '')).split(/\r?\n/);
+    pending[kind] = flush ? '' : lines.pop();
+    if (flush && lines.at(-1) === '') lines.pop();
+    for (const line of lines) appendTerminalLogLine(target, line, kind);
+    target.scrollTop = target.scrollHeight;
+  };
+  return {
+    write,
+    flush: () => {
+      for (const channel of Object.keys(pending)) write('', channel, true);
+    },
+  };
+}
+
 generateBtn.addEventListener('click', async () => {
   if (!lastPlan?.ok || !selected.size || !(await ensureSession())) return;
   const target = targetValue();
@@ -866,6 +911,7 @@ generateBtn.addEventListener('click', async () => {
   let stdoutRemainder = '';
   let totalSignatures = requestedCount;
   let activeSignature = '';
+  const terminal = createTerminalLogWriter(runTechnicalLog);
 
   const updateProgress = (message = '') => {
     const count = completedSignatures.size;
@@ -898,10 +944,10 @@ generateBtn.addEventListener('click', async () => {
       updateProgress('Generator vorbereitet. Starte PowerShell ...');
     } else if (event.type === 'output') {
       const text = String(event.text || '');
-      runTechnicalLog.textContent += text;
-      runTechnicalLog.scrollTop = runTechnicalLog.scrollHeight;
+      terminal.write(text, event.channel);
       if (event.channel === 'stdout') scanLogLines(text);
     } else if (event.type === 'done') {
+      terminal.flush();
       scanLogLines('', true);
       lastPlan = event.plan;
       renderPlan(event.plan);
@@ -928,7 +974,8 @@ generateBtn.addEventListener('click', async () => {
   runStateTitle.textContent = 'Signaturen werden generiert';
   runResultPaths.innerHTML = '';
   runTechnicalDetails.open = true;
-  runTechnicalLog.textContent = '[Signaturee] Generierung angefordert. Warte auf Backend ...\n';
+  runTechnicalLog.replaceChildren();
+  terminal.write('[Signaturee] Generierung angefordert. Warte auf Backend ...\n', 'system');
   runProgress.max = Math.max(1, requestedCount);
   runProgress.value = 0;
   updateProgress('Prüfe Benutzer, Zuordnungen und Zielpfad ...');
@@ -943,6 +990,7 @@ generateBtn.addEventListener('click', async () => {
     }, 120000);
     await consumeGenerationStream(response, handleEvent);
   } catch (error) {
+    terminal.flush();
     if (error.plan) { lastPlan = error.plan; renderPlan(error.plan); }
     runResult.dataset.state = 'error';
     runStateIcon.textContent = '!';
@@ -950,7 +998,7 @@ generateBtn.addEventListener('click', async () => {
     runResultSummary.textContent = `Fehler: ${describeConnectionError(error)}`;
     runProgressLabel.textContent = `${completedSignatures.size} / ${totalSignatures} Signaturen erfolgreich erstellt`;
     if (!runTechnicalLog.textContent.includes(error.message)) {
-      runTechnicalLog.textContent += `\n[Signaturee] FEHLER: ${error.message}\n`;
+      terminal.write(`[ERROR] ${error.message}\n`, 'system');
     }
   } finally {
     generateBtn.textContent = 'Signaturen generieren';

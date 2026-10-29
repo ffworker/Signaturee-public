@@ -116,7 +116,21 @@ input[type="search"]:focus { outline: 3px solid rgba(36,92,58,.14); border-color
 .generation-progress progress { display: block; width: 100%; height: .65rem; accent-color: #398b5a; }
 .run-result[data-state="running"] .progress-step { animation: signature-generating-pulse 1.3s ease-in-out infinite; }
 .run-result[data-state="error"] .progress-step { background: #f4dddd; color: #9a3028; }
-.run-result pre[role="log"] { margin-top: .5rem; min-height: 8rem; max-height: 22rem; overflow: auto; }
+.run-result pre[role="log"] {
+  margin-top: .5rem; min-height: 8rem; max-height: 22rem; overflow: auto;
+  padding: .95rem 1rem; border: 1px solid #2a3b4b; border-radius: 10px;
+  background: #0b111b; color: #d9e6f1;
+  font: 500 .81rem/1.65 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  tab-size: 2; font-variant-numeric: tabular-nums;
+}
+.run-result .terminal-timestamp { color: #7f91a5; }
+.run-result .terminal-level { font-weight: 800; letter-spacing: .015em; }
+.run-result .terminal-level-info { color: #77e1b2; }
+.run-result .terminal-level-warning { color: #ffc16b; }
+.run-result .terminal-level-error { color: #ff858d; }
+.run-result .terminal-level-debug { color: #9caacc; }
+.run-result .terminal-line-stderr { color: #ffacb4; }
 @keyframes signature-generating-pulse { 50% { opacity: .5; transform: rotate(25deg); } }
 @media (prefers-reduced-motion: reduce) {
   .run-result[data-state="running"] .progress-step { animation: none; }
