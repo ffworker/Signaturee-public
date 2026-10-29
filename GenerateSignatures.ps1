@@ -601,25 +601,7 @@ function Get-SignatureCsvUsers {
     return Get-SignatureUserData -Path $Path
 }
 
-function Import-UserCsvRecords {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$Path
-    )
 
-    return Get-SignatureUserData -Path $Path
-}
-
-function Import-SignatureUserCsv {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$Path
-    )
-
-    return Get-SignatureUserData -Path $Path
-}
 
 function Select-CsvUsers {
     param(
@@ -1231,28 +1213,6 @@ if ($global:wordAvailable) {
 # =========================
 # HTML helpers
 # =========================
-function Convert-HtmlToPlainText {
-    param([string]$HtmlContent)
-    
-    $plainText = $HtmlContent -replace '&nbsp;', ' '
-    $plainText = $plainText -replace '&lt;', '<'
-    $plainText = $plainText -replace '&gt;', '>'
-    $plainText = $plainText -replace '&amp;', '&'
-    $plainText = $plainText -replace '&quot;', '"'
-    $plainText = $plainText -replace '&apos;', "'"
-    $plainText = $plainText -replace '&szlig;', 'ÃŸ'
-    
-    $plainText = $plainText -replace '&#160;', ' '
-    $plainText = $plainText -replace '&#223;', 'ÃŸ'
-    $plainText = $plainText -replace '&#60;', '<'
-    $plainText = $plainText -replace '&#62;', '>'
-    $plainText = $plainText -replace '&#38;', '&'
-    
-    $plainText = $plainText -replace '<[^>]+>', ' '
-    $plainText = $plainText -replace '\s+', ' '
-    $plainText = $plainText.Trim()
-    return $plainText
-}
 
 function ConvertTo-RtfVersion {
     param(
@@ -1543,39 +1503,6 @@ function New-OutlookSignatures {
 # =========================
 # Optional: deploy to Outlook (kept as in original)
 # =========================
-function Set-UserSignatures {
-    param(
-        [string]$Username,
-        [string]$CentralPath
-    )
-    
-    try {
-        $userAppData = "\\$env:USERDOMAIN\$Username\AppData\Roaming"
-        $outlookSignaturesPath = Join-Path -Path $userAppData -ChildPath "Microsoft\Signatures"
-        
-        if (Test-Path -Path $userAppData) {
-            if (-not (Test-Path $outlookSignaturesPath)) {
-                New-Item -Path $outlookSignaturesPath -ItemType Directory -Force | Out-Null
-            }
-            
-            $sourcePath = $CentralPath
-            if (Test-Path $sourcePath) {
-                Copy-Item -Path "$sourcePath\*" -Destination $outlookSignaturesPath -Force
-                Write-Log "Deployed signatures to $Username's Outlook folder"
-                return $true
-            } else {
-                Write-Log "Source path not found: $sourcePath" -Level "WARNING"
-                return $false
-            }
-        } else {
-            Write-Log "User profile not accessible: $userAppData" -Level "WARNING"
-            return $false
-        }
-    } catch {
-        Write-Log "Error deploying signatures to user $Username $_" -Level "ERROR"
-        return $false
-    }
-}
 
 # =========================
 # Determine central signature path
