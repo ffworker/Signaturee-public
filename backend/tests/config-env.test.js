@@ -8,11 +8,11 @@ const { spawn, spawnSync } = require('node:child_process');
 const serverFile = path.join(__dirname, '..', 'server.js');
 // Keep the web-backend default explicit; legacy PowerShell direct calls retain Word.
 const serverSource = fs.readFileSync(serverFile, 'utf8');
-assert.match(serverSource, /SIGNATUREE_RTF_ENGINE \\|\\| 'libreoffice'/,
+assert.ok(serverSource.includes("SIGNATUREE_RTF_ENGINE || 'libreoffice'"),
   'LibreOffice must be the web-backend default');
-assert.match(serverSource, /\\['word', 'libreoffice'\\]\\.includes\\(RTF_ENGINE\\)/,
+assert.ok(serverSource.includes("['word', 'libreoffice'].includes(RTF_ENGINE)"),
   'Word must remain available as a selectable legacy engine');
-assert.match(serverSource, /if \\(RTF_ENGINE === 'libreoffice'\\)/,
+assert.ok(serverSource.includes("if (RTF_ENGINE === 'libreoffice')"),
   'Backend must explicitly pass LibreOffice to the legacy PowerShell generator');
 async function freePort() {
   const listener = net.createServer();
