@@ -1186,33 +1186,16 @@ if ($usingUserFile) {
 }
 
 # =========================
-# Word availability (RTF)
+# Native Word COM (RTF) — checked on demand
 # =========================
-function Test-WordAvailability {
-    $word = $null
-    try {
-        $word = New-Object -ComObject Word.Application
-        if ($null -eq $word) { throw "Word.Application returned NULL." }
-        return $true
-    } catch {
-        Write-Log "Microsoft Word is not available on this system. RTF conversion cannot proceed: $_" -Level "WARNING"
-        return $false
-    } finally {
-        if ($null -ne $word) {
-            try { $word.Quit() } catch { Write-Log "Word availability probe could not quit Word: $_" -Level "WARNING" }
-            try {
-                [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($word)
-            } catch { Write-Log "Word availability probe could not release COM object: $_" -Level "WARNING" }
-            [System.GC]::Collect()
-            [System.GC]::WaitForPendingFinalizers()
-        }
-    }
-}
-$global:wordAvailable = Test-WordAvailability
-if ($global:wordAvailable) {
-    Write-Host "Microsoft Word is available for RTF generation." -ForegroundColor Green
-} else {
-    Write-Host "Microsoft Word is NOT available. RTF generation will fail rather than write an empty placeholder." -ForegroundColor Red
+# The old eager Word availability probe could mark an entire run unavailable
+# before processing its first signature. Try the actual conversion instead.
+# Only cache an actual COM activation failure for this PowerShell run, so a
+# broken server does not spend ~30 seconds launching Word for every signature.
+$script:wordComStartupFailed = $false
+
+function New-WordRtfApplication {
+    return New-Object -ComObject Word.Application
 }
 
 # =========================
@@ -1245,8 +1228,8 @@ function ConvertTo-RtfVersion {
         [string]$RtfPath
     )
 
-    if (-not $global:wordAvailable) {
-        Write-Log "RTF conversion failed: Microsoft Word is not available. Existing RTF left untouched." -Level "ERROR"
+    if ($script:wordComStartupFailed) {
+        Write-Log "RTF conversion skipped: Word COM activation already failed in this run. Existing RTF left untouched." -Level "ERROR"
         return $false
     }
 
@@ -1259,8 +1242,15 @@ function ConvertTo-RtfVersion {
 
     try {
         try {
-            $word = New-Object -ComObject Word.Application
-            if ($null -eq $word) { throw "Word.Application returned NULL." }
+            try {
+                $word = New-WordRtfApplication
+                if ($null -eq $word) { throw "Word.Application returned NULL." }
+            } catch {
+                $script:wordComStartupFailed = $true
+                $runIdentity = try { [System.Security.Principal.WindowsIdentity]::GetCurrent().Name } catch { 'unknown' }
+                $runSession = try { (Get-Process -Id $PID).SessionId } catch { 'unknown' }
+                throw "Word COM activation failed under $runIdentity (session $runSession): $_"
+            }
             $word.Visible = $false
             $documents = $word.Documents
             if ($null -eq $documents) { throw "Word.Documents returned NULL." }
