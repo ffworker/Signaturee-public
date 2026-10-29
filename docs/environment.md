@@ -23,11 +23,19 @@ Apply changes with `.\scripts\reload-config.ps1` from elevated PowerShell. Durin
 | `LOCAL_DEPLOYMENT_PATH` | Local preview output |
 | `NETWORK_DEPLOYMENT_PATH` | Production SMB/UNC target |
 | `TEMPLATE_DIR` | Active HTML/TXT and resource directory, normally `config/templates` |
+| `SIGNATUREE_RTF_ENGINE` | `libreoffice` (web backend default); `word` is a legacy compatibility selection. The direct PowerShell script defaults to Word unless passed `-RtfEngine LibreOffice`. |
+| `SIGNATUREE_LIBREOFFICE_PATH` | Optional absolute path to `soffice.com` or `soffice.exe`; leave unset for standard system-wide installation. |
 | `SIGNATUREE_SIGNATURES_AUTO_DISCOVER` | Auto-recognize complete template pairs |
 | `SIGNATUREE_AUTO_GROUP_PREFIX` | AD group prefix, default `Signature-` |
 | `SIGNATUREE_SIGNATURES_JSON` | Optional manual mapping when auto-discovery is false |
 | `SIGNATUREE_VARIABLES_EXTRA_JSON` | Additive variables and overrides saved by Admin, preserving the built-in schema |
 | `SIGNATUREE_VARIABLES_JSON` | Advanced full variable schema replacement; not the ordinary Admin editor |
+
+## RTF engine and failure behavior
+
+The **web backend defaults to LibreOffice** and passes `-RtfEngine LibreOffice` to the PowerShell generator. Install LibreOffice system-wide, preferably with its full executable path configured when the backend is run as a Scheduled Task. A Microsoft Office license is not required for this engine. `SIGNATUREE_RTF_ENGINE=word` explicitly selects the old unattended Word-COM implementation for compatibility testing only. There is no silent fallback between engines.
+
+RTF output is validated for basic structure before replacing the existing RTF file. A failed conversion reports an error and preserves the previous RTF where possible; it does not deliberately generate an empty placeholder. A structural check cannot verify logo fidelity—validate the generated HTML and RTF in Classic Outlook. Configuration changes require activating/restarting the backend.
 
 ## Templates and signature group membership
 
