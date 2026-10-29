@@ -853,6 +853,42 @@ async function consumeGenerationStream(response, onEvent) {
 }
 
 // Render log fragments as text nodes: severity highlighting without interpreting log HTML.
+function appendTerminalMessage(row, message) {
+  const replacement = message.match(/^(Replaced(?:\s+\(TXT\))?\s+)(\$[A-Za-z_]\w*)(\s+with\s+)(.*)$/i);
+  if (replacement) {
+    const variable = document.createElement('span');
+    variable.className = 'terminal-variable';
+    variable.textContent = replacement[2];
+    let value = replacement[4];
+    let quote = '';
+    if (value.length >= 2 && (value[0] === "'" || value[0] === '"') && value.at(-1) === value[0]) {
+      quote = value[0];
+      value = value.slice(1, -1);
+    }
+    const resolved = document.createElement('span');
+    resolved.className = 'terminal-replacement';
+    resolved.textContent = value;
+    row.append(document.createTextNode(replacement[1]), variable, document.createTextNode(replacement[3]));
+    if (quote) row.append(document.createTextNode(quote));
+    row.append(resolved);
+    if (quote) row.append(document.createTextNode(quote));
+    return;
+  }
+
+  // Highlight variables in diagnostic lines too, but leave their wording untouched.
+  let offset = 0;
+  for (const match of message.matchAll(/\$[A-Za-z_]\w*/g)) {
+    if (match.index > offset) row.append(document.createTextNode(message.slice(offset, match.index)));
+    const variable = document.createElement('span');
+    variable.className = 'terminal-variable';
+    variable.textContent = match[0];
+    row.append(variable);
+    offset = match.index + match[0].length;
+  }
+  if (offset === 0) row.append(document.createTextNode(message));
+  else if (offset < message.length) row.append(document.createTextNode(message.slice(offset)));
+}
+
 function appendTerminalLogLine(target, line, channel) {
   const row = document.createElement('span');
   row.className = 'terminal-line' + (channel === 'stderr' ? ' terminal-line-stderr' : '');
@@ -864,16 +900,18 @@ function appendTerminalLogLine(target, line, channel) {
     const badge = document.createElement('span');
     badge.className = 'terminal-level terminal-level-' + match[3].toLowerCase();
     badge.textContent = match[2];
-    row.append(timestamp, badge, document.createTextNode(' ' + match[4]));
+    row.append(timestamp, badge, document.createTextNode(' '));
+    appendTerminalMessage(row, match[4]);
   } else {
     const tagged = line.match(/^(\[(INFO|WARNING|ERROR|DEBUG)\])\s*(.*)$/i);
     if (tagged) {
       const badge = document.createElement('span');
       badge.className = 'terminal-level terminal-level-' + tagged[2].toLowerCase();
       badge.textContent = tagged[1];
-      row.append(badge, document.createTextNode(' ' + tagged[3]));
+      row.append(badge, document.createTextNode(' '));
+      appendTerminalMessage(row, tagged[3]);
     } else {
-      row.textContent = line;
+      appendTerminalMessage(row, line);
     }
   }
   target.append(row, document.createTextNode('\n'));

@@ -131,6 +131,14 @@ input[type="search"]:focus { outline: 3px solid rgba(36,92,58,.14); border-color
 .run-result .terminal-level-error { color: #ff858d; }
 .run-result .terminal-level-debug { color: #9caacc; }
 .run-result .terminal-line-stderr { color: #ffacb4; }
+.run-result .terminal-variable {
+  color: #7dd3fc; background: rgba(56,189,248,.12);
+  border-radius: 3px; padding: 0 .13em; font-weight: 800;
+}
+.run-result .terminal-replacement {
+  color: #a7f3c0; background: rgba(52,211,153,.12);
+  border-radius: 3px; padding: 0 .13em; font-weight: 750;
+}
 @keyframes signature-generating-pulse { 50% { opacity: .5; transform: rotate(25deg); } }
 @media (prefers-reduced-motion: reduce) {
   .run-result[data-state="running"] .progress-step { animation: none; }

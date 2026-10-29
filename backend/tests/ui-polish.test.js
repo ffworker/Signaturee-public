@@ -71,9 +71,33 @@ assert.equal(rows.length, 3);
 assert.ok(rows[0].children.some(node => node.className === 'terminal-level terminal-level-info'));
 assert.ok(rows[1].children.some(node => node.className === 'terminal-level terminal-level-warning'));
 assert.ok(rows[2].children.some(node => node.className === 'terminal-level terminal-level-error'));
-assert.ok(rows[2].children.some(node => node.textContent === ' Error <script>'),
+assert.ok(rows[2].children.some(node => node.textContent === 'Error <script>'),
   'Untrusted log content must stay literal text, never HTML');
+// Verify actual HTML/TXT replacement logs, split stdout and untrusted values.
+const flatten = node => node.children?.length ? node.children.map(flatten).join('') : node.textContent;
+writer.write('[2026-10-29 09:50:08] [INFO] Replaced $description with IT-', 'stdout');
+writer.write('Systemadministrator\n[2026-10-29 09:50:09] [INFO] Replaced (TXT) $mail with \'x@y.de\'\n', 'stdout');
+writer.write('[2026-10-29 09:50:10] [WARNING] Unresolved $mobile <img onerror=x>\n', 'stdout');
+const replacements = terminal.children.filter(node => node.tagName === 'span').slice(3);
+assert.equal(replacements.length, 3);
+assert.equal(flatten(replacements[0]),
+  '[2026-10-29 09:50:08] [INFO] Replaced $description with IT-Systemadministrator');
+assert.ok(replacements[0].children.some(node =>
+  node.className === 'terminal-variable' && node.textContent === '$description'));
+assert.ok(replacements[0].children.some(node =>
+  node.className === 'terminal-replacement' && node.textContent === 'IT-Systemadministrator'));
+assert.equal(flatten(replacements[1]),
+  "[2026-10-29 09:50:09] [INFO] Replaced (TXT) $mail with 'x@y.de'");
+assert.ok(replacements[1].children.some(node =>
+  node.className === 'terminal-replacement' && node.textContent === 'x@y.de'));
+assert.ok(replacements[2].children.some(node =>
+  node.className === 'terminal-variable' && node.textContent === '$mobile'));
+assert.equal(flatten(replacements[2]),
+  '[2026-10-29 09:50:10] [WARNING] Unresolved $mobile <img onerror=x>');
 const generatorCss = fs.readFileSync(path.join(uiDir,'generate-v2.css'),'utf8');
+for (const highlight of ['terminal-variable','terminal-replacement']) {
+  assert.ok(generatorCss.includes('.' + highlight), 'Missing replacement highlight: ' + highlight);
+}
 for (const level of ['info','warning','error']) {
   assert.ok(generatorCss.includes('.terminal-level-' + level), 'Missing terminal color: ' + level);
 }
