@@ -37,7 +37,7 @@ With `SIGNATUREE_SIGNATURES_AUTO_DISCOVER=true`, the effective profile scans the
 - `FF_Template.htm` + `FF_Template.txt` → signature `FF` → `Signature-FF`
 - An optional `AD-Dateien/` folder supplies matching resources.
 
-`.html` is also accepted, and extensions are matched case-insensitively. The shipped `example_template.*` pair is skipped. Both HTML and TXT must be present; incomplete pairs fail configuration validation. After manually adding/renaming templates, refresh the relevant Admin profile/catalog view; the `+ Signatur` wizard also refreshes the catalog. A **backend reload is needed for changes to `.env`**, not simply for discovery of a new complete on-disk pair.
+`.html` is also accepted, and extensions are matched case-insensitively. Files named `example_template.*` are skipped if present. Both HTML and TXT must be present; incomplete pairs fail configuration validation. After manually adding/renaming templates, refresh the relevant Admin profile/catalog view; the `+ Signatur` wizard also refreshes the catalog. A **backend reload is needed for changes to `.env`**, not simply for discovery of a new complete on-disk pair.
 
 **The group must already exist in AD and the user must belong to it.** The default mapping compares the AD group **CN**, while a manual full-DN mapping compares the **complete DN**. Direct membership is the reliable baseline; nested membership is not automatically expanded in every workflow.
 
