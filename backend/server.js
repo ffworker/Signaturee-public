@@ -2745,6 +2745,7 @@ async function runGenerateScript(options = {}) {
     networkDeploymentPath,
     previewOnly = false,
     allowGlobalTestTemplates = true,
+    onOutput,
   } = options;
   if (!ALLOWED_IMPORT_MODES.includes(mode)) {
     const error = new Error(`Unsupported import mode: ${mode}`);
@@ -2826,10 +2827,14 @@ async function runGenerateScript(options = {}) {
     let stderr = '';
 
     child.stdout.on('data', (data) => {
-      stdout += data.toString();
+      const text = data.toString();
+      stdout += text;
+      if (onOutput) onOutput('stdout', text);
     });
     child.stderr.on('data', (data) => {
-      stderr += data.toString();
+      const text = data.toString();
+      stderr += text;
+      if (onOutput) onOutput('stderr', text);
     });
     child.on('close', (code) => {
       if (stdout) {
@@ -5061,23 +5066,47 @@ async function handleV2RunPreview(req, res) {
   }
 }
 
-async function handleV2RunGenerate(req, res) {
+async function handleV2RunGenerate(req, res, stream = false) {
   let runFilePath = '';
   let runConfigPath = '';
   let runVariablesPath = '';
+  let streamStarted = false;
+  let heartbeat = null;
+  const emit = (event) => {
+    if (!stream || res.destroyed || res.writableEnded) return;
+    if (!streamStarted) {
+      res.writeHead(200, {
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Accel-Buffering': 'no',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      streamStarted = true;
+      heartbeat = setInterval(() => emit({ type: 'heartbeat' }), 15000);
+    }
+    res.write(`${JSON.stringify(event)}\n`);
+  };
+  const finishStream = () => {
+    if (stream && !res.destroyed && !res.writableEnded) res.end();
+  };
   try {
     const contentType = req.headers['content-type'] || '';
     if (!contentType.includes('application/json')) {
       return sendJson(res, 415, { error: 'Generation expects application/json.' });
     }
     const body = await parseJsonBody(req);
+    if (stream) emit({ type: 'status', message: 'Prüfe AD-Zuordnung, Vorlagen und Ziel ...' });
     const plan = await buildV2RunPlan(body);
     if (!plan.ok) {
-      return sendJson(res, 422, {
-        error: 'Preflight failed. Nothing was generated.',
-        plan: toPublicV2RunPlan(plan),
-      });
+      const error = { error: 'Preflight failed. Nothing was generated.', plan: toPublicV2RunPlan(plan) };
+      if (stream) {
+        emit({ type: 'error', ...error });
+        finishStream();
+        return;
+      }
+      return sendJson(res, 422, error);
     }
+    if (stream) emit({ type: 'started', plan: toPublicV2RunPlan(plan) });
 
     const preferredHeaders = uniqueCaseInsensitive([
       ...buildPreferredHeaders(plan.mappedAttributes),
@@ -5119,6 +5148,7 @@ async function handleV2RunGenerate(req, res) {
       'utf8',
     );
 
+    if (stream) emit({ type: 'status', message: 'Signaturgenerator wird gestartet ...' });
     const scriptResult = await queueGenerateScript({
       userFilePath: runFilePath,
       mode: 'userFile',
@@ -5133,14 +5163,27 @@ async function handleV2RunGenerate(req, res) {
       localDeploymentPath: plan.profile.targets.preview.path,
       networkDeploymentPath: plan.profile.targets.production.path,
       allowGlobalTestTemplates: false,
+      onOutput: stream ? (channel, text) => emit({ type: 'output', channel, text }) : undefined,
     });
 
-    return sendJson(res, 200, {
+    const result = {
       message: 'Signature generation completed.',
       plan: toPublicV2RunPlan(plan),
       script: scriptResult,
-    });
+    };
+    if (stream) {
+      // The live terminal already received script output; avoid sending it twice.
+      emit({ type: 'done', message: result.message, plan: result.plan });
+      finishStream();
+      return;
+    }
+    return sendJson(res, 200, result);
   } catch (error) {
+    if (stream && streamStarted) {
+      emit({ type: 'error', error: error.message, code: error.code });
+      finishStream();
+      return;
+    }
     return sendJson(res, getErrorStatus(error), {
       error: error.message,
       code: error.code,
@@ -5148,6 +5191,7 @@ async function handleV2RunGenerate(req, res) {
       stderr: error.stderr,
     });
   } finally {
+    if (heartbeat) clearInterval(heartbeat);
     [runFilePath, runConfigPath, runVariablesPath].filter(Boolean).forEach((filePath) => {
       fs.promises.rm(filePath, { force: true }).catch(() => {});
     });
@@ -6024,6 +6068,10 @@ function routeRequest(req, res) {
   if (relativePath === '/api/run/generate' && req.method === 'POST') {
     if (!ensure('user')) return;
     return handleV2RunGenerate(req, res);
+  }
+  if (relativePath === '/api/run/generate/stream' && req.method === 'POST') {
+    if (!ensure('user')) return;
+    return handleV2RunGenerate(req, res, true);
   }
   if (relativePath === '/api/generate/single' && req.method === 'POST') {
     if (!ensure('user')) return;

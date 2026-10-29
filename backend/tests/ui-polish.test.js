@@ -31,6 +31,16 @@ assert.match(generator,/function setStatusTone\(element,tone/);
 assert.match(generator,/setStatusTone\(previewStatus,'success'\)/);
 assert.match(generator,/setStatusTone\(previewStatus,'error'\)/);
 assert.match(generator,/setStatusTone\(preflightHint,body\.ok\?'success':'error'\)/);
+for (const id of ['runStateIcon','runStateTitle','runProgress','runProgressLabel',
+  'runTechnicalDetails','runTechnicalLog']) {
+  assert.ok(generatorHtml.includes('id="' + id + '"'), 'Missing live generation control: ' + id);
+}
+assert.match(generator,/\/api\/run\/generate\/stream/,
+  'Generation must request the streaming API rather than waiting for a complete JSON response');
+assert.match(generator,/consumeGenerationStream\(response, handleEvent\)/,
+  'The streamed NDJSON must update the result panel continuously');
+assert.match(generator,/Created Outlook signatures for user/,
+  'Progress must reflect successful generator output, not a fake timer');
 assert.ok(!css.includes('::file-selector-button)'),
   'Pseudo-elements cannot appear inside :is() selectors');
 let depth=0;

@@ -156,15 +156,19 @@
       <button id="generateBtn" type="button" disabled>Generieren</button>
     </section>
 
-    <section id="runResult" class="step-card compact-card run-result" hidden>
+    <section id="runResult" class="step-card compact-card run-result" aria-live="polite" hidden>
       <div class="compact-section-head">
-        <div class="compact-title"><span class="step-number done">✓</span><h2>Ergebnis</h2></div>
+        <div class="compact-title"><span id="runStateIcon" class="step-number progress-step">↻</span><h2 id="runStateTitle">Signaturen werden generiert</h2></div>
         <span id="runResultSummary" class="muted"></span>
       </div>
+      <div class="generation-progress">
+        <strong id="runProgressLabel">0 / 0 Signaturen erstellt</strong>
+        <progress id="runProgress" max="1" value="0" aria-label="Erstellte Signaturen"></progress>
+      </div>
       <div id="runResultPaths" class="result-paths"></div>
-      <details>
-        <summary>Technische Ausgabe</summary>
-        <pre id="runTechnicalLog"></pre>
+      <details id="runTechnicalDetails" open>
+        <summary>Technische Ausgabe (Live)</summary>
+        <pre id="runTechnicalLog" role="log" aria-label="Laufende technische Ausgabe"></pre>
       </details>
     </section>
   </main>

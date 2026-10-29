@@ -29,6 +29,11 @@ const runResult = byId('runResult');
 const runResultSummary = byId('runResultSummary');
 const runTechnicalLog = byId('runTechnicalLog');
 const runResultPaths = byId('runResultPaths');
+const runStateIcon = byId('runStateIcon');
+const runStateTitle = byId('runStateTitle');
+const runProgress = byId('runProgress');
+const runProgressLabel = byId('runProgressLabel');
+const runTechnicalDetails = byId('runTechnicalDetails');
 const previewStep = byId('previewStep');
 const previewSelect = byId('previewSelect');
 const previewBtn = byId('previewBtn');
@@ -807,6 +812,46 @@ async function runPreflight() {
 }
 preflightBtn.addEventListener('click', runPreflight);
 
+async function consumeGenerationStream(response, onEvent) {
+  if (!response.ok) {
+    const { body, status } = await parseResponse(response);
+    throw new Error(body.error || `HTTP ${status}`);
+  }
+  if (!response.body?.getReader) {
+    throw new Error('Live-Ausgabe wird vom Browser/Proxy nicht unterstützt.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = '';
+  let finished = false;
+  const consumeLine = (line) => {
+    if (!line.trim()) return;
+    const event = JSON.parse(line);
+    onEvent(event);
+    if (event.type === 'error') {
+      const error = new Error(event.error || 'Generierung fehlgeschlagen.');
+      error.plan = event.plan;
+      throw error;
+    }
+    if (event.type === 'done') finished = true;
+  };
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      pending += done ? decoder.decode() : decoder.decode(value, { stream: true });
+      const lines = pending.split('\n');
+      pending = lines.pop();
+      for (const line of lines) consumeLine(line);
+      if (done) break;
+    }
+    if (pending.trim()) consumeLine(pending);
+    if (!finished) throw new Error('Verbindung wurde vor dem Generierungsabschluss unterbrochen. Prüfe die Zielausgabe, bevor du erneut startest.');
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 generateBtn.addEventListener('click', async () => {
   if (!lastPlan?.ok || !selected.size || !(await ensureSession())) return;
   const target = targetValue();
@@ -816,39 +861,101 @@ generateBtn.addEventListener('click', async () => {
     );
     if (!confirmed) return;
   }
+  const requestedCount = lastPlan.signatureCount;
+  const completedSignatures = new Set();
+  let stdoutRemainder = '';
+  let totalSignatures = requestedCount;
+  let activeSignature = '';
+
+  const updateProgress = (message = '') => {
+    const count = completedSignatures.size;
+    runProgress.max = Math.max(1, totalSignatures);
+    runProgress.value = count;
+    runProgressLabel.textContent = `${count} / ${totalSignatures} Signaturen erstellt`;
+    runResultSummary.textContent = message || activeSignature ||
+      (count === totalSignatures ? 'Alle Signaturen erstellt.' : 'Generierung läuft ...');
+  };
+  const scanLogLines = (text, flush = false) => {
+    stdoutRemainder += text;
+    const lines = stdoutRemainder.split(/\r?\n/);
+    stdoutRemainder = flush ? '' : lines.pop();
+    for (const line of lines) {
+      const started = line.match(/Template loaded for (.+?) - (.+?)\. Length:/);
+      if (started) activeSignature = `Erstelle ${started[2]} für ${started[1]} ...`;
+      const success = line.match(/Created Outlook signatures for user (.+?) for domain (.+?)\s*$/);
+      if (success) {
+        completedSignatures.add(`${success[1].toLowerCase()}\u0000${success[2].toLowerCase()}`);
+        activeSignature = `Zuletzt erstellt: ${success[2]} für ${success[1]}`;
+      }
+      if (started || success) updateProgress();
+    }
+  };
+  const handleEvent = (event) => {
+    if (event.type === 'status') {
+      runResultSummary.textContent = event.message;
+    } else if (event.type === 'started') {
+      totalSignatures = event.plan?.signatureCount || requestedCount;
+      updateProgress('Generator vorbereitet. Starte PowerShell ...');
+    } else if (event.type === 'output') {
+      const text = String(event.text || '');
+      runTechnicalLog.textContent += text;
+      runTechnicalLog.scrollTop = runTechnicalLog.scrollHeight;
+      if (event.channel === 'stdout') scanLogLines(text);
+    } else if (event.type === 'done') {
+      scanLogLines('', true);
+      lastPlan = event.plan;
+      renderPlan(event.plan);
+      runResult.dataset.state = 'success';
+      runStateIcon.textContent = '✓';
+      runStateTitle.textContent = 'Ergebnis';
+      runResultSummary.textContent =
+        `${event.plan.signatureCount} Signaturen für ${event.plan.users.length} Personen abgeschlossen.`;
+      runProgress.value = runProgress.max = Math.max(1, event.plan.signatureCount);
+      runProgressLabel.textContent = `${event.plan.signatureCount} / ${event.plan.signatureCount} abgeschlossen`;
+      runResultPaths.innerHTML = event.plan.users.map((user) =>
+        `<div class="result-path"><strong>${escapeHtml(user.displayName || user.id)}</strong><code>${escapeHtml(user.outputPath || event.plan.target?.path || '')}</code></div>`
+      ).join('');
+      if (!runTechnicalLog.textContent.trim()) runTechnicalLog.textContent = 'Keine technische Ausgabe.';
+    }
+  };
+
   generateBtn.disabled = true;
+  preflightBtn.disabled = true;
   generateBtn.textContent = 'Generierung läuft ...';
   runResult.hidden = false;
-  runResultSummary.textContent = 'Lauf wurde gestartet.';
-  runTechnicalLog.textContent = '';
+  runResult.dataset.state = 'running';
+  runStateIcon.textContent = '↻';
+  runStateTitle.textContent = 'Signaturen werden generiert';
+  runResultPaths.innerHTML = '';
+  runTechnicalDetails.open = true;
+  runTechnicalLog.textContent = '[Signaturee] Generierung angefordert. Warte auf Backend ...\n';
+  runProgress.max = Math.max(1, requestedCount);
+  runProgress.value = 0;
+  updateProgress('Prüfe Benutzer, Zuordnungen und Zielpfad ...');
   const payload = {
     users:[...selected.values()].map((user) => user.id),
     target,
     signatureSelection: signatureSelectionPayload(),
   };
   try {
-    const { ok, body, status } = await parseResponse(await fetchWithTimeout(apiUrl('/api/run/generate'), {
+    const response = await fetchWithTimeout(apiUrl('/api/run/generate/stream'), {
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
-    }, 120000));
-    if (!ok) {
-      if (body.plan) { lastPlan = body.plan; renderPlan(body.plan); }
-      throw new Error(body.error || `HTTP ${status}`);
-    }
-    lastPlan = body.plan;
-    renderPlan(body.plan);
-    runResultSummary.textContent = `${body.plan.signatureCount} Signaturen für ${body.plan.users.length} Personen abgeschlossen.`;
-    runResultPaths.innerHTML = body.plan.users.map((user) =>
-      `<div class="result-path"><strong>${escapeHtml(user.displayName || user.id)}</strong><code>${escapeHtml(user.outputPath || body.plan.target?.path || '')}</code></div>`
-    ).join('');
-    const stdout = body.script?.stdout || '';
-    const stderr = body.script?.stderr || '';
-    runTechnicalLog.textContent = [stdout && `STDOUT:\n${stdout}`, stderr && `STDERR:\n${stderr}`].filter(Boolean).join('\n\n') || 'Keine technische Ausgabe.';
+    }, 120000);
+    await consumeGenerationStream(response, handleEvent);
   } catch (error) {
+    if (error.plan) { lastPlan = error.plan; renderPlan(error.plan); }
+    runResult.dataset.state = 'error';
+    runStateIcon.textContent = '!';
+    runStateTitle.textContent = 'Generierung fehlgeschlagen';
     runResultSummary.textContent = `Fehler: ${describeConnectionError(error)}`;
-    runTechnicalLog.textContent = error.stack || error.message;
+    runProgressLabel.textContent = `${completedSignatures.size} / ${totalSignatures} Signaturen erfolgreich erstellt`;
+    if (!runTechnicalLog.textContent.includes(error.message)) {
+      runTechnicalLog.textContent += `\n[Signaturee] FEHLER: ${error.message}\n`;
+    }
   } finally {
     generateBtn.textContent = 'Signaturen generieren';
     generateBtn.disabled = !lastPlan?.ok;
+    preflightBtn.disabled = !selected.size || !activeApiBase;
   }
 });
 
