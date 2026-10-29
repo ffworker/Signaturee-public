@@ -84,7 +84,6 @@ const TEMPLATE_DIRECTORY = resolvePath(
 );
 const V2_TEMPLATE_DIRECTORY = TEMPLATE_DIRECTORY;
 const CONFIG_PATH = resolvePath(process.env.CONFIG_PATH || path.join(ROOT_DIR, 'config', 'config.json'));
-const VARIABLE_CONFIG_DIR = path.dirname(resolvePath(process.env.VARIABLES_PATH || path.join(ROOT_DIR, 'config', 'variables.json')));
 const LOG_DIR = resolvePath(process.env.LOG_DIR || path.join(ROOT_DIR, 'Logs'));
 const LOG_TAIL_BYTES = Number.isFinite(Number(process.env.LOG_TAIL_BYTES))
   ? Number(process.env.LOG_TAIL_BYTES)
