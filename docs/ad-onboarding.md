@@ -1,4 +1,4 @@
-# Active Directory onboarding — Signaturee v2
+# Active Directory onboarding — Signaturee
 
 Signaturee uses AD for employee data and signature-group membership. A local **Admin** account configures the application; employees use their own AD credentials for Self-Service. The in-app **Administration → Onboarding / Check-Liste** page shows the effective profile's requirements.
 
