@@ -1367,7 +1367,7 @@ function ConvertTo-RtfVersion {
         } # Word COM path
 
         if (-not (Test-GeneratedRtfFile -Path $stagedRtfPath)) {
-            throw "Word output failed RTF validation (file missing, too small, or invalid header)."
+            throw "$RtfEngine output failed RTF validation (file missing, too small, or invalid header)."
         }
 
         # Stage and destination share a directory/volume. On Windows, Replace
@@ -1648,7 +1648,7 @@ function New-OutlookSignatures {
         $resourceFolderSuccess = $resourcesPreparedForLibreOffice
         if ($resourceFolder -and -not $resourcesPreparedForLibreOffice) {
             $resourceFolderSuccess = Copy-ResourceFolder -SourceFolder $resourceFolder -Username $Username -Domain $Domain -Email $email -DestinationPath $userSignaturePath
-        } else {
+        } elseif (-not $resourceFolder) {
             Write-Log "No resource folder configured for domain $Domain" -Level "WARNING"
         }
         
