@@ -1,8 +1,0 @@
-$givenname $sn
-$description
-$department
-
-Example Organization
-Tel: $telephonenumber
-Mobil: $mobile
-E-Mail: $mail
