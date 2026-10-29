@@ -29,13 +29,17 @@ Signaturee is a self-hosted Windows application: a web frontend, a Node.js API a
 - **LibreOffice** installed system-wide for headless RTF conversion (the **default for web generation**). Microsoft Word is **not required**. The legacy Word-COM engine remains an explicitly selectable compatibility option (`SIGNATUREE_RTF_ENGINE=word`) but is not recommended for unattended tasks.
 - Failed RTF conversion is reported as an error: Signaturee does **not** intentionally publish an empty placeholder. Existing RTF is preserved when possible; successful generation should still be checked in Classic Outlook.
 
-For RSAT installation commands and an initial machine check, see [Windows prerequisites](docs/prepare-machine-dependencies.md). For the portable Windows ZIP, installation instructions, and release validation checklist, see [Windows releases](docs/windows-release.md).
+**Fresh Windows Server 2025 VM?** Follow [Prepare your VM (Windows Server 2025)](docs/prepare-windows-server-2025.md) first: domain/DNS, RSAT, Node.js, LibreOffice, ZIP installation, Scheduled Tasks and the Classic Outlook acceptance test. For shorter reference material, see [Windows prerequisites](docs/prepare-machine-dependencies.md) and [Windows release packaging](docs/windows-release.md).
 
 ## Windows ZIP package
 
 The Windows CI produces a portable ZIP of **tracked application source only**. It includes the two Scheduled Task installers and example configuration, but not Node.js, LibreOffice, credentials, employee data, private templates, databases or a bundled Windows executable. The ZIP requires no Git on the installation target; Git-based update scripts do not work in a ZIP deployment.
 
 See [Windows releases and clean-install validation](docs/windows-release.md). Until a release is tagged and published, CI ZIPs are **test artifacts**, not approved stable releases.
+
+## Fresh Windows Server 2025 installation
+
+For a clean Windows Server 2025 VM or first-time release qualification, start with the **[step-by-step VM preparation guide](docs/prepare-windows-server-2025.md)**. This includes LibreOffice as the default RTF engine, Node.js, RSAT, domain/network requirements and the complete acceptance checklist. The ZIP option avoids requiring Git on the test VM.
 
 ## Quickstart — standard AD deployment
 
