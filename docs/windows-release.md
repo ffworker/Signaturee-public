@@ -1,5 +1,7 @@
 # Windows release — ZIP packaging and clean-install checklist
 
+For step-by-step setup of a **fresh Windows Server 2025 VM**, see [Prepare your VM (Windows Server 2025)](prepare-windows-server-2025.md). This page focuses on packaging, release validation, existing-installation safety and rollback.
+
 Signaturee for Windows is a Node.js frontend/backend plus a Windows PowerShell 5.1 signature generator. The web backend defaults to headless **LibreOffice** for RTF conversion. It does not require Microsoft Word. This page describes the **portable source ZIP**; it is not a single-file EXE or MSI and does not bundle the prerequisites.
 
 ## Status and scope

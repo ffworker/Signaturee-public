@@ -1,5 +1,7 @@
 # Windows host preparation — Signaturee
 
+For a **complete new Windows Server 2025 VM walkthrough**, including hostname/DNS, domain join, Node.js, LibreOffice, ZIP setup and end-to-end acceptance, start with [Prepare your VM (Windows Server 2025)](prepare-windows-server-2025.md). This page remains the shorter Windows prerequisite and Scheduled Task reference.
+
 Use the [Quickstart](../README.md#quickstart--standard-ad-deployment) for the complete installation sequence. This page covers the required Windows components and scheduled runtime.
 
 ## Windows prerequisites
