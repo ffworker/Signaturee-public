@@ -26,15 +26,21 @@ an application route.
   moving branch or an ordinary CI artifact. The ZIP and SHA256SUMS were downloaded
   and checked during this website mission. See the baseline audit for evidence.
 - Creator acceptance is explicitly attributed, not presented as customer validation.
-- The workflow drawing is labeled as an illustration, never a product screenshot.
+- The signature specimen uses fictional example.com data, explicitly labeled as a
+  template illustration, never a real employee or product screenshot.
 - No screenshots are used because no approved sanitized capture was supplied.
 - Verify release metadata, actual downloaded bytes and checksum before changing a
   download button. Do not automatically promote a CI build.
 
-The visual system follows the live Bytegeist source observed during this mission:
-navy `#020617`, slate panels, cyan `#22d3ee`, purple mono accents and the existing
-system UI/monospace font stacks. It deliberately omits boot delays, external fonts
-and background effects. The primary surface is Decide / Learn.
+The primary surface is Decide / Learn, composed as an editorial specimen sheet
+rather than a generic developer-tool landing page. Ink `#191b1a`, warm paper
+`#eeece2` and vermilion `#ff795c` distinguish the project within Bytegeist. Georgia
+serif display type contrasts with deliberately restrained Helvetica/Arial body
+type and small mono annotations; all are local fallbacks, not remote font loads.
+Native details/summary keep requirements and acceptance evidence accessible
+without a long front-page wall of text or JavaScript. AI-assisted development is
+acknowledged without claiming manual authorship or inventing an AI product feature.
+Do not reintroduce gradients, floating dashboard cards, glowing accents or fake UI.
 
 ## Publication and rollback
 

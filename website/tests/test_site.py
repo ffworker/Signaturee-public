@@ -82,6 +82,14 @@ class SiteTests(unittest.TestCase):
         self.assertIn('Real LDAP acceptance', self.html)
         self.assertIn('not automatic stable releases', self.html)
 
+    def test_editorial_specimen_and_honest_ai_disclosure(self):
+        self.assertIn('Fictional signature', self.html)
+        self.assertIn('alex@example.com', self.html)
+        self.assertIn('AI-assisted development', self.html)
+        self.assertIn('details', self.page.tags)
+        self.assertIn('summary', self.page.tags)
+        self.assertNotIn('gradient(', self.css)
+
     def test_discovery(self):
         self.assertIn('https://signaturee.bytegeist.dev/', self.html)
         sitemap = ET.parse(ROOT / 'sitemap.xml')
