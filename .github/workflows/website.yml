@@ -21,7 +21,7 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             git diff --check "origin/${{ github.base_ref }}...HEAD"
-          elif [[ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
             git diff --check "${{ github.event.before }}...${{ github.sha }}"
           else
             git diff --check HEAD^ HEAD
