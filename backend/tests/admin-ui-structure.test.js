@@ -40,7 +40,8 @@ assert.match(client,/profileSaveBar\.hidden=!dirty&&!envPendingRestart/);
 assert.match(css,/html\[data-theme="dark"\]/,
   'Compact styling must support the shared dark theme');
 // Accessibility and layout regressions from the Night Sky visual pass.
-const theme=fs.readFileSync(path.join(root,'frontend','theme.css'),'utf8');
+const theme=fs.readFileSync(path.join(root,'frontend','theme.css'),'utf8') +
+  fs.readFileSync(path.join(root,'frontend','ui-polish.css'),'utf8');
 const generator=fs.readFileSync(path.join(root,'frontend','index.html'),'utf8');
 assert.ok(html.includes('data-admin-view="onboarding">Onboarding / Check-Liste</button>'),
   'Onboarding menu must explicitly mention the checklist');

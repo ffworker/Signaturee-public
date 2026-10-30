@@ -12,24 +12,25 @@
   <script src="theme.js"></script>
 </head>
 <body>
-  <header class="topbar admin-topbar">
-    <div>
-      <div class="brand-row">
-        <span class="brand">Signaturee</span>
-        
+  <a class="skip-link" href="#main-content">Zum Inhalt</a>
+  <header class="product-masthead">
+    <div class="masthead-inner">
+      <div class="brand-row"><span class="brand">signaturee</span><span class="edition-label">WINDOWS</span></div>
+      <div class="top-actions">
+          <span id="adminConnectionBadge" class="connection-badge">Backend wird gesucht ...</span>
+          <a class="button secondary" href="index.html">Signaturen erstellen</a>
+          <button id="adminLogoutBtn" type="button" class="secondary">Abmelden</button>
       </div>
-      <h1>Administration</h1>
-      
-    </div>
-    <div class="top-actions">
-      <span id="adminConnectionBadge" class="connection-badge">Backend wird gesucht ...</span>
-      <a class="button secondary" href="index.html">← Generieren</a>
-      <button id="adminLogoutBtn" type="button" class="secondary">Abmelden</button>
     </div>
   </header>
+  <div class="page-heading">
+    <p class="section-index">02 / KONFIGURATION</p>
+    <h1>Administration</h1>
+    <p class="subtitle">Vorlagen, Verzeichnis und Zuordnungen. An einem Ort.</p>
+  </div>
 
   <div class="admin-shell">
-    <aside class="admin-nav">
+    <aside class="admin-nav" aria-label="Administrationsbereiche">
       <button class="admin-nav-item active" data-admin-view="overview">Übersicht</button>
       <button class="admin-nav-item" data-admin-view="deployment">Ausgabe</button>
       <button class="admin-nav-item" data-admin-view="signatures">Signaturen</button>
@@ -39,7 +40,7 @@
       <button class="admin-nav-item" data-admin-view="system">System</button>
     </aside>
 
-    <main class="workspace admin-workspace">
+    <main class="workspace admin-workspace" id="main-content" tabindex="-1">
       <section id="adminConnectionPanel" class="connection-panel" hidden>
         <div>
           <strong>Backend nicht erreichbar</strong>
@@ -251,7 +252,7 @@ $mail</pre></div>
           </details>
 
           <div class="variable-toolbar">
-            <input id="variableSearch" type="search" placeholder="Variable suchen …">
+            <input id="variableSearch" aria-label="Variablen filtern" type="search" placeholder="Variable suchen …">
             <label class="variable-filter-check">
               <input id="requiredVariablesOnly" type="checkbox">
               Nur Pflichtfelder

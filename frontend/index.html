@@ -10,22 +10,24 @@
   <script src="theme.js"></script>
 </head>
 <body>
-  <header class="topbar compact-topbar">
-    <div>
-      <div class="brand-row">
-        <span class="brand">Signaturee</span>
-        
+  <a class="skip-link" href="#main-content">Zum Inhalt</a>
+  <header class="product-masthead">
+    <div class="masthead-inner">
+      <div class="brand-row"><span class="brand">signaturee</span><span class="edition-label">WINDOWS</span></div>
+      <div class="top-actions">
+          <span id="connectionBadge" class="connection-badge">Backend wird gesucht ...</span>
+          <a id="adminLink" class="button secondary" href="admin.html">Administration</a>
+          <button id="logoutBtn" type="button" class="secondary">Abmelden</button>
       </div>
-      <h1>Signaturen erstellen</h1>
-    </div>
-    <div class="top-actions">
-      <span id="connectionBadge" class="connection-badge">Backend wird gesucht ...</span>
-      <a id="adminLink" class="button secondary" href="admin.html">Admin</a>
-      <button id="logoutBtn" type="button" class="secondary">Abmelden</button>
     </div>
   </header>
+  <div class="page-heading">
+    <p class="section-index">01 / SIGNATUREN</p>
+    <h1>Signaturen <em>erstellen.</em></h1>
+    <p class="subtitle">Personen auswählen, aktuelle Daten prüfen und Signaturen bereitstellen.</p>
+  </div>
 
-  <main class="workspace compact-workspace">
+  <main class="workspace compact-workspace" id="main-content" tabindex="-1">
     <section id="connectionPanel" class="connection-panel" hidden>
       <div>
         <strong id="connectionTitle">Backend-Verbindung</strong>
@@ -44,15 +46,15 @@
 
     <section class="step-card compact-card" id="peopleStep">
       <div class="compact-section-head">
-        <div class="compact-title"><span class="step-number">1</span><h2>Personen</h2><span class="source-pill">Live AD</span></div>
+        <div class="compact-title"><span class="step-number">1</span><h2>Personen auswählen</h2><span class="source-pill">Live AD</span></div>
         
       </div>
 
       <form id="adSearchForm" class="search-row compact-search">
-        <input id="adSearchInput" type="search" autocomplete="off" placeholder="Name, Benutzername oder E-Mail">
+        <input id="adSearchInput" aria-label="Person im Active Directory suchen" type="search" autocomplete="off" placeholder="Name, Benutzername oder E-Mail">
         <button type="submit">Suchen</button>
       </form>
-      <div id="searchStatus" class="inline-status compact-status"></div>
+      <div id="searchStatus" class="inline-status compact-status" role="status" aria-live="polite"></div>
       <div id="searchResults" class="result-list"></div>
 
       <details class="bulk-add compact-details">
@@ -80,7 +82,7 @@
     <section class="compact-two-column">
       <section class="step-card compact-card">
         <div class="compact-section-head">
-          <div class="compact-title"><span class="step-number">2</span><h2>Ziel</h2></div>
+          <div class="compact-title"><span class="step-number">2</span><h2>Ausgabe festlegen</h2></div>
         </div>
         <div class="target-grid compact-target-grid">
           <label class="target-card compact-target">
@@ -96,7 +98,7 @@
 
       <section class="step-card compact-card">
         <div class="compact-section-head">
-          <div class="compact-title"><span class="step-number">3</span><h2>Preflight</h2></div>
+          <div class="compact-title"><span class="step-number">3</span><h2>Daten prüfen</h2></div>
         </div>
         <div class="action-row compact-action-row">
           <button id="preflightBtn" type="button" class="secondary" disabled>Prüfen</button>
@@ -108,7 +110,7 @@
 
     <details id="previewStep" class="step-card compact-card optional-preview" hidden>
       <summary>
-        <span><strong>Optional: Signaturvorschau</strong><small>Endkontrolle mit echtem Generator</small></span>
+        <span><strong>Signaturvorschau</strong><small>Endkontrolle mit echtem Generator</small></span>
         <span class="source-pill">Preview</span>
       </summary>
 
@@ -151,9 +153,9 @@
     <section class="run-bar compact-run-bar">
       <div>
         <strong id="runSummary">0 Personen</strong>
-        <span>Preflight muss grün sein.</span>
+        <span>Erst prüfen, dann erstellen.</span>
       </div>
-      <button id="generateBtn" type="button" disabled>Generieren</button>
+      <button id="generateBtn" type="button" disabled>Signaturen erstellen</button>
     </section>
 
     <section id="runResult" class="step-card compact-card run-result" aria-live="polite" hidden>
