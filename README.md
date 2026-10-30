@@ -35,7 +35,7 @@ Signaturee is a self-hosted Windows application: a web frontend, a Node.js API a
 
 The Windows CI produces a portable ZIP of **tracked application source only**. It includes the two Scheduled Task installers and example configuration, but not Node.js, LibreOffice, credentials, employee data, private templates, databases or a bundled Windows executable. The ZIP requires no Git on the installation target; Git-based update scripts do not work in a ZIP deployment.
 
-See [Windows releases and clean-install validation](docs/windows-release.md) and the [read-only release baseline/frontend reuse audit](docs/release-baseline-frontend-audit.md). Until a release is tagged and published, CI ZIPs are **test artifacts**, not approved stable releases.
+See [Windows releases and clean-install validation](docs/windows-release.md) and the [independent Linux repository boundary](docs/linux-reuse-boundary.md). Until a release is tagged and published, CI ZIPs are **test artifacts**, not approved stable releases.
 
 ## Fresh Windows Server 2025 installation
 
@@ -43,7 +43,7 @@ For a clean Windows Server 2025 VM or first-time release qualification, start wi
 
 ## Linux / Docker status — under development
 
-The published [v2.0.0 release](https://github.com/ffworker/Signaturee-public/releases/tag/v2.0.0) is **Windows-only**. We are planning a Linux/Docker edition in this same repository, reusing the existing frontend and Node.js API with platform-specific adapters for Active Directory/LDAP, rendering, LibreOffice conversion and output permissions. The existing generator is **not Linux-ready** simply because its backend can start on Linux. Read the [Linux architecture audit and roadmap](docs/linux-architecture.md) for current limitations and milestones.
+The published [v2.0.0 release](https://github.com/ffworker/Signaturee-public/releases/tag/v2.0.0) is **Windows-only**. The independent [signaturee-linux](https://github.com/ffworker/signaturee-linux) project is a Docker-first experimental implementation with offline generation, LibreOffice conversion, CLI workflows and a limited unauthenticated development UI. Real LDAP acceptance and the full authenticated Linux UI are still pending. The Windows generator is **not Linux-ready** simply because its backend can start on Linux. See the [actual cross-repository frontend/API assessment](docs/linux-reuse-boundary.md) and [Windows release baseline audit](docs/release-baseline-frontend-audit.md); no frontend migration is included here.
 
 ## Quickstart — standard AD deployment
 
