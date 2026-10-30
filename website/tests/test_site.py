@@ -98,7 +98,9 @@ class SiteTests(unittest.TestCase):
 
     def test_editorial_specimen_and_honest_ai_disclosure(self):
         self.assertIn('Fictional signature', self.html)
-        self.assertIn('example.com<br>Example Company', self.html)
+        self.assertIn('Alex-Company.com<br>Alex Company', self.html)
+        self.assertNotIn('example.com', self.html)
+        self.assertNotIn('Example Company', self.html)
         # Cloudflare rewrites email-shaped text and injects a decode script.
         # The static specimen must work under the no-script publication CSP.
         self.assertNotIn('@', self.html)
@@ -129,13 +131,19 @@ class SiteTests(unittest.TestCase):
             self.assertLess(note.index('<p>'), note.index('<a '))
 
     def test_illustrated_generation_is_pausable_and_reduced_motion_safe(self):
-        self.assertIn('<li>Browser</li><li>AD lookup</li><li>Fill fields</li><li>Signature</li>', self.html)
+        self.assertIn('<li>Template</li><li>Script + AD</li><li>Rewrite</li><li>Signature</li>', self.html)
         for token in ('$givenname $sn', '$department'):
-            self.assertIn('aria-hidden="true">' + token, self.html)
+            self.assertIn(token, self.html)
+        self.assertIn('class="template-document" aria-hidden="true"', self.html)
+        self.assertIn('Running GenerateSignatures.ps1', self.html)
         self.assertIn('for="demo-pause">Pause animation', self.html)
         self.assertIn('animation-play-state: paused', self.css)
-        self.assertIn('.variable-token { opacity: 0;', self.css)
-        self.assertIn('.variable-value { opacity: 1;', self.css)
+        self.assertIn('transform: translateX(-50%); animation: document-slide', self.css)
+        self.assertIn('.write-name, .write-role { display: inline-block; clip-path: inset(0); }', self.css)
+        self.assertIn('steps(12, end)', self.css)
+        self.assertIn('steps(27, end)', self.css)
+        self.assertNotIn('@keyframes demo-token', self.css)
+        self.assertNotIn('@keyframes demo-value', self.css)
         self.assertIn('.demo-pause, .demo-pause-label { display: none; }', self.css)
 
     def test_discovery(self):

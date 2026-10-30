@@ -45,27 +45,37 @@ h1 em::after { content: ''; display: block; height: 1px; background: var(--accen
 .specimen { padding-top: 10px; }
 .specimen-index { display: flex; justify-content: space-between; gap: 10px; font: 8px/1.6 var(--mono); letter-spacing: .05em; color: var(--muted); padding-bottom: 12px; }
 .demo-flow { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.demo-flow li { position: relative; padding-block: 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; animation: demo-browser 8s linear infinite; }
+.demo-flow li { position: relative; padding-block: 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; animation: demo-browser 12s linear infinite; }
 .demo-flow li:not(:last-child)::after { content: '→' / ''; position: absolute; right: -13px; color: var(--muted); }
 .demo-flow li:nth-child(2) { animation-name: demo-directory; }
 .demo-flow li:nth-child(3) { animation-name: demo-substitute; }
 .demo-flow li:last-child { color: var(--accent); border-bottom-color: var(--accent); animation-name: demo-output; }
-.variable-slot { display: inline-grid; align-items: center; }
-.variable-slot > span { grid-area: 1 / 1; }
-.variable-token { opacity: 0; font: 14px/1.5 var(--mono); color: #7b392a; animation: demo-token 8s linear infinite; }
-.variable-value { opacity: 1; animation: demo-value 8s linear infinite; }
+.script-window { height: 24px; overflow: hidden; margin-top: 14px; border-block: 1px solid #c8c8bc; color: #676b61; font: 10px/24px var(--mono); }
+.script-track { transform: translateY(-72px); animation: script-slide 12s ease-in-out infinite; }
+.script-track > span { display: block; height: 24px; white-space: nowrap; }
+.document-window { overflow: hidden; }
+.document-track { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 200%; transform: translateX(-50%); animation: document-slide 12s cubic-bezier(.65, 0, .35, 1) infinite; }
+.document-track > div { min-width: 0; }
+.document-label { margin-bottom: 16px; color: #676b61; font: 9px/1.5 var(--mono); letter-spacing: .03em; }
+.template-name { font: 20px/2.1 var(--mono); color: #7b392a; }
+.template-role { font: 13px/1.6 var(--mono); color: #7b392a; margin-top: 4px; }
+.write-name, .write-role { display: inline-block; clip-path: inset(0); }
+.write-name { animation: write-name 12s linear infinite; }
+.write-role { animation: write-role 12s linear infinite; }
 .demo-pause { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .demo-pause-label { display: flex; align-items: center; gap: 8px; width: max-content; min-height: 44px; margin-left: auto; color: var(--muted); font-size: 11px; cursor: pointer; }
 .demo-pause-label::before { content: ''; width: 12px; height: 12px; border: 1px solid var(--muted); }
 .demo-pause:checked ~ .demo-pause-label::before { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--ink); }
 .demo-pause:focus-visible ~ .demo-pause-label { outline: 2px solid var(--accent); outline-offset: 3px; }
-.demo-pause:checked ~ .demo-flow li, .demo-pause:checked ~ .paper .variable-token, .demo-pause:checked ~ .paper .variable-value { animation-play-state: paused; }
-@keyframes demo-browser { 0%, 18% { color: var(--accent); border-bottom-color: var(--accent); } 24%, 100% { color: var(--muted); border-bottom-color: var(--line); } }
-@keyframes demo-directory { 0%, 20%, 46%, 100% { color: var(--muted); border-bottom-color: var(--line); } 26%, 40% { color: var(--accent); border-bottom-color: var(--accent); } }
-@keyframes demo-substitute { 0%, 42%, 68%, 100% { color: var(--muted); border-bottom-color: var(--line); } 48%, 62% { color: var(--accent); border-bottom-color: var(--accent); } }
-@keyframes demo-output { 0%, 62%, 100% { color: var(--muted); border-bottom-color: var(--line); } 70%, 94% { color: var(--accent); border-bottom-color: var(--accent); } }
-@keyframes demo-token { 0%, 44%, 100% { opacity: 1; } 52%, 94% { opacity: 0; } }
-@keyframes demo-value { 0%, 44%, 100% { opacity: 0; } 52%, 94% { opacity: 1; } }
+.demo-pause:checked ~ .demo-flow li, .demo-pause:checked ~ .paper * { animation-play-state: paused; }
+@keyframes demo-browser { 0%, 18%, 96%, 100% { color: var(--accent); border-bottom-color: var(--accent); } 24%, 92% { color: var(--muted); border-bottom-color: var(--line); } }
+@keyframes demo-directory { 0%, 18%, 40%, 100% { color: var(--muted); border-bottom-color: var(--line); } 24%, 34% { color: var(--accent); border-bottom-color: var(--accent); } }
+@keyframes demo-substitute { 0%, 34%, 70%, 100% { color: var(--muted); border-bottom-color: var(--line); } 42%, 64% { color: var(--accent); border-bottom-color: var(--accent); } }
+@keyframes demo-output { 0%, 64%, 96%, 100% { color: var(--muted); border-bottom-color: var(--line); } 70%, 92% { color: var(--accent); border-bottom-color: var(--accent); } }
+@keyframes script-slide { 0%, 18%, 96%, 100% { transform: translateY(0); } 24%, 34% { transform: translateY(-24px); } 40%, 64% { transform: translateY(-48px); } 70% { transform: translateY(-72px); } 92% { transform: translateY(-72px); animation-timing-function: steps(1, end); } }
+@keyframes document-slide { 0%, 34%, 100% { transform: translateX(0); } 42%, 92% { transform: translateX(-50%); } }
+@keyframes write-name { 0%, 100% { clip-path: inset(0 100% 0 0); } 44% { clip-path: inset(0 100% 0 0); animation-timing-function: steps(12, end); } 60%, 94% { clip-path: inset(0); } }
+@keyframes write-role { 0%, 100% { clip-path: inset(0 100% 0 0); } 52% { clip-path: inset(0 100% 0 0); animation-timing-function: steps(27, end); } 66%, 94% { clip-path: inset(0); } }
 .paper { background: var(--paper); color: var(--ink); padding: 29px 31px 18px; min-height: 330px; position: relative; box-shadow: 4px 4px 0 #292c27; }
 .paper::after { content: ''; position: absolute; inset: 9px; border: 1px solid #d6d4c9; pointer-events: none; }
 .paper-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; font: 8px/1.7 var(--mono); letter-spacing: .04em; }

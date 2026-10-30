@@ -26,7 +26,7 @@ an application route.
   moving branch or an ordinary CI artifact. The ZIP and SHA256SUMS were downloaded
   and checked during this website mission. See the baseline audit for evidence.
 - Creator acceptance is explicitly attributed, not presented as customer validation.
-- The signature specimen uses fictional example.com data, explicitly labeled as a
+- The signature specimen uses the owner's fictional Alex Company identity, explicitly labeled as a
   template illustration, never a real employee or product screenshot.
 - No screenshots are used because no approved sanitized capture was supplied.
 - Verify release metadata, actual downloaded bytes and checksum before changing a
@@ -46,12 +46,16 @@ Field notes A/B/C explain installation, template assignment and release/rollback
 on the page; GitHub guides are supplemental. Keep these summaries consistent with
 the actual Windows requirements and never imply that CI validates AD/SMB/Outlook.
 
-The fictional paper specimen illustrates browser request → backend AD lookup →
-variable substitution → filled signature. It uses documented placeholders, not
-live directory data or a fake application screen. CSS runs an eight-second cycle;
+The fictional paper specimen illustrates template → Windows script + AD →
+progressive field rewrite → completed signature. It slides from a labeled input
+document to the output, with a separate script-status reel and stepped text reveal
+instead of crossfading placeholders. It uses documented placeholders, not live
+directory data or a fake application screen. CSS runs a twelve-second cycle;
 the only input is a native, keyboard-accessible checkbox that pauses it locally.
 No form or JavaScript is used. Reduced motion disables animation, shows the filled
-result and hides the unnecessary pause control. Verify both visible phases,
+result and hides the unnecessary pause control. Alex-Company.com is display text
+only, never a fetched resource or claimed live company site. Verify input, script,
+slide, intermediate rewrite and final states,
 keyboard pause/resume and the reduced-motion static result in a real browser.
 
 CSS and favicon references include the first 12 hex characters of each file's
