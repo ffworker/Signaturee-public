@@ -10,14 +10,14 @@ Describe 'Windows package private-path safety' {
     }
 
     It 'rejects recursive runtime and private material: <forbidden>' -ForEach @(
-        'backend\.env',
-        'state\cache.sqlite',
-        'state\cache.sqlite-wal',
-        'private\client.key',
-        'certs\server.pem',
-        'config\employees.json',
-        'generatedsignatures\employee.txt',
-        'runtime-data\output.txt'
+        @{ forbidden = 'backend\.env' },
+        @{ forbidden = 'state\cache.sqlite' },
+        @{ forbidden = 'state\cache.sqlite-wal' },
+        @{ forbidden = 'private\client.key' },
+        @{ forbidden = 'certs\server.pem' },
+        @{ forbidden = 'config\employees.json' },
+        @{ forbidden = 'generatedsignatures\employee.txt' },
+        @{ forbidden = 'runtime-data\output.txt' }
     ) {
         param($forbidden)
         $repo = Join-Path ([System.IO.Path]::GetTempPath()) ('signaturee-package-test-' + [guid]::NewGuid())
@@ -42,7 +42,7 @@ Describe 'Windows package private-path safety' {
             git -C $repo add .
             git -C $repo commit --quiet -m fixture
 
-            & pwsh -NoProfile -File $scriptPath -RepoRoot $repo -OutputDirectory $out
+            & powershell.exe -NoProfile -File $scriptPath -RepoRoot $repo -OutputDirectory $out
             $LASTEXITCODE | Should -Not -Be 0
             Test-Path (Join-Path $out 'signaturee-win-v2.0.0.zip') | Should -BeFalse
         } finally {

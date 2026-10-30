@@ -43,6 +43,8 @@ jobs:
         run: node backend/server.js --check
       - name: Portable backend tests (mocked AD/PowerShell only)
         run: npm run test:backend
+      - name: Publisher artifact staging regression tests (mocked GitHub)
+        run: bash tests/release/test-publisher-staging.sh
 
   windows-quality-gate:
     name: Windows quality gate

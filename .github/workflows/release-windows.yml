@@ -38,6 +38,10 @@ jobs:
       name: windows-release
     timeout-minutes: 15
     steps:
+      - name: Checkout reviewed publisher implementation
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Validate exact tag and successful quality run
         id: validate
         env:
@@ -78,17 +82,16 @@ jobs:
             exit 1
           }
 
-          runs=$(gh run list --repo "$GH_REPO" --workflow quality-gate.yml --commit "$REVISION" \
-            --status completed --limit 100 --json databaseId,headSha,conclusion,event,headBranch,path)
+          runs=$(gh api "repos/$GH_REPO/actions/workflows/quality-gate.yml/runs?head_sha=$REVISION&branch=main&event=push&status=success&per_page=100")
           run_id=$(RUNS="$runs" python3 - <<'PY'
           import json, os, sys
           revision = os.environ["REVISION"]
-          for run in json.loads(os.environ["RUNS"]):
-              if (run.get("headSha") == revision and run.get("conclusion") == "success"
+          for run in json.loads(os.environ["RUNS"])["workflow_runs"]:
+              if (run.get("head_sha") == revision and run.get("conclusion") == "success"
                       and run.get("event") == "push"
-                      and run.get("headBranch") == "main"
+                      and run.get("head_branch") == "main"
                       and run.get("path") == ".github/workflows/quality-gate.yml"):
-                  print(run["databaseId"])
+                  print(run["id"])
                   break
           PY
           )
