@@ -98,7 +98,8 @@ class SiteTests(unittest.TestCase):
 
     def test_editorial_specimen_and_honest_ai_disclosure(self):
         self.assertIn('Fictional signature', self.html)
-        self.assertIn('Alex-Company.com<br>Alex Company', self.html)
+        self.assertIn('Alex-Company.com', self.html)
+        self.assertIn('>Alex Company<', self.html)
         self.assertNotIn('example.com', self.html)
         self.assertNotIn('Example Company', self.html)
         # Cloudflare rewrites email-shaped text and injects a decode script.
@@ -131,20 +132,49 @@ class SiteTests(unittest.TestCase):
             self.assertLess(note.index('<p>'), note.index('<a '))
 
     def test_illustrated_generation_is_pausable_and_reduced_motion_safe(self):
-        self.assertIn('<li>Template</li><li>Script + AD</li><li>Rewrite</li><li>Signature</li>', self.html)
-        for token in ('$givenname $sn', '$department'):
-            self.assertIn(token, self.html)
+        for token in ('$givenname $sn', '$department', '$website', '$mail', '$company'):
+            self.assertGreaterEqual(self.html.count(token), 2, token + ' must exist in input and replacement slots')
+        for field in ('name', 'department', 'website', 'mail', 'company'):
+            self.assertEqual(self.html.count('data-field="' + field + '"'), 2)
         self.assertIn('class="template-document" aria-hidden="true"', self.html)
-        self.assertIn('Running GenerateSignatures.ps1', self.html)
+        self.assertIn('configured website/company mappings', self.html)
         self.assertIn('for="demo-pause">Pause animation', self.html)
         self.assertIn('animation-play-state: paused', self.css)
         self.assertIn('transform: translateX(-50%); animation: document-slide', self.css)
-        self.assertIn('.write-name, .write-role { display: inline-block; clip-path: inset(0); }', self.css)
-        self.assertIn('steps(12, end)', self.css)
-        self.assertIn('steps(27, end)', self.css)
+        self.assertIn('@keyframes field-out', self.css)
+        self.assertIn('@keyframes field-in', self.css)
+        self.assertTrue('@keyframes source-mark' in self.css,
+                        'The source value should highlight with its matching signature slot')
+        self.assertIn(".email-at::before { content: '@'; }", self.css)
+        self.assertNotIn('@keyframes write-name', self.css)
+        self.assertNotIn('@keyframes write-role', self.css)
         self.assertNotIn('@keyframes demo-token', self.css)
         self.assertNotIn('@keyframes demo-value', self.css)
         self.assertIn('.demo-pause, .demo-pause-label { display: none; }', self.css)
+
+    def test_current_step_has_a_prominent_separate_status(self):
+        self.assertIn('class="demo-status"', self.html)
+        self.assertIn('CURRENT STEP', self.html)
+        for label in ('01 / Template ready', '02 / Read Active Directory',
+                      '03 / Signaturee replaces fields', '04 / Signature ready'):
+            self.assertIn(label, self.html)
+        match = re.search(r'\.demo-status \{([^}]+)\}', self.css)
+        assert match is not None, 'Status needs its own high-contrast treatment'
+        status = match.group(1)
+        self.assertIn('background: var(--accent)', status)
+        self.assertIn('color: var(--ink)', status)
+        self.assertIn('14px/28px', status)
+        self.assertNotIn('class="script-window"', self.html)
+        self.assertNotRegex(self.css, r'(?<![\d.])12s\b')
+
+    def test_self_service_explains_ldap_regeneration_and_setup_conditions(self):
+        self.assertTrue('Fresh signatures, without an IT ticket.' in self.html,
+                        'The employee benefit should be prominent')
+        match = re.search(r'<dt>For employees</dt><dd>(.*?)</dd>', self.html)
+        assert match is not None
+        for phrase in ('LDAP', 'on demand', 'current AD data', 'group assignments',
+                       'variable mappings', 'follow the import instructions'):
+            self.assertIn(phrase, match.group(1))
 
     def test_discovery(self):
         self.assertIn('https://signaturee.bytegeist.dev/', self.html)
