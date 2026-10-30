@@ -139,9 +139,11 @@ jobs:
           }
           $hash1 + '  ' + (Split-Path -Leaf $publishedZip) |
             Set-Content -LiteralPath (Join-Path $dir 'SHA256SUMS.txt') -Encoding ASCII
-          @('revision=' + $env:RELEASE_REVISION,
-            'zip=' + (Split-Path -Leaf $publishedZip),
-            'sha256=' + $hash1) |
+          @(
+            "revision=$($env:RELEASE_REVISION)"
+            "zip=$(Split-Path -Leaf $publishedZip)"
+            "sha256=$hash1"
+          ) |
             Set-Content -LiteralPath (Join-Path $dir 'build-metadata.txt') -Encoding ASCII
 
       - name: Attach test ZIP and build evidence (not a published release)

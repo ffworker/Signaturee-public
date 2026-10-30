@@ -30,6 +30,12 @@ zip_path=${zips[0]}
 sum_path=${sums[0]}
 metadata_path=${metadata[0]}
 
+# Windows PowerShell writes CRLF; normalize text evidence before Unix checks.
+tr -d '\r' < "$sum_path" > "$work_dir/SHA256SUMS.txt"
+tr -d '\r' < "$metadata_path" > "$work_dir/build-metadata.txt"
+sum_path="$work_dir/SHA256SUMS.txt"
+metadata_path="$work_dir/build-metadata.txt"
+
 # Do not trust an artifact merely because it has the right artifact name.
 grep -Fxq "revision=$REVISION" "$metadata_path" || {
   echo 'Artifact metadata revision does not match requested revision' >&2

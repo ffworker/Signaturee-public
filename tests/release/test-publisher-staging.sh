@@ -13,8 +13,8 @@ printf '{"name":"signaturee","version":"2.0.0"}\n' > "$tmp/package/signaturee-wi
 printf 'synthetic release\n' > "$tmp/package/signaturee-win-v2.0.0/README.md"
 (cd "$tmp/package" && zip -q "$fixture/zip/nested/signaturee-win-v2.0.0.zip" -r signaturee-win-v2.0.0)
 hash=$(sha256sum "$fixture/zip/nested/signaturee-win-v2.0.0.zip" | awk '{print toupper($1)}')
-printf '%s  signaturee-win-v2.0.0.zip\n' "$hash" > "$fixture/evidence/nested/SHA256SUMS.txt"
-printf 'revision=%s\nzip=signaturee-win-v2.0.0.zip\nsha256=%s\n' "$revision" "$hash" > "$fixture/evidence/nested/build-metadata.txt"
+printf '%s  signaturee-win-v2.0.0.zip\r\n' "$hash" > "$fixture/evidence/nested/SHA256SUMS.txt"
+printf 'revision=%s\r\nzip=signaturee-win-v2.0.0.zip\r\nsha256=%s\r\n' "$revision" "$hash" > "$fixture/evidence/nested/build-metadata.txt"
 
 cat > "$tmp/bin/gh" <<'MOCK'
 #!/usr/bin/env bash
