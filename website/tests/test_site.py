@@ -1,9 +1,11 @@
 """Dependency-free publication contracts. No network or application execution."""
 from html.parser import HTMLParser
+import hashlib
 from pathlib import Path
 import re
 import unittest
 import xml.etree.ElementTree as ET
+from urllib.parse import urlsplit, parse_qs
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -55,11 +57,18 @@ class SiteTests(unittest.TestCase):
             self.assertNotIn(tag, self.page.tags)
         for asset in self.page.assets:
             self.assertTrue(asset.startswith('/'), asset)
-            self.assertTrue((ROOT / asset.lstrip('/')).is_file(), asset)
+            self.assertTrue((ROOT / urlsplit(asset).path.lstrip('/')).is_file(), asset)
         self.assertNotIn('@import', self.css)
         self.assertNotIn('url(', self.css)
         for link in self.page.links:
             self.assertTrue(link.startswith(('https://', '#', '/')), link)
+
+    def test_content_versioned_assets_survive_cdn_and_browser_caches(self):
+        for filename in ('index.html', '404.html'):
+            for asset in Page((ROOT / filename).read_text()).assets:
+                url = urlsplit(asset)
+                digest = hashlib.sha256((ROOT / url.path.lstrip('/')).read_bytes()).hexdigest()[:12]
+                self.assertEqual(parse_qs(url.query), {'v': [digest]}, filename)
 
     def test_downloads_name_existing_release(self):
         downloads = [a for a in self.page.links if '/releases/download/' in a]
