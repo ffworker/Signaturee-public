@@ -47,16 +47,32 @@ on the page; GitHub guides are supplemental. Keep these summaries consistent wit
 the actual Windows requirements and never imply that CI validates AD/SMB/Outlook.
 
 The fictional paper specimen illustrates template → Windows script + AD →
-progressive field rewrite → completed signature. It slides from a labeled input
-document to the output, with a separate script-status reel and stepped text reveal
-instead of crossfading placeholders. It uses documented placeholders, not live
-directory data or a fake application screen. CSS runs a twelve-second cycle;
+mapped replacement → completed signature. A high-contrast CURRENT STEP banner and
+filled active pipeline tile share the same sixteen-second timeline. A compact AD
+data strip pairs a placeholder with its incoming value; the matching field gets a
+background highlight while the complete value slides into place, never typed or
+crossfaded. Name, department, website, email and company all participate. Input and
+output share the exact signature typography, sizes, line heights and text colors;
+only the content changes. Website/company demonstrate configured mappings through
+the supported additive variable schema, not undocumented built-in defaults.
+It uses fictional data, not a directory connection or fake application screen;
 the only input is a native, keyboard-accessible checkbox that pauses it locally.
 No form or JavaScript is used. Reduced motion disables animation, shows the filled
 result and hides the unnecessary pause control. Alex-Company.com is display text
-only, never a fetched resource or claimed live company site. Verify input, script,
-slide, intermediate rewrite and final states,
+only, never a fetched resource or claimed live company site. The illustrative email
+uses a CSS-generated at sign plus a full accessible spoken label so Cloudflare does
+not rewrite it or inject a decoder blocked by CSP. This is specimen rendering, not
+production-template guidance or a functional email link. Require exact live HTML
+byte identity, zero scripts and the visible at sign after edge traversal.
+Verify input, script, document handoff, each whole-field swap and final states,
 keyboard pause/resume and the reduced-motion static result in a real browser.
+
+Self-service copy follows docs/data-sources.md: LDAP is the Windows login provider;
+the authenticated account's AD record and group assignments drive generation.
+Employees can regenerate assigned signatures on demand when directory access,
+attributes and variable mappings are configured correctly, then download and
+follow import instructions. Do not imply automatic Outlook synchronization or
+extend this claim to the independent experimental Linux edition.
 
 CSS and favicon references include the first 12 hex characters of each file's
 SHA-256 as `?v=...`. Update those references in both HTML pages whenever the asset

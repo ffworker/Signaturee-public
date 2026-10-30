@@ -11,7 +11,7 @@
   <meta property="og:url" content="https://signaturee.bytegeist.dev/">
   <link rel="canonical" href="https://signaturee.bytegeist.dev/">
   <link rel="icon" href="/favicon.svg?v=0002756dff52" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=792bf3848643">
+  <link rel="stylesheet" href="/style.css?v=ca6c6f48b5ba">
   <title>Signaturee — Self-hosted Outlook signature management</title>
 </head>
 <body>
@@ -28,7 +28,7 @@
         <p class="kicker"><span class="availability" aria-hidden="true"></span> SELF-HOSTED / OPEN SOURCE / WINDOWS</p>
         <h1 id="hero-title">Signatures,<br>in <em>good order.</em></h1>
         <p class="intro">The details change.<br>Your signature shouldn’t fall apart.</p>
-        <p class="description">Bring your templates and Active Directory together. Give IT a consistent workflow — and employees a way to generate their own assigned signatures.</p>
+        <p class="description">Bring your templates and Active Directory together.<strong class="self-service-benefit">Fresh signatures, without an IT ticket.</strong>With LDAP-authenticated self-service, employees can refresh their own assigned signatures whenever they need them.</p>
         <div class="actions">
           <a class="button" href="https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/signaturee-win-v2.0.0.zip"><span>Get Windows <span class="button-version">v2.0.0</span></span></a>
           <a class="quiet-link" href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md">Read before installing </a>
@@ -38,18 +38,41 @@
       <figure class="specimen">
         <div class="specimen-index"><span>THE SIGNATURE, NOT THE SOFTWARE</span><span>FIG. 01</span></div>
         <input class="demo-pause" id="demo-pause" type="checkbox">
-        <ol class="demo-flow" aria-label="Illustrated Windows generation flow"><li>Template</li><li>Script + AD</li><li>Rewrite</li><li>Signature</li></ol>
+        <div class="demo-status" aria-hidden="true"><span class="demo-status-caption">CURRENT STEP</span><div class="demo-status-window"><div class="demo-status-track"><span>01 / Template ready</span><span>02 / Read Active Directory</span><span>03 / Signaturee replaces fields</span><span>04 / Signature ready</span></div></div></div>
+        <ol class="demo-flow" aria-label="Illustrated Windows generation flow"><li>Template</li><li>Script + AD</li><li>Replace</li><li>Signature</li></ol>
         <div class="paper">
           <div class="paper-heading"><span class="sample-symbol" aria-hidden="true">a<span>/</span>e</span><span>ALEX COMPANY<br><span class="paper-dim">A fictional organisation</span></span></div>
-          <div class="script-window" aria-hidden="true"><div class="script-track"><span>Template loaded</span><span>Running GenerateSignatures.ps1</span><span>Replacing directory fields</span><span>Ready for Classic Outlook</span></div></div>
+
+          <div class="mapping-strip" aria-hidden="true"><span class="mapping-label">AD DATA</span><div class="mapping-window"><div class="mapping-track">
+            <div><small>Template configured</small><span>Waiting for directory lookup</span></div>
+            <div><small>Directory record loaded</small><span>Alex Example · assigned template</span></div>
+            <div><small>$givenname $sn</small><span>Alex Example</span></div>
+            <div><small>$department</small><span>Operations &amp; Infrastructure</span></div>
+            <div><small>$website</small><span>Alex-Company.com</span></div>
+            <div><small>$mail</small><span>alex<span class="email-at"></span>Alex-Company.com</span></div>
+            <div><small>$company</small><span>Alex Company</span></div>
+            <div><small>Replacement complete</small><span>5 / 5 fields inserted</span></div>
+          </div></div></div>
           <div class="signature document-window"><div class="document-track">
-            <div class="template-document" aria-hidden="true"><p class="document-label">01 / INPUT TEMPLATE</p><p class="template-name">$givenname $sn</p><p class="template-role">$department</p><div class="sample-rule"></div><p class="sample-contact">Alex-Company.com<br>Alex Company</p></div>
-            <div class="output-document"><p class="document-label">02 / GENERATED SIGNATURE</p><p class="sample-name"><span class="write-name">Alex Example</span><span class="registration" aria-hidden="true">↙</span></p><p class="sample-role"><span class="write-role">Operations &amp; Infrastructure</span></p><div class="sample-rule" aria-hidden="true"></div><p class="sample-contact">Alex-Company.com<br>Alex Company</p></div>
+            <div class="template-document" aria-hidden="true">
+              <p class="document-label">01 / INPUT TEMPLATE</p>
+              <p class="sample-name"><span class="replacement field-name" data-field="name">$givenname $sn</span><span class="registration">↙</span></p>
+              <p class="sample-role"><span class="replacement field-department" data-field="department">$department</span></p>
+              <div class="sample-rule"></div>
+              <p class="sample-contact"><span class="replacement field-website" data-field="website">$website</span><br><span class="replacement field-mail" data-field="mail">$mail</span><br><span class="replacement field-company" data-field="company">$company</span></p>
+            </div>
+            <div class="output-document">
+              <p class="document-label">02 / GENERATED SIGNATURE</p>
+              <p class="sample-name"><span class="replacement field-name" data-field="name"><span class="field-token" aria-hidden="true">$givenname $sn</span><span class="field-value">Alex Example</span></span><span class="registration" aria-hidden="true">↙</span></p>
+              <p class="sample-role"><span class="replacement field-department" data-field="department"><span class="field-token" aria-hidden="true">$department</span><span class="field-value">Operations &amp; Infrastructure</span></span></p>
+              <div class="sample-rule" aria-hidden="true"></div>
+              <p class="sample-contact"><span class="replacement field-website" data-field="website"><span class="field-token" aria-hidden="true">$website</span><span class="field-value">Alex-Company.com</span></span><br><span class="replacement field-mail" data-field="mail"><span class="field-token" aria-hidden="true">$mail</span><span class="field-value" role="img" aria-label="alex at Alex-Company dot com">alex<span class="email-at" aria-hidden="true"></span>Alex-Company.com</span></span><br><span class="replacement field-company" data-field="company"><span class="field-token" aria-hidden="true">$company</span><span class="field-value">Alex Company</span></span></p>
+            </div>
           </div>
           </div>
           <div class="paper-footer"><span>ONE TEMPLATE. THE RIGHT DETAILS.</span><span class="paper-monogram" aria-hidden="true">s.</span></div>
         </div>
-        <figcaption><span class="annotation-line" aria-hidden="true"></span>Fictional signature · animated template illustration<br><span>Template → Windows generator + AD → filled result.<br>not a live demo or UI screenshot</span></figcaption>
+        <figcaption><span class="annotation-line" aria-hidden="true"></span>Fictional signature · animated template illustration<br><span>Uses configured website/company mappings.<br>not a live demo or UI screenshot</span></figcaption>
         <label class="demo-pause-label" for="demo-pause">Pause animation</label>
       </figure>
     </section>
@@ -71,7 +94,7 @@
           <p class="edition-intro">Self-hosted Outlook signature management,<br>with a browser-based workflow.</p>
           <dl class="capabilities">
             <div><dt>For IT</dt><dd>Employee lookup, group-assigned signatures, preflight, preview and individual generation. Targeted web runs support up to 50 AD users.</dd></div>
-            <div><dt>For employees</dt><dd>Authenticated self-service: generate and download your own assigned signatures, then follow the import instructions.</dd></div>
+            <div><dt>For employees</dt><dd>With LDAP login, employees can regenerate their own assigned signatures on demand using current AD data. Directory access, group assignments and variable mappings must be configured correctly; download the result and follow the import instructions.</dd></div>
             <div><dt>For your setup</dt><dd>Existing HTML/TXT templates and configurable attributes. Local output or an authorised SMB destination. A separate PowerShell bulk mode exists; it is not an unlimited verified web workflow.</dd></div>
           </dl>
           <details class="technical-note"><summary>Requirements &amp; workflow limits <span aria-hidden="true">+</span></summary><div class="details-content"><p>Windows, PowerShell 5.1, Node.js 22.13+, LibreOffice and the RSAT ActiveDirectory module. AD read rights and domain connectivity are required. SMB rights belong to the backend task identity. Use HTTPS and protect the backend for remote access.</p><p>CSV/TXT worklists identify AD accounts; they do not replace directory attributes. Validate template encoding and HTML/RTF rendering with your own data.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-machine-dependencies.md">Full prerequisites</a></div></details>
