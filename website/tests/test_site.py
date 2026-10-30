@@ -84,7 +84,10 @@ class SiteTests(unittest.TestCase):
 
     def test_editorial_specimen_and_honest_ai_disclosure(self):
         self.assertIn('Fictional signature', self.html)
-        self.assertIn('alex@example.com', self.html)
+        self.assertIn('example.com<br>Example Company', self.html)
+        # Cloudflare rewrites email-shaped text and injects a decode script.
+        # The static specimen must work under the no-script publication CSP.
+        self.assertNotIn('@', self.html)
         self.assertIn('AI-assisted development', self.html)
         self.assertIn('details', self.page.tags)
         self.assertIn('summary', self.page.tags)
