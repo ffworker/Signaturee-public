@@ -159,9 +159,18 @@ class SiteTests(unittest.TestCase):
     def test_current_step_has_a_prominent_separate_status(self):
         self.assertIn('class="demo-status"', self.html)
         self.assertIn('CURRENT STEP', self.html)
-        for label in ('01 / Template ready', '02 / Read Active Directory',
-                      '03 / Signaturee replaces fields', '04 / Signature ready'):
+        flow = re.search(r'<ol class="demo-flow"[^>]*>(.*?)</ol>', self.html)
+        assert flow is not None
+        self.assertEqual(re.findall(r'<li>(.*?)</li>', flow.group(1)),
+                         ['Read AD', 'Replace', 'Result'])
+        for label in ('01 / Pulling from AD...', '02 / Replacing mapped fields...',
+                      '03 / Final result'):
             self.assertIn(label, self.html)
+        self.assertTrue('--demo-cycle: 44s' in self.css, 'Use12 seconds action,30 hold,2 reset')
+        for animation in ('ad-progress', 'result-pop', 'scene-reset'):
+            self.assertTrue('@keyframes ' + animation in self.css, animation + ' must be visible')
+        self.assertNotIn('--field-delay', self.css)
+        self.assertIn('.demo-pause:checked ~ .paper,', self.css)
         match = re.search(r'\.demo-status \{([^}]+)\}', self.css)
         assert match is not None, 'Status needs its own high-contrast treatment'
         status = match.group(1)
@@ -170,6 +179,13 @@ class SiteTests(unittest.TestCase):
         self.assertIn('14px/28px', status)
         self.assertNotIn('class="script-window"', self.html)
         self.assertIn('@keyframes phase-slide', self.css)
+
+    def test_finished_result_returns_to_native_text_scale(self):
+        pop = re.search(r'@keyframes result-pop \{([^\n]+)', self.css)
+        assert pop is not None
+        held = re.search(r'27\.27273%, 97\.72727% \{([^}]+)', pop.group(1))
+        assert held is not None, 'The completed result holds from12 seconds'
+        self.assertIn('scale(1);', held.group(1), 'Avoid blurred text during the long hold')
 
     def test_self_service_explains_ldap_regeneration_and_setup_conditions(self):
         self.assertTrue('Fresh signatures, without an IT ticket.' in self.html,
