@@ -11,8 +11,16 @@ on:
         description: Exact 40-character commit already tested by quality-gate
         required: true
         type: string
+      changelog_url:
+        description: Reviewed changelog or release-notes URL
+        required: true
+        type: string
+      manual_evidence_url:
+        description: Reviewed clean-install/upgrade/rollback and Classic Outlook evidence URL
+        required: true
+        type: string
 
-# Manual only. Configure required reviewers on stable-release before enabling use.
+# Manual only. Configure required reviewers on windows-release before enabling use.
 permissions:
   actions: read
   contents: write
@@ -22,7 +30,7 @@ jobs:
     name: Publish exact approved Windows artifact
     runs-on: ubuntu-latest
     environment:
-      name: stable-release
+      name: windows-release
     timeout-minutes: 15
     steps:
       - name: Validate exact tag and successful quality run
@@ -31,11 +39,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
           REVISION: ${{ inputs.revision }}
+          CHANGELOG_URL: ${{ inputs.changelog_url }}
+          MANUAL_EVIDENCE_URL: ${{ inputs.manual_evidence_url }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]] || { echo 'Publishing is allowed only from main' >&2; exit 1; }
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || { echo 'release_tag must be a v* semantic-version tag' >&2; exit 1; }
           [[ "$REVISION" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'revision must be a full 40-character commit ID' >&2; exit 1; }
+          [[ "$CHANGELOG_URL" =~ ^https:// ]] || { echo 'changelog_url must be an HTTPS URL' >&2; exit 1; }
+          [[ "$MANUAL_EVIDENCE_URL" =~ ^https:// ]] || { echo 'manual_evidence_url must be an HTTPS URL' >&2; exit 1; }
+          if gh release view "$RELEASE_TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing mutation or replacement" >&2; exit 1;
+          fi
           tag_sha=$(gh api "repos/$REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')
           tag_type=$(gh api "repos/$REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.type')
           if [[ "$tag_type" != commit || "$tag_sha" != "$REVISION" ]]; then echo "Tag $RELEASE_TAG does not resolve directly to $REVISION" >&2; exit 1; fi
@@ -69,4 +85,4 @@ jobs:
         run: |
           set -euo pipefail
           zip=$(find release-artifacts -maxdepth 1 -type f -name '*.zip' -print -quit)
-          gh release create "$RELEASE_TAG" "$zip" release-artifacts/SHA256SUMS.txt release-artifacts/build-metadata.txt --verify-tag --title "$RELEASE_TAG" --notes "Stable Windows release from exact commit $REVISION. See attached checksum and build metadata." --repo "${{ github.repository }}"
+          gh release create "$RELEASE_TAG" "$zip" release-artifacts/SHA256SUMS.txt release-artifacts/build-metadata.txt --verify-tag --title "$RELEASE_TAG" --notes "Stable Windows release from exact commit $REVISION.\n\nReviewed changelog: ${{ inputs.changelog_url }}\nManual evidence: ${{ inputs.manual_evidence_url }}" --repo "${{ github.repository }}"
