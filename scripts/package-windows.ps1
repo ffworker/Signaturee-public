@@ -98,11 +98,15 @@ try {
         }
         $sensitive = @($names | Where-Object {
             $relative = $_.Substring($prefix.Length)
+            $leaf = [System.IO.Path]::GetFileName($relative)
+            $example = $leaf -match '(?i)\.example$'
             ($_.StartsWith($prefix) -eq $false) -or
-            ($relative -eq '.env') -or
-            ($relative -like '.env.*' -and $relative -ne '.env.example') -or
-            ($relative -match '^config/(?:templates/|users\.csv$|secrets\.env$|.*\.db$)') -or
-            ($relative -match '^(?:Logs|generatedsignatures|node_modules)/')
+            (($leaf -match '(?i)^\.env(?:\..*)?$') -and -not ($leaf -eq '.env.example')) -or
+            (($leaf -match '(?i)\.(?:db|sqlite|sqlite3|wal|shm)$') -and -not $example) -or
+            (($leaf -match '(?i)\.(?:pem|key|p12|pfx|jks|crt)$') -and -not $example) -or
+            (($leaf -match '(?i)^(?:id_rsa|id_ed25519|private|server-private)(?:\..*)?$') -and -not $example) -or
+            ($relative -match '^(?i)(?:config/)?(?:users|employees|employee-data)\.(?:csv|json)$') -or
+            ($relative -match '^(?i)(?:Logs|generatedsignatures|uploads|runtime-data)/')
         })
         if ($sensitive.Count -gt 0) {
             throw "Package contains unexpected/private paths: $($sensitive -join ', ')"

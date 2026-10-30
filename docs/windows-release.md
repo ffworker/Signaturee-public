@@ -24,7 +24,9 @@ This creates `dist\signaturee-win-v<version>.zip`, where `<version>` comes from 
 
 The ZIP is built via **git archive** from tracked files. By design, it does **not** include: `.env`, private config, live AD data, customer templates/logos under `config/templates/`, user databases, generated signatures, logs, `node_modules`, the LibreOffice executable, or Node.js. Do **not** commit sensitive files to Git; ZIP filtering is a defense in depth, not a substitute for repository security review. A tagged ZIP can be reproduced from the exact commit with the same builder.
 
-The GitHub Windows CI builds the ZIP from the exact workflow commit (`github.sha`), builds it twice, compares SHA-256 digests, expands the candidate for required-file/private-path checks, and uploads the ZIP plus checksum/revision evidence as short-lived **Actions artifacts**. No GitHub Release is created automatically. The ZIP's contents are not digitally signed. The reproducibility check is necessary evidence, not a stable-release approval.
+The packager additionally rejects common recursive runtime/private basenames and extensions (including `.env`, SQLite sidecars, key/certificate material, and known employee-output paths), while allowing reviewed `*.example` fixtures. This is a safety net, not proof that employee data is absent: review the changed-file list and archive contents before every release.
+
+The GitHub Windows CI builds the ZIP from the exact tested revision (the push commit on `main`, or the pull-request head), builds it twice, compares SHA-256 digests, expands the candidate for required-file/private-path checks, and uploads the ZIP plus checksum/revision evidence as short-lived **Actions artifacts**. No GitHub Release is created automatically. The ZIP's contents are not digitally signed. The reproducibility check is necessary evidence, not a stable-release approval.
 
 ## Clean installation on an unused Windows test host
 
