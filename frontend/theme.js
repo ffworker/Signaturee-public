@@ -8,7 +8,7 @@
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
   };
-  apply(saved || 'dark');
+  apply(saved || 'light');
 
   document.addEventListener('DOMContentLoaded', () => {
     const slot = document.querySelector('.top-actions') ||
@@ -22,7 +22,7 @@
     button.setAttribute('title','Zwischen hellem und dunklem Design wechseln');
     const refresh = () => {
       const isDark = document.documentElement.dataset.theme === 'dark';
-      button.textContent = isDark ? '☀ Hell' : '☾ Dunkel';
+      button.textContent = isDark ? 'Hell' : 'Dunkel';
       button.setAttribute('aria-pressed',String(isDark));
     };
     refresh();

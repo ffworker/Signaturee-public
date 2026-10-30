@@ -11,19 +11,23 @@
   <script src="theme.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <div class="brand-row"><span class="brand">Signaturee</span><span class="beta">Self-Service</span></div>
-      <h1>Meine Signatur</h1>
-      <p class="subtitle">Deine Daten und Signatur-Zuordnungen kommen direkt aus dem Active Directory.</p>
-    </div>
-    <div class="top-actions">
-      <span id="selfUserBadge" class="connection-badge">Session wird geprüft ...</span>
-      <button id="selfLogoutBtn" type="button" class="secondary">Abmelden</button>
+  <a class="skip-link" href="#main-content">Zum Inhalt</a>
+  <header class="product-masthead">
+    <div class="masthead-inner">
+      <div class="brand-row"><span class="brand">signaturee</span><span class="edition-label">WINDOWS</span></div>
+      <div class="top-actions">
+          <span id="selfUserBadge" class="connection-badge">Session wird geprüft ...</span>
+          <button id="selfLogoutBtn" type="button" class="secondary">Abmelden</button>
+      </div>
     </div>
   </header>
+  <div class="page-heading">
+    <p class="section-index">01 / SELF-SERVICE</p>
+    <h1>Meine <em>Signatur.</em></h1>
+    <p class="subtitle">Deine aktuellen AD-Daten. Deine zugewiesenen Signaturen.</p>
+  </div>
 
-  <main class="workspace self-workspace">
+  <main class="workspace self-workspace" id="main-content" tabindex="-1">
     <section id="selfConnectionPanel" class="connection-panel" hidden>
       <div><strong>Backend nicht erreichbar</strong><p id="selfConnectionMessage"></p></div>
       <button id="selfRetryBtn" type="button" class="secondary">Erneut prüfen</button>
@@ -34,18 +38,18 @@
         <span class="step-number">1</span>
         <div><h2>Deine AD-Daten</h2><p>Signaturee verwendet ausschließlich dein eigenes Benutzerkonto.</p></div>
       </div>
-      <div id="selfIdentity" class="identity-card empty-state">Daten werden geladen ...</div>
+      <div id="selfIdentity" class="identity-card empty-state" aria-live="polite">Daten werden geladen ...</div>
     </section>
 
     <section class="step-card">
       <div class="step-heading">
         <span class="step-number">2</span>
         <div>
-          <h2>Welche Signaturen?</h2>
+          <h2>Signaturen auswählen</h2>
           <p>Wähle alle Signaturen aus, die du jetzt erstellen möchtest.</p>
         </div>
       </div>
-      <div id="selfSignatureChoices" class="self-signature-list empty-state">Signaturen werden geprüft ...</div>
+      <div id="selfSignatureChoices" class="self-signature-list empty-state" aria-live="polite">Signaturen werden geprüft ...</div>
       <div id="selfChecks" class="check-list"></div>
     </section>
 

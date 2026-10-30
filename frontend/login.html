@@ -11,10 +11,29 @@
   <script src="theme.js"></script>
 </head>
 <body class="login-page-v2">
-  <main class="login-shell">
-    <section class="login-card">
-      <div class="brand-row"><span class="brand">Signaturee</span></div>
-      <h1>Anmelden</h1>
+  <a class="skip-link" href="#main-content">Zum Inhalt</a>
+  <header class="product-masthead">
+    <div class="masthead-inner">
+      <div class="brand-row"><span class="brand">signaturee</span><span class="edition-label">WINDOWS</span></div>
+      <div class="top-actions"></div>
+    </div>
+  </header>
+  <main class="login-shell" id="main-content" tabindex="-1">
+    <div class="login-introduction">
+      <div class="page-heading">
+        <p class="section-index">01 / ZUGANG</p>
+        <h1>In guter<br><em>Ordnung.</em></h1>
+        <p class="subtitle">Deine Signaturen beginnen mit deinem Konto.</p>
+      </div>
+      <div class="login-account-note">
+        <span class="section-index">DAS PASSENDE KONTO</span>
+        <p><strong>Mitarbeiter</strong><br>Firmenkonto für deine eigenen Signaturen.</p>
+        <p><strong>Administration & IT</strong><br>Lokales Signaturee-Konto für Verwaltung und Generierung.</p>
+      </div>
+    </div>
+    <section class="login-card" aria-labelledby="loginHeading">
+      <p class="section-index">ANMELDUNG</p>
+      <h2 id="loginHeading">Willkommen zurück.</h2>
       <p class="subtitle">Mit Firmenkonto oder lokalem Signaturee-Konto.</p>
 
       <form id="loginForm">
@@ -31,7 +50,7 @@
           </select>
         </label>
         <button type="submit">Anmelden</button>
-        <div id="loginStatus" class="inline-status"></div>
+        <div id="loginStatus" class="inline-status" role="status" aria-live="polite"></div>
       </form>
 
       <details class="login-help"><summary>Welche Anmeldeart?</summary>

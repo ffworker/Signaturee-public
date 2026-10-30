@@ -269,7 +269,7 @@ html[data-theme="dark"] .onboarding-group{border-color:var(--admin-border)!impor
   width:16px!important;height:16px!important;
   min-width:16px!important;min-height:16px!important;
   padding:0!important;margin:0;
-  appearance:auto;accent-color:#4f98e9;
+  appearance:auto;accent-color:var(--admin-focus);
   flex:0 0 16px;
 }
 .auth-user-row label{
@@ -298,7 +298,7 @@ html[data-theme="dark"] .onboarding-group{border-color:var(--admin-border)!impor
   width:16px!important;height:16px!important;
   min-width:16px!important;min-height:16px!important;
   padding:0!important;margin:0!important;
-  appearance:auto;accent-color:#4f98e9;
+  appearance:auto;accent-color:var(--admin-focus);
   flex:0 0 16px;
 }
 html[data-theme="dark"] .auth-user-row,
@@ -312,7 +312,7 @@ html[data-theme="dark"] .auth-user-row label,
 html[data-theme="dark"] .variable-required-toggle,
 html[data-theme="dark"] .variable-filter-check,
 html[data-theme="dark"] .variable-primary-settings label{
-  color:#e7f1ff!important;
+  color:var(--admin-text)!important;
 }
 html[data-theme="dark"] .auth-user-row input[type="checkbox"],
 html[data-theme="dark"] .variable-required-toggle input[type="checkbox"]{
@@ -320,20 +320,20 @@ html[data-theme="dark"] .variable-required-toggle input[type="checkbox"]{
 }
 html[data-theme="dark"] .auth-user-row input:not([type="checkbox"]),
 html[data-theme="dark"] .auth-user-row select{
-  background:#101d31!important;color:#edf5ff!important;
-  border-color:#48617f!important;
+  background:var(--ui-surface-raised,var(--admin-card-alt))!important;color:var(--admin-text)!important;
+  border-color:var(--admin-border)!important;
 }
 html[data-theme="dark"] .auth-user-row input::placeholder{
-  color:#a7b9d3!important;
+  color:var(--admin-secondary)!important;
 }
 html[data-theme="dark"] .variable-required-toggle{
-  background:#21314c!important;
+  background:var(--admin-card-alt)!important;
 }
 html[data-theme="dark"] .auth-user-actions .danger{
-  color:#ffc0bb!important;
+  color:var(--admin-bad)!important;
 }
 html[data-theme="dark"] .auth-user-actions .danger:hover{
-  color:#ffe9e7!important;background:#55313b!important;
+  color:var(--admin-bad)!important;background:var(--admin-bad-bg)!important;
 }
 
 /* Onboarding is a deliberate exception to ultra-compact layouts: display
@@ -402,13 +402,13 @@ html[data-theme="dark"] .admin-view[data-view="onboarding"] .step-card{
 }
 html[data-theme="dark"] .onboarding-group h3{
   background:var(--admin-card-alt)!important;
-  color:#ecf5ff!important;
+  color:var(--admin-text)!important;
   border-bottom-color:var(--admin-border)!important;
 }
 html[data-theme="dark"] .onboarding-group ul,
 html[data-theme="dark"] .onboarding-group li,
 html[data-theme="dark"] .onboarding-flow li{
-  color:#e4efff!important;
+  color:var(--admin-text)!important;
 }
 
 /* Discoverability and consistent focus: optional information can still live in
@@ -420,25 +420,25 @@ html[data-theme="dark"] .compact-disclosure{
   border-color:var(--admin-border)!important;
 }
 html[data-theme="dark"] .template-overview-count.ok{
-  background:#1d4547!important;color:#a5eac9!important;
+  background:var(--admin-good-bg)!important;color:var(--admin-good)!important;
 }
 html[data-theme="dark"] .template-overview-heading,
 html[data-theme="dark"] .admin-summary-card strong,
 html[data-theme="dark"] .variable-card-title h3{
-  color:#edf5ff!important;
+  color:var(--admin-text)!important;
 }
 html[data-theme="dark"] .template-chip-list .template-chip.ok{
-  border-color:#466686!important;
-  color:#d4e7ff!important;
+  border-color:var(--admin-border)!important;
+  color:var(--admin-text)!important;
 }
 html[data-theme="dark"] .template-chip-list .template-chip.ok:hover{
-  border-color:#89bfff!important;
+  border-color:var(--admin-focus)!important;
 }
 html[data-theme="dark"] .variable-card-head:hover{
-  background:#263a58!important;
+  background:var(--admin-card-alt)!important;
 }
 html[data-theme="dark"] .variable-editor>summary:focus-visible{
-  outline:2px solid #89bfff;
+  outline:2px solid var(--admin-focus);
   outline-offset:-2px;
 }
 @media(max-width:1160px){
@@ -496,5 +496,5 @@ html[data-theme="dark"] .variable-editor>summary:focus-visible{
 #signaturePrefixEditor small{display:block;color:var(--admin-secondary);font-size:.75rem;margin-top:.4rem}
 html[data-theme="dark"] .signature-create-panel,html[data-theme="dark"] .signature-create-group,
 html[data-theme="dark"] .signature-example-grid pre{border-color:var(--admin-border)!important;background:var(--admin-card-alt)!important;color:var(--admin-text)!important}
-html[data-theme="dark"] .signature-create-fields input{background:#101d31!important;border-color:#48617f!important;color:#edf5ff!important}
+html[data-theme="dark"] .signature-create-fields input{background:var(--ui-surface-raised,var(--admin-card-alt))!important;border-color:var(--admin-border)!important;color:var(--admin-text)!important}
 @media(max-width:670px){.signature-create-fields,.signature-example-grid{grid-template-columns:1fr}}
