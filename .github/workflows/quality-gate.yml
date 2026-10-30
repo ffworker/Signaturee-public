@@ -83,17 +83,32 @@ jobs:
         shell: powershell
         run: Invoke-Pester -Path tests -CI
 
-      - name: Build and inspect Windows ZIP
+      - name: Build, reproduce and inspect Windows ZIP
         shell: powershell
+        env:
+          RELEASE_REVISION: ${{ github.sha }}
         run: |
           $dir = Join-Path $env:RUNNER_TEMP 'signaturee-artifacts'
-          $files = @(.\scripts\package-windows.ps1 -OutputDirectory $dir)
-          $zip = $files[-1]
-          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
-            throw 'Packaging did not create the expected ZIP.'
+          $first = Join-Path $dir 'first'
+          $second = Join-Path $dir 'second'
+          New-Item -ItemType Directory -Force -Path $first, $second | Out-Null
+          $firstFiles = @(.\scripts\package-windows.ps1 -OutputDirectory $first -Ref $env:RELEASE_REVISION)
+          $secondFiles = @(.\scripts\package-windows.ps1 -OutputDirectory $second -Ref $env:RELEASE_REVISION)
+          $zip = $firstFiles[-1]
+          $zip2 = $secondFiles[-1]
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf) -or
+              -not (Test-Path -LiteralPath $zip2 -PathType Leaf)) {
+            throw 'Reproducible packaging did not create both expected ZIPs.'
           }
+          $hash1 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+          $hash2 = (Get-FileHash -LiteralPath $zip2 -Algorithm SHA256).Hash
+          if ($hash1 -ne $hash2) {
+            throw "ZIP is not reproducible: $hash1 versus $hash2"
+          }
+          $publishedZip = Join-Path $dir (Split-Path -Leaf $zip)
+          Copy-Item -LiteralPath $zip -Destination $publishedZip
           $unpack = Join-Path $env:RUNNER_TEMP 'signaturee-package-smoke'
-          Expand-Archive -LiteralPath $zip -DestinationPath $unpack
+          Expand-Archive -LiteralPath $publishedZip -DestinationPath $unpack
           $releaseDir = @(Get-ChildItem -LiteralPath $unpack -Directory)
           if ($releaseDir.Count -ne 1) { throw 'ZIP must have exactly one top-level directory.' }
           $top = $releaseDir[0].FullName
@@ -110,14 +125,28 @@ jobs:
               throw "Private/runtime path unexpectedly shipped: $private"
             }
           }
-          Get-FileHash -LiteralPath $zip -Algorithm SHA256 |
-            Format-Table Hash, Path -AutoSize
+          $hash1 + '  ' + (Split-Path -Leaf $publishedZip) |
+            Set-Content -LiteralPath (Join-Path $dir 'SHA256SUMS.txt') -Encoding ASCII
+          @('revision=' + $env:RELEASE_REVISION,
+            'zip=' + (Split-Path -Leaf $publishedZip),
+            'sha256=' + $hash1) |
+            Set-Content -LiteralPath (Join-Path $dir 'build-metadata.txt') -Encoding ASCII
 
-      - name: Attach test ZIP (not a published release)
+      - name: Attach test ZIP and build evidence (not a published release)
         uses: actions/upload-artifact@v4
         with:
           name: signaturee-win-${{ github.sha }}
           path: ${{ runner.temp }}\signaturee-artifacts\*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Attach checksum and revision evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: signaturee-win-${{ github.sha }}-evidence
+          path: |
+            ${{ runner.temp }}\signaturee-artifacts\SHA256SUMS.txt
+            ${{ runner.temp }}\signaturee-artifacts\build-metadata.txt
           if-no-files-found: error
           retention-days: 7
 

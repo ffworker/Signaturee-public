@@ -24,7 +24,7 @@ This creates `dist\signaturee-win-v<version>.zip`, where `<version>` comes from 
 
 The ZIP is built via **git archive** from tracked files. By design, it does **not** include: `.env`, private config, live AD data, customer templates/logos under `config/templates/`, user databases, generated signatures, logs, `node_modules`, the LibreOffice executable, or Node.js. Do **not** commit sensitive files to Git; ZIP filtering is a defense in depth, not a substitute for repository security review. A tagged ZIP can be reproduced from the exact commit with the same builder.
 
-The GitHub Windows CI builds and smoke-checks this ZIP after its existing tests and publishes a short-lived **Actions artifact**. No GitHub Release is created automatically. The ZIP's contents are not digitally signed.
+The GitHub Windows CI builds the ZIP from the exact workflow commit (`github.sha`), builds it twice, compares SHA-256 digests, expands the candidate for required-file/private-path checks, and uploads the ZIP plus checksum/revision evidence as short-lived **Actions artifacts**. No GitHub Release is created automatically. The ZIP's contents are not digitally signed. The reproducibility check is necessary evidence, not a stable-release approval.
 
 ## Clean installation on an unused Windows test host
 
@@ -49,3 +49,16 @@ Only after these steps pass should a maintainer approve the PR, create a version
 The `scripts/update-signaturee.ps1` helper is **Git-checkout-specific** (fast-forward pull); it cannot update a ZIP installation. Release-to-release upgrade/rollback automation is not yet implemented. For now, test ZIP versions side by side in fresh directories rather than altering a working installation.
 
 The Windows and prospective Linux editions will initially share one repository, but Linux support is **not included** in this release. A separate Linux architecture/implementation branch can be started only after the Windows release baseline is frozen.
+
+## Required repository protections for stable promotion
+
+Configure these protections in GitHub repository settings (they are intentionally not changed by this PR):
+
+- Protect `main`; require pull requests and at least one approving reviewer.
+- Require the complete `quality-gate` workflow before merge, including both Linux compatibility and Windows quality-gate jobs.
+- Require branches to be up to date before merging; disallow force-pushes and deletion of protected branches.
+- Restrict tag creation for stable `v*` tags to release maintainers, and do not allow a workflow to create or overwrite a stable tag automatically.
+- Use a protected environment with required reviewer approval for any future release-publishing workflow. A green build alone must never publish a stable release.
+- Keep release-publishing credentials out of pull-request workflows; the current CI has `contents: read` and uploads test artifacts only.
+
+The approval record should link the exact commit, checksum, clean-install/upgrade/rollback evidence, and the Classic Outlook manual checklist. New Outlook/Outlook on the web acceptance is a separate product integration and must not be inferred from Classic Outlook results.
