@@ -26,7 +26,7 @@ an application route.
   moving branch or an ordinary CI artifact. The ZIP and SHA256SUMS were downloaded
   and checked during this website mission. See the baseline audit for evidence.
 - Creator acceptance is explicitly attributed, not presented as customer validation.
-- The signature specimen uses the owner's fictional Alex Company identity, explicitly labeled as a
+- The signature specimen uses the owner's fictional Max Mustermann data, explicitly labeled as a
   template illustration, never a real employee or product screenshot.
 - No screenshots are used because no approved sanitized capture was supplied.
 - Verify release metadata, actual downloaded bytes and checksum before changing a
@@ -47,18 +47,22 @@ on the page; GitHub guides are supplemental. Keep these summaries consistent wit
 the actual Windows requirements and never imply that CI validates AD/SMB/Outlook.
 
 The fictional paper specimen illustrates template → Windows script + AD →
-mapped replacement → completed signature. A high-contrast CURRENT STEP banner and
-filled active pipeline tile share the same sixteen-second timeline. A compact AD
-data strip pairs a placeholder with its incoming value; the matching field gets a
-background highlight while the complete value slides into place, never typed or
-crossfaded. Name, department, website, email and company all participate. Input and
-output share the exact signature typography, sizes, line heights and text colors;
-only the content changes. Website/company demonstrate configured mappings through
-the supported additive variable schema, not undocumented built-in defaults.
+mapped replacement → completed signature on one stationary document. The previous
+full-document slide, stepped status changes, rolling AD data and long individual
+field delays were too clunky. A twelve-second timeline now uses shared decelerating
+easing, a gliding active-step pill, a forward-only status loop and short12px field
+transitions with100ms stagger. Fields replace as whole values with a brief soft
+highlight; opacity only supports the short transition, never a typewriter reveal.
+The directory record stays still. Template and filled values share the same font,
+size, weight, line height, spacing and text color; the canvas never moves.
+Use exactly Max / Mustermann, my-website.com and max.mustermann at my-domain.com;
+the HTML email display reconstructs the at sign through CSS. The department example
+is retained; no company field participates. Website demonstrates a configured
+mapping through the supported additive schema, not a claimed built-in default.
 It uses fictional data, not a directory connection or fake application screen;
 the only input is a native, keyboard-accessible checkbox that pauses it locally.
 No form or JavaScript is used. Reduced motion disables animation, shows the filled
-result and hides the unnecessary pause control. Alex-Company.com is display text
+result and hides the unnecessary pause control. The supplied domains are display text
 only, never a fetched resource or claimed live company site. The illustrative email
 uses a CSS-generated at sign plus a full accessible spoken label so Cloudflare does
 not rewrite it or inject a decoder blocked by CSP. This is specimen rendering, not

@@ -98,8 +98,10 @@ class SiteTests(unittest.TestCase):
 
     def test_editorial_specimen_and_honest_ai_disclosure(self):
         self.assertIn('Fictional signature', self.html)
-        self.assertIn('Alex-Company.com', self.html)
-        self.assertIn('>Alex Company<', self.html)
+        for value in ('>Max Mustermann<', 'my-website.com', 'max.mustermann', 'my-domain.com'):
+            self.assertTrue(value in self.html, value + ' must match the supplied fictional data')
+        self.assertNotIn('Alex', self.html)
+        self.assertNotIn('$company', self.html)
         self.assertNotIn('example.com', self.html)
         self.assertNotIn('Example Company', self.html)
         # Cloudflare rewrites email-shaped text and injects a decode script.
@@ -132,19 +134,21 @@ class SiteTests(unittest.TestCase):
             self.assertLess(note.index('<p>'), note.index('<a '))
 
     def test_illustrated_generation_is_pausable_and_reduced_motion_safe(self):
-        for token in ('$givenname $sn', '$department', '$website', '$mail', '$company'):
-            self.assertGreaterEqual(self.html.count(token), 2, token + ' must exist in input and replacement slots')
-        for field in ('name', 'department', 'website', 'mail', 'company'):
-            self.assertEqual(self.html.count('data-field="' + field + '"'), 2)
-        self.assertIn('class="template-document" aria-hidden="true"', self.html)
-        self.assertIn('configured website/company mappings', self.html)
+        for token in ('$givenname $sn', '$department', '$website', '$mail'):
+            self.assertIn(token, self.html)
+        for field in ('name', 'department', 'website', 'mail'):
+            self.assertEqual(self.html.count('data-field="' + field + '"'), 1)
+        self.assertNotIn('data-field="company"', self.html)
+        self.assertIn('configured website mapping', self.html)
         self.assertIn('for="demo-pause">Pause animation', self.html)
         self.assertIn('animation-play-state: paused', self.css)
-        self.assertIn('transform: translateX(-50%); animation: document-slide', self.css)
         self.assertIn('@keyframes field-out', self.css)
         self.assertIn('@keyframes field-in', self.css)
-        self.assertTrue('@keyframes source-mark' in self.css,
-                        'The source value should highlight with its matching signature slot')
+        self.assertNotIn('@keyframes document-slide', self.css)
+        self.assertNotIn('mapping-track', self.html)
+        self.assertIn('.demo-flow::before', self.css)
+        self.assertIn('translateX(12px)', self.css)
+        self.assertNotIn('steps(1, end)', self.css)
         self.assertIn(".email-at::before { content: '@'; }", self.css)
         self.assertNotIn('@keyframes write-name', self.css)
         self.assertNotIn('@keyframes write-role', self.css)
@@ -165,7 +169,7 @@ class SiteTests(unittest.TestCase):
         self.assertIn('color: var(--ink)', status)
         self.assertIn('14px/28px', status)
         self.assertNotIn('class="script-window"', self.html)
-        self.assertNotRegex(self.css, r'(?<![\d.])12s\b')
+        self.assertIn('@keyframes phase-slide', self.css)
 
     def test_self_service_explains_ldap_regeneration_and_setup_conditions(self):
         self.assertTrue('Fresh signatures, without an IT ticket.' in self.html,

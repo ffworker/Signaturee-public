@@ -11,7 +11,7 @@
   <meta property="og:url" content="https://signaturee.bytegeist.dev/">
   <link rel="canonical" href="https://signaturee.bytegeist.dev/">
   <link rel="icon" href="/favicon.svg?v=0002756dff52" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=ca6c6f48b5ba">
+  <link rel="stylesheet" href="/style.css?v=b4f357a963f9">
   <title>Signaturee — Self-hosted Outlook signature management</title>
 </head>
 <body>
@@ -38,41 +38,21 @@
       <figure class="specimen">
         <div class="specimen-index"><span>THE SIGNATURE, NOT THE SOFTWARE</span><span>FIG. 01</span></div>
         <input class="demo-pause" id="demo-pause" type="checkbox">
-        <div class="demo-status" aria-hidden="true"><span class="demo-status-caption">CURRENT STEP</span><div class="demo-status-window"><div class="demo-status-track"><span>01 / Template ready</span><span>02 / Read Active Directory</span><span>03 / Signaturee replaces fields</span><span>04 / Signature ready</span></div></div></div>
+        <div class="demo-status" aria-hidden="true"><span class="demo-status-caption">CURRENT STEP</span><div class="demo-status-window"><div class="demo-status-track"><span>01 / Template ready</span><span>02 / Read Active Directory</span><span>03 / Signaturee replaces fields</span><span>04 / Signature ready</span><span>01 / Template ready</span></div></div></div>
         <ol class="demo-flow" aria-label="Illustrated Windows generation flow"><li>Template</li><li>Script + AD</li><li>Replace</li><li>Signature</li></ol>
         <div class="paper">
-          <div class="paper-heading"><span class="sample-symbol" aria-hidden="true">a<span>/</span>e</span><span>ALEX COMPANY<br><span class="paper-dim">A fictional organisation</span></span></div>
-
-          <div class="mapping-strip" aria-hidden="true"><span class="mapping-label">AD DATA</span><div class="mapping-window"><div class="mapping-track">
-            <div><small>Template configured</small><span>Waiting for directory lookup</span></div>
-            <div><small>Directory record loaded</small><span>Alex Example · assigned template</span></div>
-            <div><small>$givenname $sn</small><span>Alex Example</span></div>
-            <div><small>$department</small><span>Operations &amp; Infrastructure</span></div>
-            <div><small>$website</small><span>Alex-Company.com</span></div>
-            <div><small>$mail</small><span>alex<span class="email-at"></span>Alex-Company.com</span></div>
-            <div><small>$company</small><span>Alex Company</span></div>
-            <div><small>Replacement complete</small><span>5 / 5 fields inserted</span></div>
-          </div></div></div>
-          <div class="signature document-window"><div class="document-track">
-            <div class="template-document" aria-hidden="true">
-              <p class="document-label">01 / INPUT TEMPLATE</p>
-              <p class="sample-name"><span class="replacement field-name" data-field="name">$givenname $sn</span><span class="registration">↙</span></p>
-              <p class="sample-role"><span class="replacement field-department" data-field="department">$department</span></p>
-              <div class="sample-rule"></div>
-              <p class="sample-contact"><span class="replacement field-website" data-field="website">$website</span><br><span class="replacement field-mail" data-field="mail">$mail</span><br><span class="replacement field-company" data-field="company">$company</span></p>
-            </div>
-            <div class="output-document">
-              <p class="document-label">02 / GENERATED SIGNATURE</p>
-              <p class="sample-name"><span class="replacement field-name" data-field="name"><span class="field-token" aria-hidden="true">$givenname $sn</span><span class="field-value">Alex Example</span></span><span class="registration" aria-hidden="true">↙</span></p>
-              <p class="sample-role"><span class="replacement field-department" data-field="department"><span class="field-token" aria-hidden="true">$department</span><span class="field-value">Operations &amp; Infrastructure</span></span></p>
-              <div class="sample-rule" aria-hidden="true"></div>
-              <p class="sample-contact"><span class="replacement field-website" data-field="website"><span class="field-token" aria-hidden="true">$website</span><span class="field-value">Alex-Company.com</span></span><br><span class="replacement field-mail" data-field="mail"><span class="field-token" aria-hidden="true">$mail</span><span class="field-value" role="img" aria-label="alex at Alex-Company dot com">alex<span class="email-at" aria-hidden="true"></span>Alex-Company.com</span></span><br><span class="replacement field-company" data-field="company"><span class="field-token" aria-hidden="true">$company</span><span class="field-value">Alex Company</span></span></p>
-            </div>
-          </div>
+          <div class="paper-heading"><span class="sample-symbol" aria-hidden="true">m<span>/</span>m</span><span>YOUR TEMPLATE<br><span class="paper-dim">Fictional employee data</span></span></div>
+          <div class="directory-data" aria-hidden="true"><span class="mapping-label">AD RECORD</span><span>Max Mustermann<small>Name · team · website · email</small></span><span class="directory-check">✓</span></div>
+          <div class="signature">
+            <p class="document-label">YOUR DESIGN. ONLY THE DETAILS CHANGE.</p>
+            <p class="sample-name"><span class="replacement field-name" data-field="name"><span class="field-token" aria-hidden="true">$givenname $sn</span><span class="field-value">Max Mustermann</span></span></p>
+            <p class="sample-role"><span class="replacement field-department" data-field="department"><span class="field-token" aria-hidden="true">$department</span><span class="field-value">Operations &amp; Infrastructure</span></span></p>
+            <div class="sample-rule" aria-hidden="true"></div>
+            <p class="sample-contact"><span class="replacement field-website" data-field="website"><span class="field-token" aria-hidden="true">$website</span><span class="field-value">my-website.com</span></span><br><span class="replacement field-mail" data-field="mail"><span class="field-token" aria-hidden="true">$mail</span><span class="field-value" role="img" aria-label="max.mustermann at my-domain dot com">max.mustermann<span class="email-at" aria-hidden="true"></span>my-domain.com</span></span></p>
           </div>
           <div class="paper-footer"><span>ONE TEMPLATE. THE RIGHT DETAILS.</span><span class="paper-monogram" aria-hidden="true">s.</span></div>
         </div>
-        <figcaption><span class="annotation-line" aria-hidden="true"></span>Fictional signature · animated template illustration<br><span>Uses configured website/company mappings.<br>not a live demo or UI screenshot</span></figcaption>
+        <figcaption><span class="annotation-line" aria-hidden="true"></span>Fictional signature · animated template illustration<br><span>Uses a configured website mapping.<br>not a live demo or UI screenshot</span></figcaption>
         <label class="demo-pause-label" for="demo-pause">Pause animation</label>
       </figure>
     </section>
