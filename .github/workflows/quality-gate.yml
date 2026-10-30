@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # pull_request github.sha is a synthetic merge commit; gate the exact head.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -49,6 +52,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # pull_request github.sha is a synthetic merge commit; gate the exact head.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -86,8 +92,12 @@ jobs:
       - name: Build, reproduce and inspect Windows ZIP
         shell: powershell
         env:
-          RELEASE_REVISION: ${{ github.sha }}
+          RELEASE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne $env:RELEASE_REVISION) {
+            throw "Checked out $actual, expected exact release revision $env:RELEASE_REVISION"
+          }
           $dir = Join-Path $env:RUNNER_TEMP 'signaturee-artifacts'
           $first = Join-Path $dir 'first'
           $second = Join-Path $dir 'second'
@@ -135,7 +145,7 @@ jobs:
       - name: Attach test ZIP and build evidence (not a published release)
         uses: actions/upload-artifact@v4
         with:
-          name: signaturee-win-${{ github.sha }}
+          name: signaturee-win-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}\signaturee-artifacts\*.zip
           if-no-files-found: error
           retention-days: 7

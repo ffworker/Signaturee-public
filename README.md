@@ -35,7 +35,7 @@ Signaturee is a self-hosted Windows application: a web frontend, a Node.js API a
 
 The Windows CI produces a portable ZIP of **tracked application source only**. It includes the two Scheduled Task installers and example configuration, but not Node.js, LibreOffice, credentials, employee data, private templates, databases or a bundled Windows executable. The ZIP requires no Git on the installation target; Git-based update scripts do not work in a ZIP deployment.
 
-See [Windows releases and clean-install validation](docs/windows-release.md) and the [read-only release baseline/frontend reuse audit](docs/release-baseline-frontend-audit.md). Until a release is tagged and published, CI ZIPs are **test artifacts**, not approved stable releases.
+See [Windows releases and clean-install validation](docs/windows-release.md) and the [independent Linux repository boundary](docs/linux-reuse-boundary.md). Until a release is tagged and published, CI ZIPs are **test artifacts**, not approved stable releases.
 
 ## Fresh Windows Server 2025 installation
 

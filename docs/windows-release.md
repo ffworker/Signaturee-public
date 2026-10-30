@@ -48,7 +48,7 @@ Only after these steps pass should a maintainer approve the PR, create a version
 
 The `scripts/update-signaturee.ps1` helper is **Git-checkout-specific** (fast-forward pull); it cannot update a ZIP installation. Release-to-release upgrade/rollback automation is not yet implemented. For now, test ZIP versions side by side in fresh directories rather than altering a working installation.
 
-The Windows and prospective Linux editions will initially share one repository, but Linux support is **not included** in this release. A separate Linux architecture/implementation branch can be started only after the Windows release baseline is frozen.
+The Windows and Linux editions are separate repositories: [Signaturee-public](https://github.com/ffworker/Signaturee-public) and [signaturee-linux](https://github.com/ffworker/signaturee-linux). Linux support is **not included** in this release and is not implied by this Windows documentation.
 
 ## Required repository protections for stable promotion
 

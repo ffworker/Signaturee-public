@@ -1,0 +1,72 @@
+name: publish-windows-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing stable v* tag to publish (never created here)
+        required: true
+        type: string
+      revision:
+        description: Exact 40-character commit already tested by quality-gate
+        required: true
+        type: string
+
+# Manual only. Configure required reviewers on stable-release before enabling use.
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: Publish exact approved Windows artifact
+    runs-on: ubuntu-latest
+    environment:
+      name: stable-release
+    timeout-minutes: 15
+    steps:
+      - name: Validate exact tag and successful quality run
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          REVISION: ${{ inputs.revision }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || { echo 'release_tag must be a v* semantic-version tag' >&2; exit 1; }
+          [[ "$REVISION" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'revision must be a full 40-character commit ID' >&2; exit 1; }
+          tag_sha=$(gh api "repos/$REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')
+          tag_type=$(gh api "repos/$REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.type')
+          if [[ "$tag_type" != commit || "$tag_sha" != "$REVISION" ]]; then echo "Tag $RELEASE_TAG does not resolve directly to $REVISION" >&2; exit 1; fi
+          run_id=$(gh run list --repo "$REPOSITORY" --workflow quality-gate.yml --commit "$REVISION" --status completed --limit 20 --json databaseId,headSha,conclusion --jq "map(select(.headSha == \"$REVISION\" and .conclusion == \"success\")) | .[0].databaseId // empty")
+          [[ -n "$run_id" ]] || { echo "No successful quality-gate run found for exact revision $REVISION" >&2; exit 1; }
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download exact quality artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.validate.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          gh run download "$RUN_ID" --dir release-artifacts --name "signaturee-win-${{ inputs.revision }}" --name "signaturee-win-${{ inputs.revision }}-evidence"
+          mapfile -t zips < <(find release-artifacts -type f -name '*.zip')
+          mapfile -t sums < <(find release-artifacts -type f -name SHA256SUMS.txt)
+          mapfile -t metadata < <(find release-artifacts -type f -name build-metadata.txt)
+          [[ ${#zips[@]} -eq 1 && ${#sums[@]} -eq 1 && ${#metadata[@]} -eq 1 ]] || { echo 'Expected one ZIP, checksum manifest, and metadata file' >&2; exit 1; }
+          zip="${zips[0]}"; sum="${sums[0]}"; meta="${metadata[0]}"
+          grep -Fxq "revision=${{ inputs.revision }}" "$meta"
+          grep -Eq "^[0-9A-Fa-f]{64}  $(basename "$zip")$" "$sum"
+          (cd "$(dirname "$zip")" && sha256sum -c "$(basename "$sum")")
+          cp "$zip" "$sum" "$meta" release-artifacts/
+
+      - name: Create release from pre-existing exact tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          zip=$(find release-artifacts -maxdepth 1 -type f -name '*.zip' -print -quit)
+          gh release create "$RELEASE_TAG" "$zip" release-artifacts/SHA256SUMS.txt release-artifacts/build-metadata.txt --verify-tag --title "$RELEASE_TAG" --notes "Stable Windows release from exact commit $REVISION. See attached checksum and build metadata." --repo "${{ github.repository }}"
