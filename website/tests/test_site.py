@@ -102,6 +102,13 @@ class SiteTests(unittest.TestCase):
         self.assertIn('summary', self.page.tags)
         self.assertNotIn('gradient(', self.css)
 
+    def test_consistent_external_link_indication(self):
+        self.assertIn('a[href^="https://"]:not([href^="https://signaturee.bytegeist.dev/"])::after', self.css)
+        self.assertIn("content: '↗' / ' (external site)'", self.css)
+        # One automatic marker, including inline/footnote/download links.
+        self.assertNotIn('↗', self.html)
+        self.assertNotIn('target="_blank"', self.html)
+
     def test_discovery(self):
         self.assertIn('https://signaturee.bytegeist.dev/', self.html)
         sitemap = ET.parse(ROOT / 'sitemap.xml')

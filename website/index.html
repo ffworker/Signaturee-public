@@ -11,7 +11,7 @@
   <meta property="og:url" content="https://signaturee.bytegeist.dev/">
   <link rel="canonical" href="https://signaturee.bytegeist.dev/">
   <link rel="icon" href="/favicon.svg?v=0002756dff52" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=35924b83a5cc">
+  <link rel="stylesheet" href="/style.css?v=1e0c8ea0b508">
   <title>Signaturee — Self-hosted Outlook signature management</title>
 </head>
 <body>
@@ -19,8 +19,8 @@
 <div class="page">
   <header class="masthead">
     <a class="wordmark" href="/" aria-label="Signaturee home">signaturee<span aria-hidden="true">.</span></a>
-    <nav aria-label="Main navigation"><a href="#editions">The software</a><a href="#docs">Field notes</a><a href="https://github.com/ffworker/Signaturee-public">Source <span aria-hidden="true">↗</span></a></nav>
-    <a class="parent-brand" href="https://bytegeist.dev">A BYTEGEIST PROJECT <span aria-hidden="true">↗</span></a>
+    <nav aria-label="Main navigation"><a href="#editions">The software</a><a href="#docs">Field notes</a><a href="https://github.com/ffworker/Signaturee-public">Source </a></nav>
+    <a class="parent-brand" href="https://bytegeist.dev">A BYTEGEIST PROJECT </a>
   </header>
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
@@ -30,8 +30,8 @@
         <p class="intro">The details change.<br>Your signature shouldn’t fall apart.</p>
         <p class="description">Bring your templates and Active Directory together. Give IT a consistent workflow — and employees a way to generate their own assigned signatures.</p>
         <div class="actions">
-          <a class="button" href="https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/signaturee-win-v2.0.0.zip"><span>Get Windows <span class="button-version">v2.0.0</span></span><span aria-hidden="true">↓</span></a>
-          <a class="quiet-link" href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md">Read before installing <span aria-hidden="true">↗</span></a>
+          <a class="button" href="https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/signaturee-win-v2.0.0.zip"><span>Get Windows <span class="button-version">v2.0.0</span></span></a>
+          <a class="quiet-link" href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md">Read before installing </a>
         </div>
         <p class="micro">Source ZIP · prerequisites required · MIT licensed</p>
       </div>
@@ -71,29 +71,29 @@
             <div><dt>For employees</dt><dd>Authenticated self-service: generate and download your own assigned signatures, then follow the import instructions.</dd></div>
             <div><dt>For your setup</dt><dd>Existing HTML/TXT templates and configurable attributes. Local output or an authorised SMB destination. A separate PowerShell bulk mode exists; it is not an unlimited verified web workflow.</dd></div>
           </dl>
-          <details class="technical-note"><summary>Requirements &amp; workflow limits <span aria-hidden="true">+</span></summary><div class="details-content"><p>Windows, PowerShell 5.1, Node.js 22.13+, LibreOffice and the RSAT ActiveDirectory module. AD read rights and domain connectivity are required. SMB rights belong to the backend task identity. Use HTTPS and protect the backend for remote access.</p><p>CSV/TXT worklists identify AD accounts; they do not replace directory attributes. Validate template encoding and HTML/RTF rendering with your own data.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-machine-dependencies.md">Full prerequisites ↗</a></div></details>
+          <details class="technical-note"><summary>Requirements &amp; workflow limits <span aria-hidden="true">+</span></summary><div class="details-content"><p>Windows, PowerShell 5.1, Node.js 22.13+, LibreOffice and the RSAT ActiveDirectory module. AD read rights and domain connectivity are required. SMB rights belong to the backend task identity. Use HTTPS and protect the backend for remote access.</p><p>CSV/TXT worklists identify AD accounts; they do not replace directory attributes. Validate template encoding and HTML/RTF rendering with your own data.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-machine-dependencies.md">Full prerequisites</a></div></details>
         </article>
-        <article id="linux" class="linux-edition"><div class="edition-heading"><h3>Linux</h3><span class="edition-status experimental">IN DEVELOPMENT</span></div><h4>Linux, in development.</h4><p>An independent Docker-first implementation: offline test generation, LibreOffice conversion, CLI workflows and a limited development UI.</p><p>Real LDAP acceptance and the full authenticated Linux UI are still pending. No Windows feature parity is claimed; the backends and release lifecycles are separate.</p><a class="quiet-link" href="https://github.com/ffworker/signaturee-linux">Follow Linux development <span aria-hidden="true">↗</span></a></article>
+        <article id="linux" class="linux-edition"><div class="edition-heading"><h3>Linux</h3><span class="edition-status experimental">IN DEVELOPMENT</span></div><h4>Linux, in development.</h4><p>An independent Docker-first implementation: offline test generation, LibreOffice conversion, CLI workflows and a limited development UI.</p><p>Real LDAP acceptance and the full authenticated Linux UI are still pending. No Windows feature parity is claimed; the backends and release lifecycles are separate.</p><a class="quiet-link" href="https://github.com/ffworker/signaturee-linux">Follow Linux development </a></article>
         <p class="outlook-note"><span class="note-mark" aria-hidden="true">↳</span><span><strong>Classic Outlook, specifically.</strong> Local signature files are not native deployment for new Outlook or Outlook on the web.</span></p>
       </div>
     </section>
 
     <section id="docs" class="field-notes" aria-labelledby="docs-title">
-      <div class="section-marker"><span>03 / FIELD NOTES</span><h2 id="docs-title">Useful before<br>you click download.</h2><a class="small-link" href="https://github.com/ffworker/Signaturee-public/releases">Changelog &amp; releases ↗</a></div>
+      <div class="section-marker"><span>03 / FIELD NOTES</span><h2 id="docs-title">Useful before<br>you click download.</h2><a class="small-link" href="https://github.com/ffworker/Signaturee-public/releases">Changelog &amp; releases</a></div>
       <div class="notes-body">
         <ul class="reading-list">
-          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md"><span class="reading-number">A</span><span>Install on Windows<small>Host preparation &amp; Quickstart</small></span><span aria-hidden="true">↗</span></a></li>
-          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/templates.md"><span class="reading-number">B</span><span>Bring your templates<small>Variables, files &amp; assignment</small></span><span aria-hidden="true">↗</span></a></li>
-          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/windows-release.md"><span class="reading-number">C</span><span>Release with care<small>Validation, upgrades &amp; rollback</small></span><span aria-hidden="true">↗</span></a></li>
+          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md"><span class="reading-number">A</span><span>Install on Windows<small>Host preparation &amp; Quickstart</small></span></a></li>
+          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/templates.md"><span class="reading-number">B</span><span>Bring your templates<small>Variables, files &amp; assignment</small></span></a></li>
+          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/windows-release.md"><span class="reading-number">C</span><span>Release with care<small>Validation, upgrades &amp; rollback</small></span></a></li>
         </ul>
-        <div class="release-strip"><p><strong>v2.0.0</strong> Published Windows source ZIP.<br><span>CI artifacts are test builds, not automatic stable releases.</span></p><a href="https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/SHA256SUMS.txt">SHA-256 ↗</a></div>
-        <details class="technical-note"><summary>What has actually been tested? <span aria-hidden="true">+</span></summary><div class="details-content"><p>The creator has personally used self-service from another device, generated the assigned signatures and imported them as instructed. Automated checks cover code and packaging. Neither is certification of a customer installation; live AD, SMB and Classic Outlook acceptance remain environment-specific.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/release-baseline-frontend-audit.md">Read the verification boundary ↗</a></div></details>
+        <div class="release-strip"><p><strong>v2.0.0</strong> Published Windows source ZIP.<br><span>CI artifacts are test builds, not automatic stable releases.</span></p><a href="https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/SHA256SUMS.txt">SHA-256</a></div>
+        <details class="technical-note"><summary>What has actually been tested? <span aria-hidden="true">+</span></summary><div class="details-content"><p>The creator has personally used self-service from another device, generated the assigned signatures and imported them as instructed. Automated checks cover code and packaging. Neither is certification of a customer installation; live AD, SMB and Classic Outlook acceptance remain environment-specific.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/release-baseline-frontend-audit.md">Read the verification boundary</a></div></details>
       </div>
     </section>
 
-    <section class="colophon" aria-labelledby="colophon-title"><div class="colophon-mark" aria-hidden="true">s.</div><div><p class="kicker">INDEPENDENT BY INTENTION</p><h2 id="colophon-title">A practical problem.<br>A project worth making.</h2></div><div class="colophon-copy"><p>Signaturee is built by <a href="https://github.com/ffworker">Dennis Kappel</a>, part of Bytegeist. Developed with AI assistance, practical testing and documented limits — not a claim that every environment is already solved.</p><a class="quiet-link" href="https://github.com/ffworker/Signaturee-public/blob/main/CONTRIBUTING.md">Make it better with us <span aria-hidden="true">↗</span></a></div></section>
+    <section class="colophon" aria-labelledby="colophon-title"><div class="colophon-mark" aria-hidden="true">s.</div><div><p class="kicker">INDEPENDENT BY INTENTION</p><h2 id="colophon-title">A practical problem.<br>A project worth making.</h2></div><div class="colophon-copy"><p>Signaturee is built by <a href="https://github.com/ffworker">Dennis Kappel</a>, part of Bytegeist. Developed with AI assistance, practical testing and documented limits — not a claim that every environment is already solved.</p><a class="quiet-link" href="https://github.com/ffworker/Signaturee-public/blob/main/CONTRIBUTING.md">Make it better with us </a></div></section>
   </main>
-  <footer><span>Signaturee / Bytegeist <span class="footer-license">/ MIT</span></span><nav aria-label="Footer"><a href="https://github.com/ffworker/Signaturee-public/blob/main/SECURITY.md">Security</a><a href="https://github.com/ffworker/Signaturee-public/issues">Issues</a><a href="https://bytegeist.dev">Bytegeist ↗</a></nav><span class="footer-credit">Human direction. AI-assisted development.</span></footer>
+  <footer><span>Signaturee / Bytegeist <span class="footer-license">/ MIT</span></span><nav aria-label="Footer"><a href="https://github.com/ffworker/Signaturee-public/blob/main/SECURITY.md">Security</a><a href="https://github.com/ffworker/Signaturee-public/issues">Issues</a><a href="https://bytegeist.dev">Bytegeist</a></nav><span class="footer-credit">Human direction. AI-assisted development.</span></footer>
 </div>
 </body>
 </html>
