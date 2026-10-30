@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Signaturee: self-hosted Outlook signature management. Generate consistent Classic Outlook signatures from Active Directory and your existing templates. Windows available; Linux in development.">
+  <meta name="theme-color" content="#020617">
+  <meta property="og:title" content="Signaturee — Self-hosted Outlook signature management">
+  <meta property="og:description" content="Your templates. Your directory. Consistent signatures. An independent open-source project from Bytegeist.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://signaturee.bytegeist.dev/">
+  <link rel="canonical" href="https://signaturee.bytegeist.dev/">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <title>Signaturee — Self-hosted Outlook signature management</title>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="shell header">
+  <a class="wordmark" href="/" aria-label="Signaturee home"><span class="mark" aria-hidden="true">S<span>_</span></span>Signaturee</a>
+  <nav aria-label="Main navigation"><a href="#windows">Windows</a><a href="#linux">Linux</a><a href="#docs">Docs</a><a href="https://github.com/ffworker/Signaturee-public">GitHub <span aria-hidden="true">↗</span></a></nav>
+</header>
+<main id="main" class="shell">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <p class="eyebrow"><a href="https://bytegeist.dev">BYTEGEIST</a> / OPEN-SOURCE SOFTWARE</p>
+      <h1 id="hero-title">Your templates.<br>Your directory.<br><span>Consistent signatures.</span></h1>
+      <p class="lead">Self-hosted Outlook signature management.</p>
+      <p class="intro">Turn employee data and existing templates into assigned signatures — without building every employee’s signature by hand.</p>
+      <div class="actions"><a class="button primary" href="https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/signaturee-win-v2.0.0.zip">Download Windows v2.0.0 <span aria-hidden="true">↓</span></a><a class="button" href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md">Installation guide <span aria-hidden="true">↗</span></a></div>
+      <p class="fine">Source ZIP, not a bundled installer. Windows prerequisites apply.<br>MIT licensed · Self-hosted · No hosted account required</p>
+    </div>
+    <aside class="workflow-sheet" aria-label="Signature generation workflow illustration, not an application screenshot">
+      <div class="sheet-top"><span class="eyebrow">THE GENERATION PATH</span><span class="status">Windows available</span></div>
+      <ol class="path">
+        <li><span class="step">01</span><div><h2>Bring your templates</h2><p>Existing HTML + TXT files</p></div><span class="filetag">.htm</span></li>
+        <li><span class="step">02</span><div><h2>Find the employee</h2><p>Look up Active Directory attributes</p></div></li>
+        <li><span class="step">03</span><div><h2>Choose assigned signatures</h2><p>Assignment through AD groups</p></div></li>
+        <li><span class="step">04</span><div><h2>Preflight. Preview. Generate.</h2><p>Check before writing output</p></div></li>
+        <li><span class="step">05</span><div><h2>Use in Classic Outlook</h2><p>HTM / TXT / RTF + linked resources</p></div></li>
+      </ol>
+      <p class="sheet-note">Workflow illustration · not a live demo or UI screenshot</p>
+    </aside>
+  </section>
+  <div class="compatibility"><span class="label">KNOW THE BOUNDARY</span><p>Built for <strong>Classic Outlook signature files</strong>. This is not native signature deployment for new Outlook or Outlook on the web.</p></div>
+  <section id="windows" class="edition" aria-labelledby="windows-title">
+    <div class="section-heading"><p class="eyebrow">01 / THE AVAILABLE EDITION</p><h2 id="windows-title">Windows, with a browser workflow.</h2><p>For IT-managed generation and employee self-service, on infrastructure you control.</p></div>
+    <div class="windows-layout">
+      <div class="feature-list">
+        <article><span class="feature-number">A</span><div><h3>From directory to signature</h3><p>Search employees in Active Directory, select their group-assigned signatures, then run preflight, preview and generation. Use existing HTML/TXT templates and configurable attribute mappings — not a built-in designer.</p></div></article>
+        <article><span class="feature-number">B</span><div><h3>One person, or a targeted worklist</h3><p>Generate for an individual or up to 50 selected AD users per web run. CSV/TXT worklists identify accounts to look up in AD; they do not replace directory data. A separate PowerShell bulk mode exists, outside the verified web workflow.</p></div></article>
+        <article><span class="feature-number">C</span><div><h3>Let employees help themselves</h3><p>Employees authenticate with AD credentials to generate and download their own assigned signatures, then follow the import instructions. Local Admin and IT roles remain separate from signature assignment.</p></div></article>
+      </div>
+      <aside class="requirements"><h3>Before you install</h3><dl><div><dt>Host</dt><dd>Windows · PowerShell 5.1</dd></div><div><dt>Runtime</dt><dd>Node.js 22.13+ · LibreOffice</dd></div><div><dt>Directory</dt><dd>RSAT ActiveDirectory module, AD read rights and domain connectivity</dd></div><div><dt>Remote access</dt><dd>HTTPS, authentication and a protected backend</dd></div><div><dt>Share output</dt><dd>Optional SMB destination with share and NTFS rights for the backend task identity</dd></div></dl><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-machine-dependencies.md">Read all prerequisites <span aria-hidden="true">↗</span></a></aside>
+    </div>
+    <p class="evidence"><strong>What has been tested?</strong> The creator has personally used self-service from another device, generated assigned signatures and imported them as instructed. Automated checks cover code and packaging; neither is certification of a customer’s AD, SMB or Outlook installation. Validate your own templates, encoding and HTML/RTF rendering.</p>
+  </section>
+  <section id="linux" class="linux-section" aria-labelledby="linux-title">
+    <div><p class="eyebrow">02 / AN INDEPENDENT EXPERIMENT</p><h2 id="linux-title">Linux, in development.</h2><p class="intro">A separate, Docker-first implementation — not a repackaged Windows release.</p></div>
+    <div><p>Current development supports offline test generation, LibreOffice conversion, CLI workflows and a limited development UI. Real LDAP acceptance and the full authenticated Linux UI are still pending.</p><p>No Windows feature parity is claimed. The two editions have independent backends and release lifecycles.</p><a class="text-link" href="https://github.com/ffworker/signaturee-linux">Explore the Linux development repository <span aria-hidden="true">↗</span></a></div>
+  </section>
+  <section id="docs" class="docs-section" aria-labelledby="docs-title">
+    <div class="section-heading"><p class="eyebrow">03 / RUN IT, CHECK IT, IMPROVE IT</p><h2 id="docs-title">Documentation &amp; releases.</h2><p>Start with the prerequisites. Keep a known-good backup. Test against your own environment.</p></div>
+    <div class="docs-layout">
+      <div class="release-panel"><div class="release-header"><span class="status">Published Windows release</span><span class="version">v2.0.0</span></div><h3>A source distribution.<br>Not a one-click installer.</h3><p>The ZIP contains application source. Install the required runtimes and configure your own directory, templates and access rules.</p><a class="button primary" href="https://github.com/ffworker/Signaturee-public/releases/tag/v2.0.0">Release notes &amp; assets <span aria-hidden="true">↗</span></a><a class="checksum" href="https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/SHA256SUMS.txt">SHA-256 checksums ↗</a><p class="fine">CI artifacts are test builds, not automatic stable releases. The available download is the published v2.0.0 asset.</p></div>
+      <ul class="doc-links"><li><a href="https://github.com/ffworker/Signaturee-public#quickstart--standard-ad-deployment"><span>Quickstart</span><small>Standard AD setup</small><span aria-hidden="true">↗</span></a></li><li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md"><span>Installation guide</span><small>Prepare a fresh Windows host</small><span aria-hidden="true">↗</span></a></li><li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/templates.md"><span>Templates &amp; variables</span><small>Bring your existing signature files</small><span aria-hidden="true">↗</span></a></li><li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/windows-release.md"><span>Release &amp; acceptance guide</span><small>Packaging and manual validation</small><span aria-hidden="true">↗</span></a></li><li><a href="https://github.com/ffworker/Signaturee-public/releases"><span>Changelog &amp; release history</span><small>Published version notes</small><span aria-hidden="true">↗</span></a></li><li><a href="https://github.com/ffworker/Signaturee-public/blob/main/SECURITY.md"><span>Security</span><small>Access boundaries and reporting</small><span aria-hidden="true">↗</span></a></li><li><a href="https://github.com/ffworker/Signaturee-public/issues"><span>Report an issue</span><small>No credentials or employee data, please</small><span aria-hidden="true">↗</span></a></li></ul>
+    </div>
+  </section>
+  <section class="philosophy" aria-labelledby="philosophy-title"><p class="eyebrow">BUILT FOR THE PROBLEM, NOT THE PITCH</p><h2 id="philosophy-title">Practical software. Room to experiment.</h2><p>Signaturee is an independently developed open-source project by <a href="https://github.com/ffworker">Dennis Kappel</a>, part of the Bytegeist ecosystem. It grew out of a practical IT problem: keeping employee signatures consistent without doing the same work over and over.</p><p>The aim is a useful tool, understandable code and honest limits. Try it, tell us what breaks, or help improve it.</p><a class="text-link" href="https://github.com/ffworker/Signaturee-public/blob/main/CONTRIBUTING.md">Contribute to Signaturee <span aria-hidden="true">↗</span></a></section>
+</main>
+<footer class="shell"><p><strong>Signaturee</strong> <span>by Bytegeist · MIT licensed</span></p><nav aria-label="Footer"><a href="https://bytegeist.dev">Bytegeist</a><a href="https://tools.bytegeist.dev">Tools</a><a href="https://cv.bytegeist.dev">CV</a><a href="https://github.com/ffworker/Signaturee-public">Source</a></nav></footer>
+</body>
+</html>

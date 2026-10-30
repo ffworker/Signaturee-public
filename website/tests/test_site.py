@@ -1,0 +1,101 @@
+"""Dependency-free publication contracts. No network or application execution."""
+from html.parser import HTMLParser
+from pathlib import Path
+import re
+import unittest
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class Page(HTMLParser):
+    def __init__(self, text):
+        super().__init__(convert_charrefs=True)
+        self.ids = []
+        self.links = []
+        self.assets = []
+        self.tags = []
+        self.headings = []
+        self.feed(text)
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        self.tags.append(tag)
+        if 'id' in attrs:
+            self.ids.append(attrs['id'])
+        if tag == 'a':
+            self.links.append(attrs.get('href', ''))
+        if tag == 'link' and attrs.get('rel') in ('stylesheet', 'icon'):
+            self.assets.append(attrs['href'])
+        if tag == 'h1':
+            self.headings.append(tag)
+
+
+class SiteTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.html = (ROOT / 'index.html').read_text()
+        cls.css = (ROOT / 'style.css').read_text()
+        cls.page = Page(cls.html)
+
+    def test_semantics_and_navigation(self):
+        self.assertIn('<html lang="en">', self.html)
+        self.assertIn('name="viewport"', self.html)
+        self.assertEqual(len(self.page.headings), 1)
+        self.assertEqual(len(self.page.ids), len(set(self.page.ids)))
+        for link in self.page.links:
+            if link.startswith('#'):
+                self.assertIn(link[1:], self.page.ids)
+        self.assertIn('Skip to content', self.html)
+        self.assertIn(':focus-visible', self.css)
+        self.assertIn('prefers-reduced-motion', self.css)
+
+    def test_static_only_and_local_assets(self):
+        for tag in ('script', 'iframe', 'form', 'input'):
+            self.assertNotIn(tag, self.page.tags)
+        for asset in self.page.assets:
+            self.assertTrue(asset.startswith('/'), asset)
+            self.assertTrue((ROOT / asset.lstrip('/')).is_file(), asset)
+        self.assertNotIn('@import', self.css)
+        self.assertNotIn('url(', self.css)
+        for link in self.page.links:
+            self.assertTrue(link.startswith(('https://', '#', '/')), link)
+
+    def test_downloads_name_existing_release(self):
+        downloads = [a for a in self.page.links if '/releases/download/' in a]
+        self.assertEqual(set(downloads), {
+            'https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/signaturee-win-v2.0.0.zip',
+            'https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/SHA256SUMS.txt',
+        })
+        self.assertNotIn('/releases/latest', self.html)
+        self.assertNotIn('/actions/artifacts/', self.html)
+
+    def test_honest_product_boundaries(self):
+        for phrase in ('Classic Outlook', 'new Outlook', 'Outlook on the web',
+                       'Linux, in development.', 'up to 50', 'full authenticated Linux UI',
+                       'Creator', 'not a live demo or UI screenshot'):
+            if phrase == 'Creator':
+                self.assertIn('The creator has personally', self.html)
+            else:
+                self.assertIn(phrase, self.html)
+        self.assertIn('https://github.com/ffworker/signaturee-linux', self.page.links)
+        self.assertIn('Real LDAP acceptance', self.html)
+        self.assertIn('not automatic stable releases', self.html)
+
+    def test_discovery(self):
+        self.assertIn('https://signaturee.bytegeist.dev/', self.html)
+        sitemap = ET.parse(ROOT / 'sitemap.xml')
+        locations = [e.text for e in sitemap.iter() if e.tag.endswith('}loc')]
+        self.assertEqual(locations, ['https://signaturee.bytegeist.dev/'])
+        self.assertIn('Sitemap: https://signaturee.bytegeist.dev/sitemap.xml',
+                      (ROOT / 'robots.txt').read_text())
+        ET.parse(ROOT / 'favicon.svg')
+
+    def test_no_private_hosts_or_placeholder_links(self):
+        self.assertNotRegex(self.html, r'https?://(?:localhost|127\.|10\.|192\.168\.)')
+        self.assertNotIn('href="#"', self.html)
+        self.assertNotRegex(self.html, r'(?i)(customer testimonial|enterprise.certified|coming soon)')
+
+
+if __name__ == '__main__':
+    unittest.main()
