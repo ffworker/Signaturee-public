@@ -11,7 +11,7 @@
   <meta property="og:url" content="https://signaturee.bytegeist.dev/">
   <link rel="canonical" href="https://signaturee.bytegeist.dev/">
   <link rel="icon" href="/favicon.svg?v=0002756dff52" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=60d874e170fb">
+  <link rel="stylesheet" href="/style.css?v=792bf3848643">
   <title>Signaturee — Self-hosted Outlook signature management</title>
 </head>
 <body>
@@ -38,18 +38,18 @@
       <figure class="specimen">
         <div class="specimen-index"><span>THE SIGNATURE, NOT THE SOFTWARE</span><span>FIG. 01</span></div>
         <input class="demo-pause" id="demo-pause" type="checkbox">
-        <ol class="demo-flow" aria-label="Illustrated Windows generation flow"><li>Browser</li><li>AD lookup</li><li>Fill fields</li><li>Signature</li></ol>
+        <ol class="demo-flow" aria-label="Illustrated Windows generation flow"><li>Template</li><li>Script + AD</li><li>Rewrite</li><li>Signature</li></ol>
         <div class="paper">
-          <div class="paper-heading"><span class="sample-symbol" aria-hidden="true">a<span>/</span>e</span><span>EXAMPLE STUDIO<br><span class="paper-dim">A fictional organisation</span></span></div>
-          <div class="signature">
-            <p class="sample-name"><span class="variable-slot"><span class="variable-token" aria-hidden="true">$givenname $sn</span><span class="variable-value">Alex Example</span></span><span class="registration" aria-hidden="true">↙</span></p>
-            <p class="sample-role"><span class="variable-slot"><span class="variable-token" aria-hidden="true">$department</span><span class="variable-value">Operations &amp; Infrastructure</span></span></p>
-            <div class="sample-rule" aria-hidden="true"></div>
-            <p class="sample-contact">example.com<br>Example Company</p>
+          <div class="paper-heading"><span class="sample-symbol" aria-hidden="true">a<span>/</span>e</span><span>ALEX COMPANY<br><span class="paper-dim">A fictional organisation</span></span></div>
+          <div class="script-window" aria-hidden="true"><div class="script-track"><span>Template loaded</span><span>Running GenerateSignatures.ps1</span><span>Replacing directory fields</span><span>Ready for Classic Outlook</span></div></div>
+          <div class="signature document-window"><div class="document-track">
+            <div class="template-document" aria-hidden="true"><p class="document-label">01 / INPUT TEMPLATE</p><p class="template-name">$givenname $sn</p><p class="template-role">$department</p><div class="sample-rule"></div><p class="sample-contact">Alex-Company.com<br>Alex Company</p></div>
+            <div class="output-document"><p class="document-label">02 / GENERATED SIGNATURE</p><p class="sample-name"><span class="write-name">Alex Example</span><span class="registration" aria-hidden="true">↙</span></p><p class="sample-role"><span class="write-role">Operations &amp; Infrastructure</span></p><div class="sample-rule" aria-hidden="true"></div><p class="sample-contact">Alex-Company.com<br>Alex Company</p></div>
+          </div>
           </div>
           <div class="paper-footer"><span>ONE TEMPLATE. THE RIGHT DETAILS.</span><span class="paper-monogram" aria-hidden="true">s.</span></div>
         </div>
-        <figcaption><span class="annotation-line" aria-hidden="true"></span>Fictional signature · animated template illustration<br><span>Backend reads AD; fields become signature files.<br>not a live demo or UI screenshot</span></figcaption>
+        <figcaption><span class="annotation-line" aria-hidden="true"></span>Fictional signature · animated template illustration<br><span>Template → Windows generator + AD → filled result.<br>not a live demo or UI screenshot</span></figcaption>
         <label class="demo-pause-label" for="demo-pause">Pause animation</label>
       </figure>
     </section>
