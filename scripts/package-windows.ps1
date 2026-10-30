@@ -102,11 +102,12 @@ try {
             $example = $leaf -match '(?i)\.example$'
             ($_.StartsWith($prefix) -eq $false) -or
             (($leaf -match '(?i)^\.env(?:\..*)?$') -and -not ($leaf -eq '.env.example')) -or
-            (($leaf -match '(?i)\.(?:db|sqlite|sqlite3|wal|shm)$') -and -not $example) -or
+            (($leaf -match '(?i)\.(?:db|sqlite|sqlite3)(?:-(?:wal|shm|journal))?$|\.(?:wal|shm)$') -and -not $example) -or
             (($leaf -match '(?i)\.(?:pem|key|p12|pfx|jks|crt)$') -and -not $example) -or
             (($leaf -match '(?i)^(?:id_rsa|id_ed25519|private|server-private)(?:\..*)?$') -and -not $example) -or
             ($relative -match '^(?i)(?:config/)?(?:users|employees|employee-data)\.(?:csv|json)$') -or
-            ($relative -match '^(?i)(?:Logs|generatedsignatures|uploads|runtime-data)/')
+            ($relative -match '(?i)^config/templates/|^config/secrets\.env$') -or
+            ($relative -match '(?i)(?:^|/)(?:Logs|generatedsignatures|uploads|runtime-data|node_modules)/')
         })
         if ($sensitive.Count -gt 0) {
             throw "Package contains unexpected/private paths: $($sensitive -join ', ')"
