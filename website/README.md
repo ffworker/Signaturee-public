@@ -42,6 +42,12 @@ without a long front-page wall of text or JavaScript. AI-assisted development is
 acknowledged without claiming manual authorship or inventing an AI product feature.
 Do not reintroduce gradients, floating dashboard cards, glowing accents or fake UI.
 
+CSS and favicon references include the first 12 hex characters of each file's
+SHA-256 as `?v=...`. Update those references in both HTML pages whenever the asset
+changes; the site tests enforce this. Cloudflare and browsers cache the old bare
+URLs for hours, so an origin rollout or hard reload alone is not publication proof.
+Verify the actual versioned URLs referenced by the served HTML.
+
 ## Publication and rollback
 
 Website content is maintained here, independently of Windows release promotion.
