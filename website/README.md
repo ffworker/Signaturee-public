@@ -46,15 +46,21 @@ Field notes A/B/C explain installation, template assignment and release/rollback
 on the page; GitHub guides are supplemental. Keep these summaries consistent with
 the actual Windows requirements and never imply that CI validates AD/SMB/Outlook.
 
-The fictional paper specimen illustrates template → Windows script + AD →
-mapped replacement → completed signature on one stationary document. The previous
-full-document slide, stepped status changes, rolling AD data and long individual
-field delays were too clunky. A twelve-second timeline now uses shared decelerating
-easing, a gliding active-step pill, a forward-only status loop and short12px field
-transitions with100ms stagger. Fields replace as whole values with a brief soft
-highlight; opacity only supports the short transition, never a typewriter reveal.
-The directory record stays still. Template and filled values share the same font,
-size, weight, line height, spacing and text color; the canvas never moves.
+The fictional paper specimen has three visible actions: Read AD → Replace → Result.
+The AD record highlights while a progress line fills and the checkmark appears.
+Then name, department, website and email replace one at a time, spaced1.5 seconds
+apart with0.6 seconds for the token to leave and0.8 seconds for its value to enter.
+Each mapping highlights briefly, with no typing, rolling records or full-document
+handoff. The document stays still during lookup and replacement; the finished
+result gives a small eased pop, then stays raised and readable.
+One44-second shared timeline contains12 seconds of action, a30-second final-result
+hold (2.5 times the action), and2 seconds of fade/reset. Every field resets at the
+same absolute timestamp inside the fully hidden interval; do not stagger resets
+with animation delays or allow old values to leak into the next input phase.
+The current-step banner and three-step pill stay synchronized and fade/reset
+rather than visibly rewinding. Pause includes the paper pop/fade and AD progress
+pseudo-element. Template and filled values share font, size, weight, line height,
+spacing and text color.
 Use exactly Max / Mustermann, my-website.com and max.mustermann at my-domain.com;
 the HTML email display reconstructs the at sign through CSS. The department example
 is retained; no company field participates. Website demonstrates a configured
@@ -68,7 +74,7 @@ uses a CSS-generated at sign plus a full accessible spoken label so Cloudflare d
 not rewrite it or inject a decoder blocked by CSP. This is specimen rendering, not
 production-template guidance or a functional email link. Require exact live HTML
 byte identity, zero scripts and the visible at sign after edge traversal.
-Verify input, script, document handoff, each whole-field swap and final states,
+Verify AD pull/progress, each slow field swap, final pop/long hold and hidden reset,
 keyboard pause/resume and the reduced-motion static result in a real browser.
 
 Self-service copy follows docs/data-sources.md: LDAP is the Windows login provider;
