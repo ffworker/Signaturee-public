@@ -42,6 +42,18 @@ without a long front-page wall of text or JavaScript. AI-assisted development is
 acknowledged without claiming manual authorship or inventing an AI product feature.
 Do not reintroduce gradients, floating dashboard cards, glowing accents or fake UI.
 
+Field notes A/B/C explain installation, template assignment and release/rollback
+on the page; GitHub guides are supplemental. Keep these summaries consistent with
+the actual Windows requirements and never imply that CI validates AD/SMB/Outlook.
+
+The fictional paper specimen illustrates browser request → backend AD lookup →
+variable substitution → filled signature. It uses documented placeholders, not
+live directory data or a fake application screen. CSS runs an eight-second cycle;
+the only input is a native, keyboard-accessible checkbox that pauses it locally.
+No form or JavaScript is used. Reduced motion disables animation, shows the filled
+result and hides the unnecessary pause control. Verify both visible phases,
+keyboard pause/resume and the reduced-motion static result in a real browser.
+
 CSS and favicon references include the first 12 hex characters of each file's
 SHA-256 as `?v=...`. Update those references in both HTML pages whenever the asset
 changes; the site tests enforce this. Cloudflare and browsers cache the old bare

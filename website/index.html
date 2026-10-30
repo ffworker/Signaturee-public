@@ -11,7 +11,7 @@
   <meta property="og:url" content="https://signaturee.bytegeist.dev/">
   <link rel="canonical" href="https://signaturee.bytegeist.dev/">
   <link rel="icon" href="/favicon.svg?v=0002756dff52" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=1f66a209015f">
+  <link rel="stylesheet" href="/style.css?v=60d874e170fb">
   <title>Signaturee — Self-hosted Outlook signature management</title>
 </head>
 <body>
@@ -37,17 +37,20 @@
       </div>
       <figure class="specimen">
         <div class="specimen-index"><span>THE SIGNATURE, NOT THE SOFTWARE</span><span>FIG. 01</span></div>
+        <input class="demo-pause" id="demo-pause" type="checkbox">
+        <ol class="demo-flow" aria-label="Illustrated Windows generation flow"><li>Browser</li><li>AD lookup</li><li>Fill fields</li><li>Signature</li></ol>
         <div class="paper">
           <div class="paper-heading"><span class="sample-symbol" aria-hidden="true">a<span>/</span>e</span><span>EXAMPLE STUDIO<br><span class="paper-dim">A fictional organisation</span></span></div>
           <div class="signature">
-            <p class="sample-name">Alex Example<span class="registration" aria-hidden="true">↙</span></p>
-            <p class="sample-role">Operations &amp; Infrastructure</p>
+            <p class="sample-name"><span class="variable-slot"><span class="variable-token" aria-hidden="true">$givenname $sn</span><span class="variable-value">Alex Example</span></span><span class="registration" aria-hidden="true">↙</span></p>
+            <p class="sample-role"><span class="variable-slot"><span class="variable-token" aria-hidden="true">$department</span><span class="variable-value">Operations &amp; Infrastructure</span></span></p>
             <div class="sample-rule" aria-hidden="true"></div>
             <p class="sample-contact">example.com<br>Example Company</p>
           </div>
           <div class="paper-footer"><span>ONE TEMPLATE. THE RIGHT DETAILS.</span><span class="paper-monogram" aria-hidden="true">s.</span></div>
         </div>
-        <figcaption><span class="annotation-line" aria-hidden="true"></span>Fictional signature · template illustration<br><span>not a live demo or UI screenshot</span></figcaption>
+        <figcaption><span class="annotation-line" aria-hidden="true"></span>Fictional signature · animated template illustration<br><span>Backend reads AD; fields become signature files.<br>not a live demo or UI screenshot</span></figcaption>
+        <label class="demo-pause-label" for="demo-pause">Pause animation</label>
       </figure>
     </section>
 
@@ -82,9 +85,9 @@
       <div class="section-marker"><span>03 / FIELD NOTES</span><h2 id="docs-title">Useful before<br>you click download.</h2><a class="small-link" href="https://github.com/ffworker/Signaturee-public/releases">Changelog &amp; releases</a></div>
       <div class="notes-body">
         <ul class="reading-list">
-          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md"><span class="reading-number">A</span><span>Install on Windows<small>Host preparation &amp; Quickstart</small></span></a></li>
-          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/templates.md"><span class="reading-number">B</span><span>Bring your templates<small>Variables, files &amp; assignment</small></span></a></li>
-          <li><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/windows-release.md"><span class="reading-number">C</span><span>Release with care<small>Validation, upgrades &amp; rollback</small></span></a></li>
+          <li class="field-note"><span class="reading-number" aria-hidden="true">A</span><div><h3>Install on Windows</h3><p>Start on a separate Windows test host with PowerShell 5.1, Node.js 22.13+, RSAT ActiveDirectory and LibreOffice. Extract the source ZIP into an empty folder, install dependencies and configure your directory and authentication. Test one local signature before SMB output; protect remote access with HTTPS.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/prepare-windows-server-2025.md">Full installation guide</a></div></li>
+          <li class="field-note"><span class="reading-number" aria-hidden="true">B</span><div><h3>Bring your templates</h3><p>Supply a matching HTML + TXT pair and any image resources. Map placeholders such as <code>$givenname</code> and <code>$department</code> to directory fields, then assign signatures through existing AD groups. Signaturee does not create those groups. Check preview, encoding and logos before generating for employees.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/templates.md">Template rules &amp; variables</a></div></li>
+          <li class="field-note"><span class="reading-number" aria-hidden="true">C</span><div><h3>Release with care</h3><p>Use a published release and verify its SHA-256 checksum. Green CI checks code and packaging, not your AD, SMB permissions or Outlook rendering. Qualify changes on a clean host, back up configuration, templates and state, and test upgrades side by side. Keep the previous version for rollback rather than overwriting a working install.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/windows-release.md">Release &amp; rollback checklist</a></div></li>
         </ul>
         <div class="release-strip"><p><strong>v2.0.0</strong> Published Windows source ZIP.<br><span>CI artifacts are test builds, not automatic stable releases.</span></p><a href="https://github.com/ffworker/Signaturee-public/releases/download/v2.0.0/SHA256SUMS.txt">SHA-256</a></div>
         <details class="technical-note"><summary>What has actually been tested? <span aria-hidden="true">+</span></summary><div class="details-content"><p>The creator has personally used self-service from another device, generated the assigned signatures and imported them as instructed. Automated checks cover code and packaging. Neither is certification of a customer installation; live AD, SMB and Classic Outlook acceptance remain environment-specific.</p><a href="https://github.com/ffworker/Signaturee-public/blob/main/docs/release-baseline-frontend-audit.md">Read the verification boundary</a></div></details>

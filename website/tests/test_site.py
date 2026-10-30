@@ -18,6 +18,7 @@ class Page(HTMLParser):
         self.assets = []
         self.tags = []
         self.headings = []
+        self.inputs = []
         self.feed(text)
 
     def handle_starttag(self, tag, attrs):
@@ -31,6 +32,8 @@ class Page(HTMLParser):
             self.assets.append(attrs['href'])
         if tag == 'h1':
             self.headings.append(tag)
+        if tag == 'input':
+            self.inputs.append(attrs)
 
 
 class SiteTests(unittest.TestCase):
@@ -53,8 +56,10 @@ class SiteTests(unittest.TestCase):
         self.assertIn('prefers-reduced-motion', self.css)
 
     def test_static_only_and_local_assets(self):
-        for tag in ('script', 'iframe', 'form', 'input'):
+        for tag in ('script', 'iframe', 'form'):
             self.assertNotIn(tag, self.page.tags)
+        # The sole input is a local CSS pause toggle; never a data-entry form.
+        self.assertEqual(self.page.inputs, [{'class': 'demo-pause', 'id': 'demo-pause', 'type': 'checkbox'}])
         for asset in self.page.assets:
             self.assertTrue(asset.startswith('/'), asset)
             self.assertTrue((ROOT / urlsplit(asset).path.lstrip('/')).is_file(), asset)
@@ -108,6 +113,30 @@ class SiteTests(unittest.TestCase):
         # One automatic marker, including inline/footnote/download links.
         self.assertNotIn('↗', self.html)
         self.assertNotIn('target="_blank"', self.html)
+
+    def test_field_notes_explain_on_page_before_linking_out(self):
+        notes = re.findall(r'<li class="field-note">(.*?)</li>', self.html, re.S)
+        self.assertEqual(len(notes), 3)
+        for note, title in zip(notes, ('Install on Windows', 'Bring your templates', 'Release with care')):
+            self.assertIn('<h3>' + title + '</h3>', note)
+            match = re.search(r'<p>(.*?)</p>', note)
+            assert match is not None, title + ' needs an on-page summary'
+            paragraph = match.group(1)
+            words = re.sub('<[^>]+>', '', paragraph).split()
+            self.assertGreaterEqual(len(words), 25)
+            self.assertLessEqual(len(words), 80)
+            self.assertIn('<a href="https://github.com/', note)
+            self.assertLess(note.index('<p>'), note.index('<a '))
+
+    def test_illustrated_generation_is_pausable_and_reduced_motion_safe(self):
+        self.assertIn('<li>Browser</li><li>AD lookup</li><li>Fill fields</li><li>Signature</li>', self.html)
+        for token in ('$givenname $sn', '$department'):
+            self.assertIn('aria-hidden="true">' + token, self.html)
+        self.assertIn('for="demo-pause">Pause animation', self.html)
+        self.assertIn('animation-play-state: paused', self.css)
+        self.assertIn('.variable-token { opacity: 0;', self.css)
+        self.assertIn('.variable-value { opacity: 1;', self.css)
+        self.assertIn('.demo-pause, .demo-pause-label { display: none; }', self.css)
 
     def test_discovery(self):
         self.assertIn('https://signaturee.bytegeist.dev/', self.html)
